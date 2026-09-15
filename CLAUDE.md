@@ -26,6 +26,7 @@ From repo root (requires Go + `wails` CLI + Node):
 Inside `frontend/`:
 
 - `npm run check` — svelte-check type-checking (run before committing frontend code)
+- `npm test` — Vitest/jsdom regression tests with mocked Wails calls
 - `npm run dev` — Vite dev server (usually invoked by `wails dev`)
 
 Pre-commit hook runs **prettier** on changed JS/TS/Svelte files and **gofmt** on Go. Don't bypass it.
@@ -108,7 +109,8 @@ frontend/
 
 ## Testing + verification
 
-- Go: `make test` runs `./internal/... ./cli/...`. No frontend unit tests.
+- Go: `make test` runs `./internal/... ./cli/...`. With native dependencies installed, `go test -race -tags webkit2_41 ./...` includes app entry-point tests (omit the tag for WebKitGTK 4.0).
+- Frontend tests: `npm test` runs Vitest/jsdom regressions in `frontend/tests/` with mocked Wails calls. Node.js must satisfy `frontend/package.json`'s engines range.
 - Frontend: `npm run check` is the type-gate. Five `ApplyThemeRequest`/`Adjustments`/`Blueprint` errors fixed in commit `e0ccce4` — if they reappear, it's because someone bypassed the pattern.
 - No E2E tests. Manual verification by running `wails dev`.
 

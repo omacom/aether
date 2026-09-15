@@ -9,6 +9,7 @@
     import SettingsSidebar from '../sidebar/SettingsSidebar.svelte';
     import ColorPickerDialog from '../color-picker/ColorPickerDialog.svelte';
     import WallpaperEditor from '../wallpaper-editor/WallpaperEditor.svelte';
+    import ColorDragGhost from './ColorDragGhost.svelte';
     import {getWallpaperPath, getPalette} from '$lib/stores/theme.svelte';
     import {
         getSidebarVisible,
@@ -74,4 +75,5 @@
         open={getImageEditorOpen()}
         onclose={() => setImageEditorOpen(false)}
     />
+    <ColorDragGhost />
 </div>

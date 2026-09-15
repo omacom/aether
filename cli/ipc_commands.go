@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"aether/ipc"
@@ -12,11 +13,11 @@ import (
 // RunIPC dispatches bare subcommands to a running Aether instance via IPC.
 // These commands require a running Aether GUI.
 func RunIPC(args []string) int {
+	jsonOut, args := stripJSON(args)
 	if len(args) == 0 {
-		return 1
+		return ipcError(jsonOut, "Usage: aether <command> [--json]")
 	}
 
-	jsonOut, args := stripJSON(args)
 	cmd := args[0]
 	rest := args[1:]
 
@@ -28,8 +29,12 @@ func RunIPC(args []string) int {
 			return ipcError(jsonOut, "Usage: aether extract <wallpaper> [--mode X] [--light-mode]")
 		}
 		req.Path = expandHome(rest[0])
+		modeProvided, _ := hasFlag(rest[1:], "--mode")
 		mode, rest := parseFlag(rest[1:], "--mode")
-		if mode != "" {
+		if modeProvided {
+			if !validModes[mode] {
+				return ipcError(jsonOut, "Invalid extraction mode: "+mode)
+			}
 			req.Mode = mode
 		}
 		lm, _ := hasFlag(rest, "--light-mode")
@@ -102,6 +107,9 @@ func RunIPC(args []string) int {
 		if len(rest) == 0 {
 			return ipcError(jsonOut, "Usage: aether set-mode <mode>")
 		}
+		if !validModes[rest[0]] {
+			return ipcError(jsonOut, "Invalid extraction mode: "+rest[0])
+		}
 		req.Mode = rest[0]
 
 	case "load-blueprint", "apply-blueprint":
@@ -121,6 +129,15 @@ func RunIPC(args []string) int {
 
 	default:
 		return ipcError(jsonOut, "Unknown IPC command: "+cmd)
+	}
+
+	if req.Path != "" {
+		// The GUI may have a different working directory than the CLI caller.
+		path, err := filepath.Abs(req.Path)
+		if err != nil {
+			return ipcError(jsonOut, "Failed to resolve wallpaper path: "+err.Error())
+		}
+		req.Path = path
 	}
 
 	resp, err := ipc.Send(ipc.DefaultSocketPath(), req)

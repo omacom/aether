@@ -19,7 +19,9 @@
     let samples = $state<Sample[]>([]);
     let loaded = $state(false);
     let loading = $state(false);
-    let byKind = $derived(new Map(samples.map(sample => [sample.kind, sample])));
+    let byKind = $derived(
+        new Map(samples.map(sample => [sample.kind, sample]))
+    );
 
     async function loadPreview() {
         if (!hasPreview || loaded || loading) return;
@@ -75,10 +77,8 @@
                     class="h-7 w-7 object-contain"
                 />
             {:else}
-                <span
-                    class="text-fg-dimmed text-[9px]"
-                    aria-hidden="true">—</span
-                >
+                <span class="bg-fg-dimmed/30 h-px w-2" aria-hidden="true"
+                ></span>
             {/if}
         </span>
     {/each}

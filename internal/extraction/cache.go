@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"aether/internal/platform"
 )
 
 // cacheData represents the JSON structure stored in cache files.
@@ -59,9 +61,9 @@ var modeCacheVersion = map[string]string{
 }
 
 // buildCacheKey appends the mode suffix to a base cache key.
-// Returns "" when the base is "" (no caching possible) or falls through for "normal" mode.
+// Returns "" when the base or mode is invalid.
 func buildCacheKey(base, mode string) string {
-	if base == "" {
+	if !validCacheKey(base) || validateMode(mode) != nil {
 		return ""
 	}
 	if mode == "normal" {
@@ -105,9 +107,24 @@ func GetMultiCacheKey(paths []string, lightMode bool) string {
 	return fmt.Sprintf("%x", hash)
 }
 
+func validCacheKey(key string) bool {
+	if key == "" || len(key) > 128 {
+		return false
+	}
+	for _, c := range key {
+		if (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '_' && c != '-' {
+			return false
+		}
+	}
+	return true
+}
+
 // LoadCachedPalette loads a cached color palette if available.
 // Returns the palette and true if found, or a zero palette and false otherwise.
 func LoadCachedPalette(cacheKey string) ([16]string, bool) {
+	if !validCacheKey(cacheKey) {
+		return [16]string{}, false
+	}
 	cacheDir := getCacheDir()
 	cachePath := filepath.Join(cacheDir, cacheKey+".json")
 
@@ -138,25 +155,18 @@ func LoadCachedPalette(cacheKey string) ([16]string, bool) {
 
 // SavePaletteToCache saves a color palette to the cache.
 func SavePaletteToCache(cacheKey string, palette [16]string) {
-	cacheDir := getCacheDir()
-
-	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+	if !validCacheKey(cacheKey) {
 		return
 	}
 
-	cachePath := filepath.Join(cacheDir, cacheKey+".json")
+	cachePath := filepath.Join(getCacheDir(), cacheKey+".json")
 	data := cacheData{
 		Palette:   palette,
 		Timestamp: time.Now().UnixMilli(),
 		Version:   CacheVersion,
 	}
 
-	content, err := json.MarshalIndent(data, "", "  ")
-	if err != nil {
-		return
-	}
-
-	if err := os.WriteFile(cachePath, content, 0644); err != nil {
+	if err := platform.WriteJSON(cachePath, data); err != nil {
 		log.Printf("[cache] write failed for %s: %v", cachePath, err)
 	}
 }

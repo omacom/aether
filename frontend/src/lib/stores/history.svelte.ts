@@ -4,11 +4,27 @@ import type {Adjustments, IconThemeSelection} from '$lib/types/theme';
 
 const MAX_HISTORY = 50;
 
-interface Snapshot {
+// Keep unfinished intent's target mask and the metadata matching its displayed
+// colors. Redo resumes that intent; failures roll back to the displayed metadata.
+export interface PendingAdjustment {
+    previousAdjustments: Adjustments;
+    previousCurvePoints: [number, number][];
+    lockedColors: Record<number, boolean>;
+    selectedColors: Record<number, boolean>;
+    selectedExtColors: Record<string, boolean>;
+}
+
+export interface Snapshot {
     palette: string[];
+    basePalette: string[];
     extendedColors: Record<string, string>;
-    adjustments: Adjustments;
+    baseExtendedColors: Record<string, string>;
+    appOverrides: Record<string, Record<string, string>>;
     iconTheme: IconThemeSelection;
+    adjustments: Adjustments;
+    paletteCurvePoints: [number, number][];
+    extractionMode: string;
+    pendingAdjustment: PendingAdjustment | null;
 }
 
 let undoStack = $state<Snapshot[]>([]);
@@ -29,44 +45,48 @@ export function getCanRedo(): boolean {
     return canRedo;
 }
 
-function snapshotOf(
-    palette: string[],
-    extendedColors: Record<string, string>,
-    adjustments: Adjustments,
-    iconTheme: IconThemeSelection
-): Snapshot {
+export function copySnapshot(snapshot: Snapshot): Snapshot {
+    const pending = snapshot.pendingAdjustment;
     return {
-        palette: [...palette],
-        extendedColors: {...extendedColors},
-        adjustments: {...adjustments},
-        iconTheme: {...iconTheme},
+        palette: [...snapshot.palette],
+        basePalette: [...snapshot.basePalette],
+        extendedColors: {...snapshot.extendedColors},
+        baseExtendedColors: {...snapshot.baseExtendedColors},
+        appOverrides: Object.fromEntries(
+            Object.entries(snapshot.appOverrides).map(([app, colors]) => [
+                app,
+                {...colors},
+            ])
+        ),
+        adjustments: {...snapshot.adjustments},
+        paletteCurvePoints: snapshot.paletteCurvePoints.map(([x, y]) => [x, y]),
+        extractionMode: snapshot.extractionMode,
+        iconTheme: {...snapshot.iconTheme},
+        pendingAdjustment: pending
+            ? {
+                  previousAdjustments: {...pending.previousAdjustments},
+                  previousCurvePoints: pending.previousCurvePoints.map(
+                      ([x, y]) => [x, y]
+                  ),
+                  lockedColors: {...pending.lockedColors},
+                  selectedColors: {...pending.selectedColors},
+                  selectedExtColors: {...pending.selectedExtColors},
+              }
+            : null,
     };
 }
 
-export function pushState(
-    palette: string[],
-    extendedColors: Record<string, string>,
-    adjustments: Adjustments,
-    iconTheme: IconThemeSelection
-): void {
-    undoStack = [
-        ...undoStack.slice(-(MAX_HISTORY - 1)),
-        snapshotOf(palette, extendedColors, adjustments, iconTheme),
-    ];
+export function pushState(snapshot: Snapshot): void {
+    pushUndo(snapshot);
     redoStack = [];
     updateFlags();
 }
 
 // Push to undo without clearing redo (used during redo operations)
-export function pushUndo(
-    palette: string[],
-    extendedColors: Record<string, string>,
-    adjustments: Adjustments,
-    iconTheme: IconThemeSelection
-): void {
+export function pushUndo(snapshot: Snapshot): void {
     undoStack = [
         ...undoStack.slice(-(MAX_HISTORY - 1)),
-        snapshotOf(palette, extendedColors, adjustments, iconTheme),
+        copySnapshot(snapshot),
     ];
     updateFlags();
 }
@@ -79,15 +99,10 @@ export function undo(): Snapshot | null {
     return snapshot;
 }
 
-export function pushRedo(
-    palette: string[],
-    extendedColors: Record<string, string>,
-    adjustments: Adjustments,
-    iconTheme: IconThemeSelection
-): void {
+export function pushRedo(snapshot: Snapshot): void {
     redoStack = [
-        ...redoStack,
-        snapshotOf(palette, extendedColors, adjustments, iconTheme),
+        ...redoStack.slice(-(MAX_HISTORY - 1)),
+        copySnapshot(snapshot),
     ];
     updateFlags();
 }
@@ -98,4 +113,10 @@ export function redo(): Snapshot | null {
     redoStack = redoStack.slice(0, -1);
     updateFlags();
     return snapshot;
+}
+
+export function clearHistory(): void {
+    undoStack = [];
+    redoStack = [];
+    updateFlags();
 }

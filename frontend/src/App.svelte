@@ -1,5 +1,5 @@
 <script lang="ts">
-    import {onMount} from 'svelte';
+    import {onMount, onDestroy} from 'svelte';
     import {fade} from 'svelte/transition';
     import HeaderBar from '$lib/components/layout/HeaderBar.svelte';
     import ActionBar from '$lib/components/layout/ActionBar.svelte';
@@ -32,6 +32,8 @@
         toggleKeymap,
         toggleSidebar,
         getLiveApply,
+        getLiveApplySession,
+        invalidateLiveApplySession,
         setLivePending,
         getTargetsVisible,
         getApplySaveDialogOpen,
@@ -55,20 +57,26 @@
         setWallpaperPath,
         setPalette,
         setExtendedColors,
+        setNativeColors,
+        setIconTheme,
         setAdjustments,
         setColor,
         setExtendedColor,
         setAppOverride,
+        setAppOverrides,
+        setAdditionalImages,
         setLightMode,
         setExtractionMode,
         getThemeSnapshot,
         getThemeSignature,
+        getLastAppliedSignature,
+        getIsApplying,
+        getIsAdjusting,
+        getIsExtracting,
         setLastExtractedPath,
-        setIconTheme,
     } from '$lib/stores/theme.svelte';
     import {debounce} from '$lib/utils/debounce';
     import {STORAGE_KEYS} from '$lib/constants/storage';
-    import {pushState} from '$lib/stores/history.svelte';
     import {
         applyTheme,
         applyThemeLive,
@@ -100,9 +108,16 @@
     import {prefersReducedMotion} from '$lib/utils/browser';
     import {buildCommands} from '$lib/commands/commands.svelte';
     import type {main} from '../wailsjs/go/models';
+    import {
+        getOmarchyAvailable,
+        initOmarchyCapabilities,
+    } from '$lib/stores/omarchy.svelte';
 
     let activeTab = $derived(getActiveTab());
     let commands = $derived(buildCommands());
+    let omarchyAvailable = $derived(getOmarchyAvailable());
+
+    void initOmarchyCapabilities();
 
     const TAB_FADE_DURATION = prefersReducedMotion() ? 0 : 100;
 
@@ -144,29 +159,80 @@
         );
     });
 
-    // Live-preview apply. Tracks the snapshot signature so we don't fire
-    // on object-identity churn. `null` baseline doubles as the
-    // not-yet-armed flag — first read just records the signature.
-    // Long enough to coalesce slider drags but short enough to feel "live".
+    // Arming records the initial state without applying it. Queuing is not an
+    // acknowledgement: only a completed apply advances the applied signature.
     const LIVE_APPLY_DEBOUNCE_MS = 1500;
-    let lastLiveSignature: string | null = null;
-    const debouncedLiveApply = debounce(() => {
-        applyThemeLive();
+    let initialStateLoaded = $state(false);
+    let initialLiveSignature = '';
+    type LiveAttempt = {signature: string; session: number};
+    let queuedLive: LiveAttempt | null = null;
+    let lastLiveAttempt = $state.raw<LiveAttempt | null>(null);
+    const debouncedLiveApply = debounce(async () => {
+        const attempt = queuedLive;
+        queuedLive = null;
+        if (
+            !attempt ||
+            !getLiveApply() ||
+            attempt.session !== getLiveApplySession() ||
+            attempt.signature !== getThemeSignature() ||
+            getIsApplying() ||
+            getIsAdjusting() ||
+            getIsExtracting()
+        )
+            return;
+        lastLiveAttempt = attempt;
+        const result = await applyThemeLive();
+        if (result !== 'failed' && lastLiveAttempt === attempt)
+            lastLiveAttempt = null;
     }, LIVE_APPLY_DEBOUNCE_MS);
     $effect(() => {
         const enabled = getLiveApply();
-        // Once armed, skip the JSON.stringify when the toggle is off.
-        // The first run still reads sig to establish the baseline.
-        if (!enabled && lastLiveSignature !== null) return;
-        const sig = getThemeSignature();
-        if (lastLiveSignature === null) {
-            lastLiveSignature = sig;
+        const session = getLiveApplySession();
+        const signature = getThemeSignature();
+        const applied = getLastAppliedSignature();
+        if (
+            lastLiveAttempt &&
+            (lastLiveAttempt.signature !== signature ||
+                lastLiveAttempt.session !== session ||
+                lastLiveAttempt.signature === applied)
+        ) {
+            lastLiveAttempt = null;
+        }
+        if (!initialStateLoaded) initialLiveSignature = signature;
+        if (
+            !initialStateLoaded ||
+            !enabled ||
+            signature === (applied || initialLiveSignature)
+        ) {
+            debouncedLiveApply.cancel();
+            queuedLive = null;
+            setLivePending(false);
             return;
         }
-        if (sig === lastLiveSignature) return;
-        lastLiveSignature = sig;
+        if (getIsApplying() || getIsAdjusting() || getIsExtracting()) {
+            debouncedLiveApply.cancel();
+            queuedLive = null;
+            setLivePending(true);
+            return;
+        }
+        // Don't loop on a failed request. A new edit or OFF/ON session retries it.
+        if (
+            lastLiveAttempt?.signature === signature &&
+            lastLiveAttempt.session === session
+        ) {
+            setLivePending(false);
+            return;
+        }
+        queuedLive = {signature, session};
         setLivePending(true);
         debouncedLiveApply();
+    });
+
+    onDestroy(() => {
+        invalidateLiveApplySession();
+        debouncedLiveApply.cancel();
+        syncStateToBackend.cancel();
+        setLivePending(false);
     });
 
     onMount(async () => {
@@ -176,11 +242,17 @@
             WindowShow();
         } catch {}
 
+        await initOmarchyCapabilities();
+
         // Focus a specific tab if requested via --tab flag
         try {
             const {GetFocusTab} = await import('../wailsjs/go/main/App');
             const tab = await GetFocusTab();
-            if (tab && isValidTab(tab)) setActiveTab(tab);
+            if (tab && isValidTab(tab)) {
+                setActiveTab(
+                    tab === 'system' && !getOmarchyAvailable() ? 'editor' : tab
+                );
+            }
         } catch {}
 
         // Overwrite module-load DEFAULT_PALETTE with backend defaults
@@ -194,6 +266,9 @@
             if (s?.extendedColors) {
                 setExtendedColors(s.extendedColors);
             }
+            if (s?.nativeColors) {
+                setNativeColors(s.nativeColors);
+            }
             setIconTheme(s?.iconTheme, true);
             if (s?.wallpaperPath) {
                 setWallpaperPath(s.wallpaperPath);
@@ -204,6 +279,8 @@
         } catch (e) {
             console.warn('GetInitialState failed:', e);
         }
+        initialLiveSignature = getThemeSignature();
+        initialStateLoaded = true;
 
         initKeyboardShortcuts();
 
@@ -420,11 +497,14 @@
                     (state: {
                         palette?: string[];
                         extendedColors?: Record<string, string>;
+                        nativeColors?: Record<string, string>;
+                        iconTheme?: {mode?: string; id?: string};
                         lightMode?: boolean;
                         mode?: string;
                         wallpaper?: string;
                         adjustments?: import('$lib/types/theme').Adjustments;
-                        iconTheme?: import('$lib/types/theme').IconThemeSelection;
+                        appOverrides?: Record<string, Record<string, string>>;
+                        additionalImages?: string[];
                     }) => {
                         if (state.palette && state.palette.length >= 16) {
                             setPalette(state.palette);
@@ -432,20 +512,28 @@
                         if (state.extendedColors) {
                             setExtendedColors(state.extendedColors);
                         }
+                        if (state.nativeColors) {
+                            setNativeColors(state.nativeColors);
+                        }
+                        if (state.iconTheme)
+                            setIconTheme(state.iconTheme, true);
                         if (state.lightMode !== undefined) {
                             setLightMode(state.lightMode);
                         }
                         if (state.mode) {
                             setExtractionMode(state.mode);
                         }
-                        if (state.wallpaper) {
+                        if (state.wallpaper !== undefined) {
                             setWallpaperPath(state.wallpaper);
                         }
                         if (state.adjustments) {
                             setAdjustments(state.adjustments);
                         }
-                        if (state.iconTheme) {
-                            setIconTheme(state.iconTheme, true);
+                        if (state.appOverrides) {
+                            setAppOverrides(state.appOverrides);
+                        }
+                        if (state.additionalImages) {
+                            setAdditionalImages(state.additionalImages);
                         }
                     }
                 );
@@ -479,7 +567,7 @@
             </div>
         {/key}
     </main>
-    {#if activeTab === 'editor' && getTargetsVisible()}
+    {#if activeTab === 'editor' && getTargetsVisible() && !omarchyAvailable}
         <TargetAppsStrip />
     {/if}
     <ActionBar />

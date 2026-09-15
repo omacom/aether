@@ -49,13 +49,10 @@ func webImportsDir() (string, error) {
 // extension, so repeated clicks on the same link are idempotent and skip
 // re-downloading.
 func DownloadToCache(rawURL string, maxBytes int64) (string, error) {
-	if rawURL == "" {
-		return "", fmt.Errorf("empty URL")
-	}
-	if maxBytes <= 0 {
+	if maxBytes <= 0 || maxBytes == 1<<63-1 {
 		return "", fmt.Errorf("invalid download size limit")
 	}
-	if err := validateRemoteURL(rawURL); err != nil {
+	if err := ValidateRemoteURL(rawURL); err != nil {
 		return "", err
 	}
 
@@ -68,55 +65,73 @@ func DownloadToCache(rawURL string, maxBytes int64) (string, error) {
 	sum := sha256.Sum256([]byte(rawURL))
 	name := hex.EncodeToString(sum[:8]) + ext
 	dest := filepath.Join(dir, name)
+	client := NewPublicHTTPClient()
+	defer client.CloseIdleConnections()
+	if err := DownloadFile(client, rawURL, dest, maxBytes); err != nil {
+		return "", err
+	}
+	return dest, nil
+}
 
-	if info, err := os.Stat(dest); err == nil {
+// DownloadFile fetches a public HTTPS URL, bounds its size, and publishes it
+// atomically at dest. Existing regular files within the limit are reused.
+// client must use NewPublicHTTPClient's redirect and dial policy.
+func DownloadFile(client *http.Client, rawURL, dest string, maxBytes int64) error {
+	if maxBytes <= 0 || maxBytes == 1<<63-1 {
+		return fmt.Errorf("invalid download size limit")
+	}
+	if err := ValidateRemoteURL(rawURL); err != nil {
+		return err
+	}
+	if info, err := os.Lstat(dest); err == nil {
 		if !info.Mode().IsRegular() {
-			return "", fmt.Errorf("cached download is not a regular file")
+			return fmt.Errorf("cached download is not a regular file")
 		}
 		if info.Size() > maxBytes {
-			return "", fmt.Errorf("cached download exceeds %d-byte limit", maxBytes)
+			return fmt.Errorf("cached download exceeds %d-byte limit", maxBytes)
 		}
-		return dest, nil
+		return nil
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("stat download: %w", err)
 	}
 
-	client := secureHTTPClient()
 	resp, err := client.Get(rawURL)
 	if err != nil {
-		return "", fmt.Errorf("download: %w", err)
+		return fmt.Errorf("download: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("HTTP %d", resp.StatusCode)
+		return fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
 	if resp.ContentLength > maxBytes {
-		return "", fmt.Errorf("download exceeds %d-byte limit", maxBytes)
+		return fmt.Errorf("download exceeds %d-byte limit", maxBytes)
 	}
 
+	dir := filepath.Dir(dest)
+	if err := platform.EnsureDir(dir); err != nil {
+		return fmt.Errorf("ensure dir: %w", err)
+	}
 	tmp, err := os.CreateTemp(dir, ".part-*")
 	if err != nil {
-		return "", fmt.Errorf("temp file: %w", err)
+		return fmt.Errorf("temp file: %w", err)
 	}
 	tmpName := tmp.Name()
+	defer os.Remove(tmpName)
+	defer tmp.Close()
 	written, err := io.Copy(tmp, io.LimitReader(resp.Body, maxBytes+1))
 	if err != nil {
-		tmp.Close()
-		os.Remove(tmpName)
-		return "", fmt.Errorf("write: %w", err)
+		return fmt.Errorf("write: %w", err)
 	}
 	if written > maxBytes {
-		tmp.Close()
-		os.Remove(tmpName)
-		return "", fmt.Errorf("download exceeds %d-byte limit", maxBytes)
+		return fmt.Errorf("download exceeds %d-byte limit", maxBytes)
 	}
 	if err := tmp.Close(); err != nil {
-		os.Remove(tmpName)
-		return "", fmt.Errorf("close: %w", err)
+		return fmt.Errorf("close: %w", err)
 	}
 	if err := os.Rename(tmpName, dest); err != nil {
-		os.Remove(tmpName)
-		return "", fmt.Errorf("rename: %w", err)
+		return fmt.Errorf("rename: %w", err)
 	}
-	return dest, nil
+	return nil
 }
 
 // ValidateImageFile verifies that path contains a supported image with
@@ -128,7 +143,24 @@ func ValidateImageFile(filePath string) error {
 	}
 	defer f.Close()
 
-	config, _, err := image.DecodeConfig(f)
+	return validateImageHeader(f)
+}
+
+// DecodeImage checks the image header before allocating pixel storage, then
+// rewinds and decodes the same open source to avoid a path replacement race.
+func DecodeImage(r io.ReadSeeker) (image.Image, error) {
+	if err := validateImageHeader(r); err != nil {
+		return nil, err
+	}
+	if _, err := r.Seek(0, io.SeekStart); err != nil {
+		return nil, fmt.Errorf("rewind image: %w", err)
+	}
+	img, _, err := image.Decode(r)
+	return img, err
+}
+
+func validateImageHeader(r io.Reader) error {
+	config, _, err := image.DecodeConfig(r)
 	if err != nil {
 		return fmt.Errorf("decode image header: %w", err)
 	}
@@ -140,7 +172,9 @@ func ValidateImageFile(filePath string) error {
 	return nil
 }
 
-func secureHTTPClient() *http.Client {
+// NewPublicHTTPClient enforces public-address dialing and safe HTTPS redirects.
+// Call ValidateRemoteURL before issuing the initial request.
+func NewPublicHTTPClient() *http.Client {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.Proxy = nil
 	transport.DialContext = dialPublicAddress
@@ -151,12 +185,14 @@ func secureHTTPClient() *http.Client {
 			if len(via) >= 5 {
 				return fmt.Errorf("too many redirects")
 			}
-			return validateRemoteURL(req.URL.String())
+			return ValidateRemoteURL(req.URL.String())
 		},
 	}
 }
 
-func validateRemoteURL(rawURL string) error {
+// ValidateRemoteURL rejects non-HTTPS URLs, credentials, and non-public hosts.
+// Hostnames are also checked at dial time by NewPublicHTTPClient.
+func ValidateRemoteURL(rawURL string) error {
 	u, err := url.Parse(rawURL)
 	if err != nil {
 		return fmt.Errorf("invalid URL: %w", err)

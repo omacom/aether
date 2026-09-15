@@ -69,8 +69,8 @@
             loaded = true;
         } catch {
             error = refresh
-                ? 'Could not refresh installed icon themes. Your selection was not changed.'
-                : 'Could not load installed icon themes. Your selection was not changed.';
+                ? 'Could not refresh installed icon themes. Try again.'
+                : 'Could not load installed icon themes. Try again.';
         } finally {
             loading = false;
         }
@@ -109,7 +109,14 @@
             class:text-warning={missing}
             class:text-fg-secondary={!missing}>{summary}</span
         >
-        <span class="text-fg-dimmed text-[11px]" aria-hidden="true">›</span>
+        <svg
+            class="text-fg-dimmed h-3 w-3 shrink-0"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg
+        >
     </button>
     <button
         type="button"
@@ -170,21 +177,27 @@
         <p class="text-warning mb-2 text-[10px]" role="status">{error}</p>
     {/if}
 
-    <div class="border-border min-h-0 flex-1 overflow-y-auto border" role="radiogroup" aria-label="Icon themes">
+    <div
+        class="border-border min-h-0 flex-1 overflow-y-auto border"
+        role="group"
+        aria-label="Icon themes"
+    >
         <button
             type="button"
-            role="radio"
-            aria-checked={selection.mode === 'automatic'}
+            aria-pressed={selection.mode === 'automatic'}
+            aria-label="Use automatic icon theme"
             class="border-border hover:bg-bg-hover flex w-full items-start gap-2 border-b px-3 py-2 text-left transition-colors"
             class:bg-accent-muted={selection.mode === 'automatic'}
             onclick={() => choose({mode: 'automatic'})}
         >
-            <span class="text-accent mt-0.5 text-[11px]" aria-hidden="true">
-                {selection.mode === 'automatic' ? '●' : '○'}
-            </span>
+            <span
+                class="border-border mt-0.5 h-3 w-3 shrink-0 border"
+                class:bg-accent={selection.mode === 'automatic'}
+                aria-hidden="true"
+            ></span>
             <span>
                 <span class="text-fg-primary block text-[11px] font-medium"
-                    >Automatic — color-matched Yaru</span
+                    >Automatic · Color-matched Yaru</span
                 >
                 <span class="text-fg-dimmed mt-0.5 block text-[10px]">
                     Uses Aether’s palette-derived Yaru variant
@@ -195,33 +208,38 @@
         {#if missing && selection.mode === 'explicit'}
             <button
                 type="button"
-                role="radio"
-                aria-checked="true"
+                aria-pressed="true"
+                aria-label="Keep missing icon theme {selection.id}"
                 class="border-border bg-accent-muted hover:bg-bg-hover flex w-full items-start gap-2 border-b px-3 py-2 text-left transition-colors"
                 onclick={() => (open = false)}
             >
-                <span class="text-warning mt-0.5 text-[11px]" aria-hidden="true"
-                    >●</span
-                >
+                <span
+                    class="bg-warning mt-0.5 h-3 w-3 shrink-0"
+                    aria-hidden="true"
+                ></span>
                 <span>
                     <span class="text-warning block text-[11px] font-medium"
                         >{selection.id} · Missing</span
                     >
                     <span class="text-fg-dimmed mt-0.5 block text-[10px]">
-                        This icon theme is not currently installed. Aether will
-                        preserve its ID.
+                        This icon theme is not installed. Aether preserves its
+                        ID.
                     </span>
                 </span>
             </button>
         {/if}
 
         {#if loading && !loaded}
-            <p class="text-fg-dimmed px-3 py-5 text-center text-[10px]" role="status">
+            <p
+                class="text-fg-dimmed px-3 py-5 text-center text-[10px]"
+                role="status"
+            >
                 Loading installed icon themes…
             </p>
         {:else if loaded && themes.length === 0}
             <p class="text-fg-dimmed px-3 py-5 text-center text-[10px]">
-                No installed icon themes were found. Automatic Yaru is still available.
+                No installed icon themes were found. Automatic Yaru is still
+                available.
             </p>
         {:else if filteredThemes.length === 0}
             <p class="text-fg-dimmed px-3 py-5 text-center text-[10px]">
@@ -231,28 +249,36 @@
             {#each filteredThemes as theme (theme.id + ':' + catalogRevision)}
                 <button
                     type="button"
-                    role="radio"
-                    aria-checked={selection.mode === 'explicit' && selection.id === theme.id}
+                    aria-pressed={selection.mode === 'explicit' &&
+                        selection.id === theme.id}
+                    aria-label="Use icon theme {theme.name}"
                     class="border-border hover:bg-bg-hover flex w-full items-start gap-2 border-b px-3 py-2 text-left transition-colors last:border-b-0"
-                    class:bg-accent-muted={selection.mode === 'explicit' && selection.id === theme.id}
+                    class:bg-accent-muted={selection.mode === 'explicit' &&
+                        selection.id === theme.id}
                     onclick={() => choose({mode: 'explicit', id: theme.id})}
                 >
-                    <span class="text-accent mt-0.5 text-[11px]" aria-hidden="true">
-                        {selection.mode === 'explicit' && selection.id === theme.id
-                            ? '●'
-                            : '○'}
-                    </span>
+                    <span
+                        class="border-border mt-0.5 h-3 w-3 shrink-0 border"
+                        class:bg-accent={selection.mode === 'explicit' &&
+                            selection.id === theme.id}
+                        aria-hidden="true"
+                    ></span>
                     <span class="min-w-0 flex-1">
                         <span class="flex items-baseline gap-2">
-                            <span class="text-fg-primary truncate text-[11px] font-medium"
+                            <span
+                                class="text-fg-primary truncate text-[11px] font-medium"
                                 >{theme.name}</span
                             >
-                            <span class="text-fg-dimmed ml-auto shrink-0 text-[9px] uppercase tracking-wide">
+                            <span
+                                class="text-fg-dimmed ml-auto shrink-0 text-[9px] uppercase tracking-wide"
+                            >
                                 {theme.origin === 'user' ? 'User' : 'System'}
                             </span>
                         </span>
                         {#if theme.id.toLocaleLowerCase() !== theme.name.toLocaleLowerCase()}
-                            <span class="text-fg-dimmed mt-0.5 block truncate text-[9px]">
+                            <span
+                                class="text-fg-dimmed mt-0.5 block truncate text-[9px]"
+                            >
                                 {theme.id}
                             </span>
                         {/if}

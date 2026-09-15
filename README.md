@@ -54,7 +54,7 @@ yay -S aether
 
 ### Install (Debian / Ubuntu)
 
-Download the `.deb` from the [latest release](https://github.com/omacom-io/aether/releases/latest):
+Download the `.deb` from the [latest release](https://github.com/omacom/aether/releases/latest):
 
 ```bash
 sudo dpkg -i aether_*.deb
@@ -70,7 +70,7 @@ sudo pacman -S go webkit2gtk
 # Debian/Ubuntu
 sudo apt install golang libgtk-3-dev libwebkit2gtk-4.1-dev
 
-git clone https://github.com/omacom-io/aether.git
+git clone https://github.com/omacom/aether.git
 cd aether && make build
 ```
 
@@ -100,7 +100,7 @@ See `aether --help` for all options.
 ## Local Development
 
 ```bash
-git clone https://github.com/omacom-io/aether.git
+git clone https://github.com/omacom/aether.git
 cd aether
 
 # Install frontend dependencies
@@ -113,7 +113,13 @@ wails dev
 wails build
 ```
 
-**Prerequisites:** Go 1.23+, Node.js 18+, [Wails v2](https://wails.io), webkit2gtk, gtk-layer-shell, gstreamer, gst-plugins-good
+**Prerequisites:** Go 1.23+, Node.js 22.22.2+ or 24.15+ LTS, [Wails v2](https://wails.io), webkit2gtk, gtk-layer-shell, gstreamer, gst-plugins-good
+
+### Verification
+
+Run `make test` for the Go package tests. With the native build dependencies installed, `go test -race -tags webkit2_41 ./...` also covers the app entry points and enables Go's race detector (omit the tag on WebKitGTK 4.0 systems).
+
+From `frontend/`, run `npm ci`, `npm run check`, `npm test`, and `npm run build`. The frontend regression suite uses mocked Wails calls, so it does not change your desktop. Use `make dev` for manual verification of native dialogs, rendering, and theme application.
 
 ## Documentation
 
@@ -131,7 +137,7 @@ wails build
 | [File System](docs/filesystem.md) | Where Aether stores files |
 | [Remote Control](docs/remote-control.md) | IPC commands and AI integration |
 | [Protocol Handler](docs/protocol-handler.md) | Register `aether://` links |
-| [Quickshell Widgets](docs/quickshell.md) | QML widgets for Hyprland-style bars |
+| [Omarchy Shell Plugins](docs/quickshell.md) | Native wallpaper and blueprint selectors |
 | [Standalone](docs/standalone.md) | Using Aether without Omarchy |
 | [Troubleshooting](docs/troubleshooting.md) | Common issues |
 

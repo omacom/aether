@@ -154,7 +154,7 @@ Import commands:
   aether --import-colors-toml <url|file>    Import colors.toml color scheme (URL or file)
     --wallpaper <url|path>                  Set wallpaper from URL or local path
     --light-mode                            Force light mode
-  aether --handle-url <aether://...>        Handle an aether:// web link (always confirms)
+  aether --handle-url <aether://...>        Handle a web link (confirms unless silent=true)
                                               aether://apply?external_theme=URL
                                               aether://apply?colors=URL
                                               aether://apply?wallpaper=URL

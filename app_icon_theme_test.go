@@ -10,6 +10,7 @@ import (
 
 	"aether/internal/blueprint"
 	"aether/internal/icontheme"
+	"aether/internal/pending"
 	"aether/internal/theme"
 )
 
@@ -135,6 +136,26 @@ func validAppTestPaletteJSON() string {
 	}
 	data, _ := json.Marshal(colors)
 	return string(data)
+}
+
+func TestStageExternalBlueprintPreservesExplicitIconTheme(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	path := filepath.Join(t.TempDir(), "external.json")
+	data := fmt.Sprintf(`{"name":"External","palette":{"colors":%s},"iconTheme":{"mode":"explicit","id":"Missing-But-Safe"}}`, validAppTestPaletteJSON())
+	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	app := NewApp()
+	app.pending.curr = &pending.Import{SourceURL: "aether://test", ExternalTheme: path}
+	if _, err := app.stageImportIntoState("aether://test"); err != nil {
+		t.Fatal(err)
+	}
+	want := icontheme.Selection{Mode: icontheme.SelectionExplicit, ID: "Missing-But-Safe"}
+	if app.state.IconTheme != want {
+		t.Fatalf("icon theme = %+v, want %+v", app.state.IconTheme, want)
+	}
 }
 
 func writeAppTestIconTheme(t *testing.T, root, id, name string) {

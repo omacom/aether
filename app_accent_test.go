@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -20,6 +21,7 @@ func TestListBlueprintsIncludesExtendedColors(t *testing.T) {
 		Name:           "distinct-accent",
 		Palette:        colors,
 		ExtendedColors: map[string]string{"accent": "#0fdfaf"},
+		LockedColors:   []int{0, 15},
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -41,6 +43,12 @@ func TestListBlueprintsIncludesExtendedColors(t *testing.T) {
 	}
 	if got := extended["accent"]; got != "#0fdfaf" {
 		t.Errorf("accent = %q, want #0fdfaf", got)
+	}
+	if got := palette["lockedColors"]; !reflect.DeepEqual(got, []int{0, 15}) {
+		t.Errorf("lockedColors = %v, want [0 15]", got)
+	}
+	if got, exists := palette["mode"]; !exists || got != "" {
+		t.Errorf("mode = %v, present = %v; want empty legacy mode", got, exists)
 	}
 }
 
