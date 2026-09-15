@@ -1,6 +1,7 @@
 package wallhaven
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -226,10 +227,19 @@ func (c *Client) Info(id string) (*WallpaperInfo, error) {
 // Download downloads a wallpaper image to the local downloads directory.
 // Returns the local file path.
 func (c *Client) Download(imageURL string) (string, error) {
-	return c.download(imageURL, platform.DownloadDir(), wallpaper.MaxImageBytes)
+	return c.DownloadContext(context.Background(), imageURL)
+}
+
+// DownloadContext downloads a wallpaper with cancellation and the shared network limits.
+func (c *Client) DownloadContext(ctx context.Context, imageURL string) (string, error) {
+	return c.downloadContext(ctx, imageURL, platform.DownloadDir(), wallpaper.MaxImageBytes)
 }
 
 func (c *Client) download(rawURL, destDir string, maxBytes int64) (string, error) {
+	return c.downloadContext(context.Background(), rawURL, destDir, maxBytes)
+}
+
+func (c *Client) downloadContext(ctx context.Context, rawURL, destDir string, maxBytes int64) (string, error) {
 	if err := wallpaper.ValidateRemoteURL(rawURL); err != nil {
 		return "", err
 	}
@@ -240,7 +250,11 @@ func (c *Client) download(rawURL, destDir string, maxBytes int64) (string, error
 		return "", fmt.Errorf("invalid download filename")
 	}
 	destPath := filepath.Join(destDir, filename)
-	if err := wallpaper.DownloadFile(c.http, rawURL, destPath, maxBytes); err != nil {
+	client := *c.http
+	if maxBytes == wallpaper.MaxImageBytes {
+		client.Timeout = 5 * time.Minute
+	}
+	if err := wallpaper.DownloadFileContext(ctx, &client, rawURL, destPath, maxBytes); err != nil {
 		return "", err
 	}
 	return destPath, nil

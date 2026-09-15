@@ -50,6 +50,25 @@ type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
+func TestDownloadContextReachesTransportAndPreventsPublication(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		cancel()
+		<-req.Context().Done()
+		return nil, req.Context().Err()
+	})}
+	dir := t.TempDir()
+	err := DownloadFileContext(ctx, client, "https://example.com/wallpaper.png", filepath.Join(dir, "wallpaper.png"), 1024)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("error = %v, want cancellation", err)
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("cancelled download leaves files: %v, %v", entries, err)
+	}
+}
+
 type readerFunc func([]byte) (int, error)
 
 func (f readerFunc) Read(p []byte) (int, error) { return f(p) }

@@ -77,6 +77,14 @@ func DownloadToCache(rawURL string, maxBytes int64) (string, error) {
 // atomically at dest. Existing regular files within the limit are reused.
 // client must use NewPublicHTTPClient's redirect and dial policy.
 func DownloadFile(client *http.Client, rawURL, dest string, maxBytes int64) error {
+	return DownloadFileContext(context.Background(), client, rawURL, dest, maxBytes)
+}
+
+// DownloadFileContext applies the shared download limits and observes cancellation.
+func DownloadFileContext(ctx context.Context, client *http.Client, rawURL, dest string, maxBytes int64) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if maxBytes <= 0 || maxBytes == 1<<63-1 {
 		return fmt.Errorf("invalid download size limit")
 	}
@@ -95,7 +103,11 @@ func DownloadFile(client *http.Client, rawURL, dest string, maxBytes int64) erro
 		return fmt.Errorf("stat download: %w", err)
 	}
 
-	resp, err := client.Get(rawURL)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	if err != nil {
+		return fmt.Errorf("create download request: %w", err)
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("download: %w", err)
 	}
@@ -127,6 +139,9 @@ func DownloadFile(client *http.Client, rawURL, dest string, maxBytes int64) erro
 	}
 	if err := tmp.Close(); err != nil {
 		return fmt.Errorf("close: %w", err)
+	}
+	if err := ctx.Err(); err != nil {
+		return err
 	}
 	if err := os.Rename(tmpName, dest); err != nil {
 		return fmt.Errorf("rename: %w", err)
