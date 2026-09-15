@@ -1,29 +1,27 @@
 <script lang="ts">
+    import type {main} from '../../../../wailsjs/go/models';
     import {
         getIsApplying,
         setPalette,
+        setExtendedColors,
         getPalette,
         getWallpaperPath,
+        getWallpaperBlur,
+        setWallpaperBlur,
         setWallpaperPath,
         getLightMode,
         setLightMode,
         getAdditionalImages,
         getExtendedColors,
+        getNativeColors,
+        getIconTheme,
+        setIconTheme,
+        setNativeColors,
         getAppOverrides,
-        getAdjustments,
-        setAdjustments,
-        setAdjustedExtendedColors,
         isDirty,
         reset as resetTheme,
     } from '$lib/stores/theme.svelte';
-    import {
-        getCanUndo,
-        getCanRedo,
-        undo,
-        redo,
-        pushRedo,
-        pushUndo,
-    } from '$lib/stores/history.svelte';
+    import {getCanUndo, getCanRedo} from '$lib/stores/history.svelte';
     import {getSettings} from '$lib/stores/settings.svelte';
     import {
         getActiveTab,
@@ -36,13 +34,25 @@
         toggleTargetsVisible,
     } from '$lib/stores/ui.svelte';
     import {getApiKey, getTotalResults} from '$lib/stores/wallhaven.svelte';
-    import {applyTheme} from '$lib/actions/themeActions';
+    import {
+        applyTheme,
+        getNativeAppOverrides,
+        requestThemeApply,
+        saveThemeAsNew,
+        undoAction,
+        redoAction,
+    } from '$lib/actions/themeActions';
     import SaveDialog from '$lib/components/blueprints/SaveDialog.svelte';
     import ConfirmDialog from '$lib/components/shared/ConfirmDialog.svelte';
     import KbdInverse from '$lib/components/shared/KbdInverse.svelte';
     import Modal from '$lib/components/shared/Modal.svelte';
+    import {
+        getOmarchyAvailable,
+        initOmarchyCapabilities,
+    } from '$lib/stores/omarchy.svelte';
 
     let showImportMenu = $state(false);
+    let showApplyMenu = $state(false);
     let showExportDialog = $state(false);
     let showSaveDialog = $state(false);
     let confirmKind = $state<'revert' | 'reset' | null>(null);
@@ -63,8 +73,10 @@
     } as const;
     let exportName = $state('');
     let installToOmarchy = $state(false);
-    let isOmarchy = $state(false);
+    let isOmarchy = $derived(getOmarchyAvailable());
     let exportNameInput = $state<HTMLInputElement | null>(null);
+
+    initOmarchyCapabilities();
 
     $effect(() => {
         if (showExportDialog) exportNameInput?.focus();
@@ -97,7 +109,6 @@
         {
             label: 'Desktop',
             apps: [
-                {key: 'gtk', name: 'GTK'},
                 {key: 'hyprland', name: 'Hyprland'},
                 {key: 'hyprlock', name: 'Hyprlock'},
                 {key: 'icons', name: 'Icons'},
@@ -139,35 +150,14 @@
     let dirty = $derived(isDirty());
     let targetsVisible = $derived(getTargetsVisible());
     let overrideCount = $derived(
-        Object.values(getAppOverrides()).reduce(
-            (sum, o) => sum + Object.keys(o).length,
-            0
-        )
+        Object.values(
+            isOmarchy ? getNativeAppOverrides() : getAppOverrides()
+        ).reduce((sum, o) => sum + Object.keys(o).length, 0)
     );
 
     // --- Editor actions ---
 
-    const handleApply = applyTheme;
-
-    function handleUndo() {
-        const snapshot = undo();
-        if (snapshot) {
-            pushRedo(getPalette(), getExtendedColors(), getAdjustments());
-            setPalette(snapshot.palette, true);
-            setAdjustedExtendedColors(snapshot.extendedColors);
-            setAdjustments(snapshot.adjustments);
-        }
-    }
-
-    function handleRedo() {
-        const snapshot = redo();
-        if (snapshot) {
-            pushUndo(getPalette(), getExtendedColors(), getAdjustments());
-            setPalette(snapshot.palette, true);
-            setAdjustedExtendedColors(snapshot.extendedColors);
-            setAdjustments(snapshot.adjustments);
-        }
-    }
+    const handleApply = requestThemeApply;
 
     async function handleClear() {
         try {
@@ -198,9 +188,11 @@
     async function handleExport() {
         if (!exportName.trim()) return;
         try {
+            await initOmarchyCapabilities();
             const {ExportTheme} = await import(
                 '../../../../wailsjs/go/main/App'
             );
+            const nativeExport = getOmarchyAvailable();
             const includedApps = Object.entries(exportApps)
                 .filter(([, enabled]) => enabled)
                 .map(([key]) => key);
@@ -209,12 +201,17 @@
                 includedApps,
                 palette: getPalette(),
                 wallpaperPath: getWallpaperPath(),
+                wallpaperBlur: getWallpaperBlur(),
                 lightMode: getLightMode(),
                 additionalImages: getAdditionalImages(),
                 extendedColors: getExtendedColors(),
+                nativeColors: getNativeColors(),
+                iconTheme: {...getIconTheme()},
                 installToOmarchy,
-                appOverrides: getAppOverrides(),
-            });
+                appOverrides: nativeExport
+                    ? getNativeAppOverrides()
+                    : getAppOverrides(),
+            } as unknown as main.ExportThemeRequest);
             // Path ends with .../omarchy-{slug}-theme — pull the slug so the
             // user can see what name actually went into Omarchy's menu.
             const slug =
@@ -239,12 +236,15 @@
                 '../../../../wailsjs/go/main/App'
             );
             const result = await ImportFileDialog(fileType);
-            console.log('Import result:', result);
             if (result?.colors?.length >= 16) {
                 setPalette(result.colors);
+                setExtendedColors(result.extendedColors ?? {});
+                setNativeColors(result.nativeColors ?? {});
+                setIconTheme(result.iconTheme, true);
                 if (result.wallpaperPath) {
                     setWallpaperPath(result.wallpaperPath);
                 }
+                setWallpaperBlur(!!result.wallpaperBlur, true);
                 if (result.lightMode !== undefined) {
                     setLightMode(result.lightMode);
                 }
@@ -279,7 +279,7 @@
                 {overrideCount} override{overrideCount === 1 ? '' : 's'}
             </span>
         {/if}
-        {#if activeTab === 'editor'}
+        {#if activeTab === 'editor' && !isOmarchy}
             <button
                 class="hover:text-fg-secondary transition-colors {targetsVisible
                     ? 'text-fg-secondary'
@@ -300,16 +300,8 @@
             <div class="flex items-center gap-1">
                 <button
                     class="text-fg-dimmed hover:text-fg-secondary hover:bg-bg-hover px-2 py-1 text-[11px] transition-colors duration-100"
-                    onclick={async () => {
+                    onclick={() => {
                         showExportDialog = true;
-                        try {
-                            const {IsOmarchyInstalled} = await import(
-                                '../../../../wailsjs/go/main/App'
-                            );
-                            isOmarchy = await IsOmarchyInstalled();
-                        } catch {
-                            isOmarchy = false;
-                        }
                     }}>Export</button
                 >
 
@@ -359,13 +351,13 @@
 
                 <button
                     class="text-fg-dimmed hover:text-fg-secondary hover:bg-bg-hover px-2 py-1 text-[11px] transition-colors duration-100 disabled:cursor-default disabled:opacity-25"
-                    onclick={handleUndo}
+                    onclick={undoAction}
                     disabled={!undoEnabled}
                     title="Undo (Ctrl+Z)">Undo</button
                 >
                 <button
                     class="text-fg-dimmed hover:text-fg-secondary hover:bg-bg-hover px-2 py-1 text-[11px] transition-colors duration-100 disabled:cursor-default disabled:opacity-25"
-                    onclick={handleRedo}
+                    onclick={redoAction}
                     disabled={!redoEnabled}
                     title="Redo (Ctrl+Shift+Z)">Redo</button
                 >
@@ -414,25 +406,73 @@
                     {liveApply && livePending ? 'Syncing' : 'Live'}
                 </button>
 
-                <button
-                    class="bg-accent text-accent-fg hover:bg-accent-hover relative inline-flex items-center gap-2 px-4 py-1.5 text-[11px] font-medium transition-colors duration-100 disabled:opacity-50"
-                    onclick={handleApply}
-                    disabled={applying}
-                    title={dirty
-                        ? 'Unsaved changes — click to apply (Ctrl+Enter)'
-                        : 'Apply theme to system (Ctrl+Enter)'}
-                >
-                    <span>{applying ? 'Applying...' : 'Apply Theme'}</span>
-                    {#if !applying}
-                        <KbdInverse>Ctrl+↵</KbdInverse>
+                <div class="relative inline-flex">
+                    <button
+                        class="bg-accent text-accent-fg hover:bg-accent-hover relative inline-flex items-center gap-2 px-4 py-1.5 text-[11px] font-medium transition-colors duration-100 disabled:opacity-50"
+                        onclick={handleApply}
+                        disabled={applying}
+                        title={dirty
+                            ? 'Apply updates to the saved theme folder (Ctrl+Enter applies only)'
+                            : 'Apply theme (Ctrl+Enter applies only)'}
+                    >
+                        <span>{applying ? 'Applying...' : 'Apply Theme'}</span>
+                        {#if !applying}
+                            <KbdInverse>Ctrl+↵</KbdInverse>
+                        {/if}
+                        {#if dirty && !applying}
+                            <span
+                                class="bg-warning absolute -right-1 -top-1 h-2 w-2 ring-2 ring-[var(--color-bg-secondary)]"
+                                aria-label="Unsaved changes"
+                            ></span>
+                        {/if}
+                    </button>
+                    <button
+                        type="button"
+                        class="bg-accent text-accent-fg hover:bg-accent-hover border-accent-fg/20 border-l px-2 transition-colors disabled:opacity-50"
+                        onclick={() => (showApplyMenu = !showApplyMenu)}
+                        disabled={applying}
+                        aria-label="More apply options"
+                        title="More apply options"
+                    >
+                        <svg
+                            class="h-3 w-3"
+                            viewBox="0 0 12 12"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                            aria-hidden="true"
+                        >
+                            <path d="m3 4.5 3 3 3-3"></path>
+                        </svg>
+                    </button>
+                    {#if showApplyMenu}
+                        <!-- svelte-ignore a11y_no_static_element_interactions -->
+                        <!-- svelte-ignore a11y_click_events_have_key_events -->
+                        <div
+                            class="fixed inset-0 z-30"
+                            onclick={() => (showApplyMenu = false)}
+                            role="presentation"
+                        ></div>
+                        <div
+                            class="bg-bg-secondary border-border absolute bottom-full right-0 z-40 mb-1 min-w-[180px] border shadow-lg"
+                        >
+                            <button
+                                class="text-fg-secondary hover:text-fg-primary hover:bg-bg-hover w-full px-3 py-1.5 text-left text-[11px] transition-colors"
+                                onclick={() => {
+                                    showApplyMenu = false;
+                                    saveThemeAsNew();
+                                }}>Save as new folder...</button
+                            >
+                            <button
+                                class="text-fg-secondary hover:text-fg-primary hover:bg-bg-hover w-full px-3 py-1.5 text-left text-[11px] transition-colors"
+                                onclick={() => {
+                                    showApplyMenu = false;
+                                    applyTheme();
+                                }}>Apply only</button
+                            >
+                        </div>
                     {/if}
-                    {#if dirty && !applying}
-                        <span
-                            class="bg-warning absolute -right-1 -top-1 h-2 w-2 ring-2 ring-[var(--color-bg-secondary)]"
-                            aria-label="Unsaved changes"
-                        ></span>
-                    {/if}
-                </button>
+                </div>
             </div>
         {:else if activeTab === 'wallhaven'}
             <div class="flex items-center gap-2">
@@ -502,7 +542,14 @@
             </div>
         {:else if activeTab === 'system'}
             <div class="flex items-center gap-1">
-                <span class="text-fg-dimmed text-[11px]">System themes</span>
+                <span class="text-fg-dimmed text-[11px]">Native themes</span>
+            </div>
+            <div class="flex items-center gap-1">
+                {@render goToEditor()}
+            </div>
+        {:else if activeTab === 'settings'}
+            <div class="flex items-center gap-1">
+                <span class="text-fg-dimmed text-[11px]">App settings</span>
             </div>
             <div class="flex items-center gap-1">
                 {@render goToEditor()}
@@ -535,29 +582,37 @@
         }}
         aria-label="Theme name"
     />
-    <div class="mb-3 flex flex-col gap-2.5">
-        {#each exportAppGroups as group}
-            <div>
-                <span class="text-fg-dimmed text-[10px] uppercase tracking-wide"
-                    >{group.label}</span
-                >
-                <div class="mt-1 grid grid-cols-2 gap-x-3 gap-y-1">
-                    {#each group.apps as app}
-                        <label
-                            class="text-fg-secondary flex cursor-pointer items-center gap-1.5 text-[11px]"
-                        >
-                            <input
-                                type="checkbox"
-                                bind:checked={exportApps[app.key]}
-                                class="accent-accent"
-                            />
-                            {app.name}
-                        </label>
-                    {/each}
+    {#if isOmarchy}
+        <p class="text-fg-dimmed mb-3 text-[11px] leading-relaxed">
+            Exports a native colors.toml theme. Omarchy generates and reloads
+            application themes when it is applied.
+        </p>
+    {:else}
+        <div class="mb-3 flex flex-col gap-2.5">
+            {#each exportAppGroups as group}
+                <div>
+                    <span
+                        class="text-fg-dimmed text-[10px] uppercase tracking-wide"
+                        >{group.label}</span
+                    >
+                    <div class="mt-1 grid grid-cols-2 gap-x-3 gap-y-1">
+                        {#each group.apps as app}
+                            <label
+                                class="text-fg-secondary flex cursor-pointer items-center gap-1.5 text-[11px]"
+                            >
+                                <input
+                                    type="checkbox"
+                                    bind:checked={exportApps[app.key]}
+                                    class="accent-accent"
+                                />
+                                {app.name}
+                            </label>
+                        {/each}
+                    </div>
                 </div>
-            </div>
-        {/each}
-    </div>
+            {/each}
+        </div>
+    {/if}
     {#if isOmarchy}
         <label
             class="text-fg-secondary mb-3 flex cursor-pointer items-center gap-1.5 text-[11px]"

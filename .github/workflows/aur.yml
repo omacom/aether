@@ -32,12 +32,6 @@ jobs:
           ARM64_URL="https://github.com/${REPO}/releases/download/v${PKGVER}/aether-linux-arm64"
           ARM64_SHA256=$(curl -sL "$ARM64_URL" | sha256sum | cut -d' ' -f1)
 
-          AMD64_WP_URL="https://github.com/${REPO}/releases/download/v${PKGVER}/aether-wp-linux-amd64"
-          AMD64_WP_SHA256=$(curl -sL "$AMD64_WP_URL" | sha256sum | cut -d' ' -f1)
-
-          ARM64_WP_URL="https://github.com/${REPO}/releases/download/v${PKGVER}/aether-wp-linux-arm64"
-          ARM64_WP_SHA256=$(curl -sL "$ARM64_WP_URL" | sha256sum | cut -d' ' -f1)
-
           SOURCE_URL="https://github.com/${REPO}/archive/refs/tags/v${PKGVER}.tar.gz"
           SOURCE_SHA256=$(curl -sL "$SOURCE_URL" | sha256sum | cut -d' ' -f1)
 
@@ -48,33 +42,38 @@ jobs:
           pkgrel=1
           pkgdesc='Desktop theming application - extract colors from wallpapers and apply cohesive themes'
           arch=('x86_64' 'aarch64')
-          url='https://github.com/bjarneo/aether'
+          url='https://github.com/omacom/aether'
           license=('MIT')
-          depends=('webkit2gtk-4.1' 'gtk3' 'gtk-layer-shell' 'gstreamer' 'gst-plugins-good' 'gst-libav' 'ffmpeg')
-          source=("aether-${pkgver}.tar.gz::https://github.com/bjarneo/aether/archive/refs/tags/v${pkgver}.tar.gz")
-          source_x86_64=("aether-linux-amd64-${pkgver}::https://github.com/bjarneo/aether/releases/download/v${pkgver}/aether-linux-amd64"
-                         "aether-wp-linux-amd64-${pkgver}::https://github.com/bjarneo/aether/releases/download/v${pkgver}/aether-wp-linux-amd64")
-          source_aarch64=("aether-linux-arm64-${pkgver}::https://github.com/bjarneo/aether/releases/download/v${pkgver}/aether-linux-arm64"
-                          "aether-wp-linux-arm64-${pkgver}::https://github.com/bjarneo/aether/releases/download/v${pkgver}/aether-wp-linux-arm64")
+          depends=('webkit2gtk-4.1' 'gtk3')
+          optdepends=('omarchy: native theme activation and shell selectors')
+          source=("aether-${pkgver}.tar.gz::https://github.com/omacom/aether/archive/refs/tags/v${pkgver}.tar.gz")
+          source_x86_64=("aether-linux-amd64-${pkgver}::https://github.com/omacom/aether/releases/download/v${pkgver}/aether-linux-amd64")
+          source_aarch64=("aether-linux-arm64-${pkgver}::https://github.com/omacom/aether/releases/download/v${pkgver}/aether-linux-arm64")
           sha256sums=('SOURCE_SHA256_PLACEHOLDER')
-          sha256sums_x86_64=('AMD64_SHA256_PLACEHOLDER' 'AMD64_WP_SHA256_PLACEHOLDER')
-          sha256sums_aarch64=('ARM64_SHA256_PLACEHOLDER' 'ARM64_WP_SHA256_PLACEHOLDER')
-          noextract=("aether-linux-amd64-${pkgver}" "aether-linux-arm64-${pkgver}"
-                     "aether-wp-linux-amd64-${pkgver}" "aether-wp-linux-arm64-${pkgver}")
+          sha256sums_x86_64=('AMD64_SHA256_PLACEHOLDER')
+          sha256sums_aarch64=('ARM64_SHA256_PLACEHOLDER')
+          noextract=("aether-linux-amd64-${pkgver}" "aether-linux-arm64-${pkgver}")
 
           package() {
               if [[ "$CARCH" == "x86_64" ]]; then
                   install -Dm755 "${srcdir}/aether-linux-amd64-${pkgver}" "${pkgdir}/usr/bin/aether"
-                  install -Dm755 "${srcdir}/aether-wp-linux-amd64-${pkgver}" "${pkgdir}/usr/bin/aether-wp"
               elif [[ "$CARCH" == "aarch64" ]]; then
                   install -Dm755 "${srcdir}/aether-linux-arm64-${pkgver}" "${pkgdir}/usr/bin/aether"
-                  install -Dm755 "${srcdir}/aether-wp-linux-arm64-${pkgver}" "${pkgdir}/usr/bin/aether-wp"
               fi
 
               cd "${srcdir}/aether-${pkgver}"
               install -Dm644 build/linux/aether.desktop "${pkgdir}/usr/share/applications/aether.desktop"
+              install -Dm644 li.oever.aether.url-handler.desktop "${pkgdir}/usr/share/applications/li.oever.aether.url-handler.desktop"
               install -Dm644 icon.png "${pkgdir}/usr/share/pixmaps/aether.png"
+              install -Dm644 assets/aether-icon-512.png "${pkgdir}/usr/share/icons/hicolor/512x512/apps/aether.png"
               install -Dm644 README.md "${pkgdir}/usr/share/doc/aether/README.md"
+              install -Dm755 contrib/quickshell/install.sh "${pkgdir}/usr/bin/aether-install-omarchy-plugins"
+              install -Dm644 contrib/quickshell/wallpapers/manifest.json "${pkgdir}/usr/share/aether/omarchy-plugins/wallpapers/manifest.json"
+              install -Dm644 contrib/quickshell/wallpapers/shell.qml "${pkgdir}/usr/share/aether/omarchy-plugins/wallpapers/shell.qml"
+              install -Dm644 contrib/quickshell/wallpapers/WallpaperSlider.qml "${pkgdir}/usr/share/aether/omarchy-plugins/wallpapers/WallpaperSlider.qml"
+              install -Dm644 contrib/quickshell/blueprints/manifest.json "${pkgdir}/usr/share/aether/omarchy-plugins/blueprints/manifest.json"
+              install -Dm644 contrib/quickshell/blueprints/shell.qml "${pkgdir}/usr/share/aether/omarchy-plugins/blueprints/shell.qml"
+              install -Dm644 contrib/quickshell/blueprints/Blueprints.qml "${pkgdir}/usr/share/aether/omarchy-plugins/blueprints/Blueprints.qml"
           }
           HEREDOC
 
@@ -82,8 +81,6 @@ jobs:
           sed -i "s|PKGVER_PLACEHOLDER|${PKGVER}|" PKGBUILD
           sed -i "s|AMD64_SHA256_PLACEHOLDER|${AMD64_SHA256}|" PKGBUILD
           sed -i "s|ARM64_SHA256_PLACEHOLDER|${ARM64_SHA256}|" PKGBUILD
-          sed -i "s|AMD64_WP_SHA256_PLACEHOLDER|${AMD64_WP_SHA256}|" PKGBUILD
-          sed -i "s|ARM64_WP_SHA256_PLACEHOLDER|${ARM64_WP_SHA256}|" PKGBUILD
           sed -i "s|SOURCE_SHA256_PLACEHOLDER|${SOURCE_SHA256}|" PKGBUILD
 
           cat PKGBUILD

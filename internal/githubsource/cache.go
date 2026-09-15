@@ -36,8 +36,10 @@ func (c *ttlCache) get(key string) (*ListContentsResult, bool) {
 	}
 	if time.Now().After(entry.expiresAt) {
 		c.mu.Lock()
-		delete(c.items, key)
-		c.removeOrder(key)
+		if c.items[key] == entry {
+			delete(c.items, key)
+			c.removeOrder(key)
+		}
 		c.mu.Unlock()
 		return nil, false
 	}

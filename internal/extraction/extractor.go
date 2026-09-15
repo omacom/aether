@@ -8,6 +8,9 @@ import (
 // See GeneratePaletteByMode for the list of supported modes. In "normal" mode the extractor
 // auto-detects whether the image is monochrome or chromatic.
 func ExtractColors(imagePath string, lightMode bool, mode string) ([16]string, error) {
+	if err := validateMode(mode); err != nil {
+		return [16]string{}, err
+	}
 	cacheKey := buildCacheKey(GetCacheKey(imagePath, lightMode), mode)
 	if cacheKey != "" {
 		if cached, ok := LoadCachedPalette(cacheKey); ok {
@@ -30,6 +33,18 @@ func ExtractColors(imagePath string, lightMode bool, mode string) ([16]string, e
 		SavePaletteToCache(cacheKey, palette)
 	}
 	return palette, nil
+}
+
+func validateMode(mode string) error {
+	switch mode {
+	case "normal", "monochromatic", "analogous", "pastel", "material", "colorful", "muted", "bright",
+		"complementary", "triadic", "split-complementary", "tetradic",
+		"fire", "ocean", "forest", "earthtone", "neon", "sunset", "vaporwave",
+		"midnight", "aurora", "high-contrast", "duotone":
+		return nil
+	default:
+		return fmt.Errorf("unknown extraction mode %q", mode)
+	}
 }
 
 // normalizeCounts turns per-color pixel counts into coverage shares in [0,1]

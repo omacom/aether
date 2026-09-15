@@ -21,9 +21,13 @@ let totalPages = $state(0);
 let totalResults = $state(0);
 let isSearching = $state(false);
 let isLoadingMore = $state(false);
+let searchError = $state('');
+let hasSearched = false;
+let searchRequest = 0;
+let lastSearchParams: wallhaven.SearchParams | null = null;
 
 // Load config from ~/.config/aether/wallhaven.json on startup
-loadConfigFromFile();
+const configReady = loadConfigFromFile();
 
 async function loadConfigFromFile() {
     try {
@@ -34,7 +38,7 @@ async function loadConfigFromFile() {
         if (config) {
             if (config.apiKey) {
                 apiKey = config.apiKey;
-                SetWallhavenAPIKey(config.apiKey);
+                await SetWallhavenAPIKey(config.apiKey);
             }
             if (config.categories) categories = config.categories;
             if (config.purity) purity = config.purity;
@@ -49,7 +53,7 @@ function persist() {
     // Save to Go config file
     import('../../../wailsjs/go/main/App')
         .then(({SaveWallhavenConfig}) => {
-            SaveWallhavenConfig({
+            return SaveWallhavenConfig({
                 apiKey,
                 categories,
                 purity,
@@ -102,6 +106,9 @@ export function getIsLoadingMore(): boolean {
 export function getHasMore(): boolean {
     return totalPages > 0 && page < totalPages;
 }
+export function getSearchError(): string {
+    return searchError;
+}
 
 // --- Setters (all persist) ---
 export function setQuery(q: string): void {
@@ -127,7 +134,7 @@ export function setApiKey(k: string): void {
     persist();
     import('../../../wailsjs/go/main/App')
         .then(({SetWallhavenAPIKey}) => {
-            SetWallhavenAPIKey(k);
+            return SetWallhavenAPIKey(k);
         })
         .catch(() => {});
 }
@@ -152,33 +159,54 @@ export function togglePurity(index: number): void {
 }
 
 // --- Actions ---
+export async function initializeSearch(): Promise<void> {
+    await configReady;
+    if (!hasSearched) await search();
+}
+
 export async function search(): Promise<void> {
-    page = 1;
     await doSearch(false);
 }
 
 export async function loadMore(): Promise<void> {
     if (isSearching || isLoadingMore) return;
-    if (totalPages > 0 && page >= totalPages) return;
-    page = page + 1;
+    if (!getHasMore()) return;
     await doSearch(true);
 }
 
 async function doSearch(append: boolean): Promise<void> {
+    const request = ++searchRequest;
+    hasSearched = true;
+    searchError = '';
     if (append) isLoadingMore = true;
-    else isSearching = true;
+    else {
+        isSearching = true;
+        isLoadingMore = false;
+        results = [];
+        totalPages = 0;
+        totalResults = 0;
+        page = 1;
+    }
     try {
+        await configReady;
+        if (request !== searchRequest) return;
+        const params =
+            append && lastSearchParams
+                ? {...lastSearchParams, page: page + 1}
+                : {
+                      q: query,
+                      categories,
+                      purity,
+                      sorting,
+                      order,
+                      page: 1,
+                      atleast,
+                      colors: colorFilter,
+                  };
         const {SearchWallhaven} = await import('../../../wailsjs/go/main/App');
-        const result = await SearchWallhaven({
-            q: query,
-            categories,
-            purity,
-            sorting,
-            order,
-            page,
-            atleast,
-            colors: colorFilter,
-        });
+        if (request !== searchRequest) return;
+        const result = await SearchWallhaven(params);
+        if (request !== searchRequest) return;
         const data = result.data || [];
         if (append) {
             const seen = new Set(results.map(r => r.id));
@@ -188,12 +216,17 @@ async function doSearch(append: boolean): Promise<void> {
         }
         totalPages = result.meta?.last_page || 0;
         totalResults = result.meta?.total || 0;
+        page = params.page;
+        lastSearchParams = params;
     } catch (e) {
+        if (request !== searchRequest) return;
         console.error('Wallhaven search failed:', e);
-        if (append) page = Math.max(1, page - 1);
-        else results = [];
+        searchError =
+            'Could not reach Wallhaven. Check your connection and filters, then retry.';
     } finally {
-        if (append) isLoadingMore = false;
-        else isSearching = false;
+        if (request === searchRequest) {
+            isLoadingMore = false;
+            isSearching = false;
+        }
     }
 }

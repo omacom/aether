@@ -34,13 +34,13 @@ type ExternalImportPreview struct {
 	ThemeName        string   `json:"theme_name,omitempty"`
 	Mode             string   `json:"mode,omitempty"` // "light" | "dark" | ""
 	Edit             bool     `json:"edit"`           // load into the editor without applying (aether://...&edit=true)
+	OmarchyThemeName string   `json:"omarchy_theme_name,omitempty"`
 }
 
 // loadPendingImport reads the staged file, stores it in memory, and emits
 // "external-import-requested" to the frontend. Safe to call from startup
 // and from the IPC handler — repeated calls just refresh the in-memory
-// snapshot and re-emit. Silent imports never reach the GUI (the CLI URL
-// handler applies them directly), so no branching is needed here.
+// snapshot and re-emit. Browser imports always reach this confirmation path.
 func (a *App) loadPendingImport() {
 	imp, err := pending.Read()
 	if err != nil {
@@ -73,6 +73,7 @@ func (a *App) buildPreview(imp *pending.Import) ExternalImportPreview {
 		Wallpaper:        imp.Wallpaper,
 		Mode:             imp.Mode,
 		Edit:             imp.Edit,
+		OmarchyThemeName: imp.OmarchyThemeName,
 	}
 
 	if imp.ExternalTheme != "" {
@@ -110,20 +111,20 @@ func (a *App) GetPendingExternalImport() *ExternalImportPreview {
 
 // stageImportIntoState consumes the pending import and writes its assets into
 // the app state: the colors.toml (or external_theme JSON) becomes the palette
-// verbatim (no re-extraction — the user trusts the source), the wallpaper is set
+// without re-extraction, the wallpaper is set
 // as the background, and light/dark mode is resolved. It pushes an undo snapshot
 // and clears the handoff file, but does NOT apply the theme to disk or emit to
 // the frontend; callers decide whether to apply (ConfirmExternalImport) or just
 // load it for editing (OpenExternalImportInEditor).
-func (a *App) stageImportIntoState() error {
+func (a *App) stageImportIntoState(expectedSourceURL string) (*pending.Import, error) {
 	a.pending.mu.Lock()
 	imp := a.pending.curr
+	if imp == nil || imp.SourceURL != expectedSourceURL {
+		a.pending.mu.Unlock()
+		return nil, fmt.Errorf("pending import changed; review the latest request")
+	}
 	a.pending.curr = nil
 	a.pending.mu.Unlock()
-
-	if imp == nil {
-		return fmt.Errorf("no pending import")
-	}
 
 	defer pending.Clear()
 
@@ -138,19 +139,26 @@ func (a *App) stageImportIntoState() error {
 		bp, err = blueprint.ImportColorsToml(imp.ColorsToml)
 	}
 	if err != nil {
-		return fmt.Errorf("parse import: %w", err)
+		return nil, fmt.Errorf("parse import: %w", err)
+	}
+	if bp == nil && imp.OmarchyThemeName != "" {
+		if current, loadErr := blueprint.ImportCurrentColorsToml(); loadErr == nil {
+			bp = current
+		} else {
+			return nil, fmt.Errorf("load current palette for wallpaper-only install: %w", loadErr)
+		}
 	}
 
 	if bp != nil {
 		// Merge extended colors before SetPalette so buildColorRoles uses the
 		// imported accent/cursor/selection instead of re-deriving them.
-		if len(bp.Palette.ExtendedColors) > 0 {
-			if a.state.ExtendedColors == nil {
-				a.state.ExtendedColors = map[string]string{}
-			}
-			for k, v := range bp.Palette.ExtendedColors {
-				a.state.ExtendedColors[k] = v
-			}
+		a.state.ExtendedColors = make(map[string]string, len(bp.Palette.ExtendedColors))
+		for k, v := range bp.Palette.ExtendedColors {
+			a.state.ExtendedColors[k] = v
+		}
+		a.state.NativeColors = make(map[string]string, len(bp.Palette.NativeColors))
+		for k, v := range bp.Palette.NativeColors {
+			a.state.NativeColors[k] = v
 		}
 
 		var palette [16]string
@@ -158,6 +166,12 @@ func (a *App) stageImportIntoState() error {
 			palette[i] = bp.Palette.Colors[i]
 		}
 		a.state.SetPalette(palette)
+		iconTheme, iconThemeErr := bp.IconThemeSelection()
+		if iconThemeErr != nil {
+			return nil, fmt.Errorf("import iconTheme: %w", iconThemeErr)
+		}
+		a.state.IconTheme = iconTheme
+		a.state.WallpaperBlur = bp.Palette.WallpaperBlur
 	}
 
 	if imp.Wallpaper != "" {
@@ -192,15 +206,23 @@ func (a *App) stageImportIntoState() error {
 		}
 	}
 
-	return nil
+	return imp, nil
 }
 
-// ConfirmExternalImport stages the pending assets into the editor state and then
-// applies the theme to all configured target apps. Used by the confirm dialog's
-// Apply button.
-func (a *App) ConfirmExternalImport() error {
-	if err := a.stageImportIntoState(); err != nil {
+// ConfirmExternalImport stages the pending assets, then applies them or installs
+// the requested named Omarchy theme. Used by the confirmation dialog.
+func (a *App) ConfirmExternalImport(expectedSourceURL string) error {
+	imp, err := a.stageImportIntoState(expectedSourceURL)
+	if err != nil {
 		return err
+	}
+
+	if imp.OmarchyThemeName != "" {
+		if err := a.writer.InstallOmarchyTheme(a.state, theme.DefaultApplySettings(), imp.OmarchyThemeName); err != nil {
+			return fmt.Errorf("install Omarchy theme: %w", err)
+		}
+		a.emitIPCStateChanged()
+		return nil
 	}
 
 	result, err := a.writer.ApplyTheme(a.state, theme.DefaultApplySettings())
@@ -219,8 +241,8 @@ func (a *App) ConfirmExternalImport() error {
 // become the current editing state and are pushed to the frontend, but nothing
 // is written to disk. Backs the aether://...&edit=true flow so a user can tweak
 // an imported theme and apply it manually when ready.
-func (a *App) OpenExternalImportInEditor() error {
-	if err := a.stageImportIntoState(); err != nil {
+func (a *App) OpenExternalImportInEditor(expectedSourceURL string) error {
+	if _, err := a.stageImportIntoState(expectedSourceURL); err != nil {
 		return err
 	}
 	a.emitIPCStateChanged()
@@ -228,8 +250,12 @@ func (a *App) OpenExternalImportInEditor() error {
 }
 
 // CancelExternalImport drops the staged import without touching theme state.
-func (a *App) CancelExternalImport() {
+func (a *App) CancelExternalImport(expectedSourceURL string) {
 	a.pending.mu.Lock()
+	if a.pending.curr == nil || a.pending.curr.SourceURL != expectedSourceURL {
+		a.pending.mu.Unlock()
+		return
+	}
 	a.pending.curr = nil
 	a.pending.mu.Unlock()
 	_ = pending.Clear()

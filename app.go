@@ -15,12 +15,15 @@ import (
 	"aether/internal/blueprint"
 	"aether/internal/color"
 	"aether/internal/extraction"
+	"aether/internal/favexport"
 	"aether/internal/favorites"
 	"aether/internal/githubsource"
+	"aether/internal/icontheme"
 	"aether/internal/omarchy"
 	"aether/internal/platform"
 	"aether/internal/template"
 	"aether/internal/theme"
+	"aether/internal/update"
 	"aether/internal/wallhaven"
 	"aether/internal/wallpaper"
 	"aether/ipc"
@@ -37,11 +40,12 @@ type App struct {
 	writer       *theme.Writer
 	blueprints   *blueprint.Service
 	favorites    *favorites.Service
+	favExport    *favexport.Exporter
 	wallhaven    *wallhaven.Client
-	github       *githubsource.Client
+	githubSource *githubsource.Client
 	batch        *batch.Processor
+	iconThemes   *icontheme.Catalog
 	themeWatcher *theme.ThemeWatcher
-	media        *MediaServer
 	ipcServer    *ipc.Server
 	pending      pendingImportState
 	focusTab     string
@@ -65,19 +69,60 @@ func (a *App) GetInitialState() theme.StateSnapshot {
 	return a.state.Snapshot()
 }
 
+// GetReleaseStatus checks whether currentVersion has a newer GitHub release.
+func (a *App) GetReleaseStatus(currentVersion string) (map[string]interface{}, error) {
+	release, err := update.Check(context.Background(), currentVersion)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]interface{}{
+		"currentVersion":  release.CurrentVersion,
+		"latestVersion":   release.LatestVersion,
+		"releaseURL":      release.ReleaseURL,
+		"updateAvailable": release.UpdateAvailable,
+	}, nil
+}
+
+// StartUpgrade opens a terminal running this executable's upgrade command.
+func (a *App) StartUpgrade() error {
+	executable, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("locate current executable: %w", err)
+	}
+	return update.OpenUpgradeTerminal(executable)
+}
+
 // NewApp creates a new App instance.
 func NewApp() *App {
+	wh := wallhaven.NewClient()
 	return &App{
 		state:        newSeededState(),
 		history:      theme.NewHistoryManager(),
 		writer:       theme.NewWriter(EmbeddedTemplates, "templates"),
 		blueprints:   blueprint.NewService(),
 		favorites:    favorites.NewService(),
-		wallhaven:    wallhaven.NewClient(),
-		github:       githubsource.NewClient(),
+		favExport:    favexport.New(wh),
+		wallhaven:    wh,
+		githubSource: githubsource.NewClient(),
 		batch:        batch.NewProcessor(),
+		iconThemes:   icontheme.NewCatalog(),
 		themeWatcher: theme.NewThemeWatcher(),
 	}
+}
+
+// ListInstalledIconThemes returns the cached installed desktop icon themes.
+func (a *App) ListInstalledIconThemes() ([]icontheme.ThemeSummary, error) {
+	return a.iconThemes.List(context.Background())
+}
+
+// RefreshInstalledIconThemes rescans approved icon roots.
+func (a *App) RefreshInstalledIconThemes() ([]icontheme.ThemeSummary, error) {
+	return a.iconThemes.Refresh(context.Background())
+}
+
+// GetIconThemePreview returns safe backend-rasterized samples for a theme ID.
+func (a *App) GetIconThemePreview(themeID string) (icontheme.ThemePreview, error) {
+	return a.iconThemes.Preview(context.Background(), themeID)
 }
 
 // newSeededState builds a ThemeState with the unmodified DefaultPalette
@@ -91,12 +136,16 @@ func newSeededState() *theme.ThemeState {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	_ = platform.EnsureAllDirs()
-	a.themeWatcher.Start(ctx)
-
-	a.media = &MediaServer{}
-	if err := a.media.Start(); err != nil {
-		log.Printf("media server: %v", err)
+	if err := theme.RetireLegacyGTKStylesheets(); err != nil {
+		log.Printf("retire legacy GTK stylesheets: %v", err)
 	}
+	if err := installDefaultWallpapers(); err != nil {
+		log.Printf("install default wallpapers: %v", err)
+	}
+	if err := platform.EnsureURLHandler(ctx); err != nil {
+		log.Printf("register aether:// handler: %v", err)
+	}
+	a.themeWatcher.Start(ctx)
 
 	// Start IPC server for remote control
 	srv, err := ipc.NewServer(ipc.DefaultSocketPath(), a)
@@ -111,52 +160,31 @@ func (a *App) startup(ctx context.Context) {
 	a.loadPendingImport()
 }
 
-// CloseIPC shuts down the IPC server and media server. Called on app exit.
+// CloseIPC shuts down the IPC server. Called on app exit.
 func (a *App) CloseIPC() {
 	if a.ipcServer != nil {
 		a.ipcServer.Close()
 	}
-	if a.media != nil {
-		a.media.Stop()
-	}
-}
-
-// GetMediaURL returns an http://localhost URL for streaming a local media file.
-// Used by the frontend for <video> elements since webkit2gtk's GStreamer backend
-// cannot fetch from the custom wails:// scheme.
-func (a *App) GetMediaURL(path string) string {
-	return a.media.URL(path)
 }
 
 // ---------------------------------------------------------------------------
 // Color Extraction
 // ---------------------------------------------------------------------------
 
-// resolveImagePath returns a sample-able image path. For video files it
-// extracts a frame via ffmpeg; for images it returns the input unchanged.
-func resolveImagePath(path string) (string, error) {
-	if !theme.IsVideoFile(path) {
-		return path, nil
-	}
-	framePath, err := wallpaper.ExtractVideoFrame(path)
-	if err != nil {
-		return "", fmt.Errorf("video frame extraction failed: %w", err)
-	}
-	return framePath, nil
-}
-
-// ExtractColors extracts a 16-color ANSI palette from an image or video.
-// For video files, a frame is extracted first via ffmpeg.
+// ExtractColors extracts a 16-color ANSI palette from an image.
 func (a *App) ExtractColors(path string, lightMode bool, mode string) ([16]string, error) {
-	path, err := resolveImagePath(path)
-	if err != nil {
-		return [16]string{}, err
+	if !theme.IsImageFile(path) {
+		return [16]string{}, fmt.Errorf("unsupported image file: %s", path)
 	}
 	palette, err := extraction.ExtractColors(path, lightMode, mode)
 	if err != nil {
 		return palette, err
 	}
 	a.state.SetPalette(palette)
+	a.state.NativeColors = map[string]string{}
+	if a.state.WallpaperPath != path {
+		a.state.WallpaperBlur = false
+	}
 	a.state.WallpaperPath = path
 	a.state.LightMode = lightMode
 	a.state.ExtractionMode = mode
@@ -168,9 +196,8 @@ func (a *App) ExtractColors(path string, lightMode bool, mode string) ([16]strin
 // mode. extraction.ExtractColors is content-hashed and cached, so repeated
 // calls for the same (path, lightMode, mode) tuple are cheap.
 func (a *App) PreviewExtractColors(path string, lightMode bool, mode string) ([16]string, error) {
-	path, err := resolveImagePath(path)
-	if err != nil {
-		return [16]string{}, err
+	if !theme.IsImageFile(path) {
+		return [16]string{}, fmt.Errorf("unsupported image file: %s", path)
 	}
 	return extraction.ExtractColors(path, lightMode, mode)
 }
@@ -182,36 +209,20 @@ type ExtractFromImagesResult struct {
 }
 
 // ExtractColorsFromImages extracts a blended 16-color palette by sampling pixels
-// from multiple images (typically the main wallpaper plus additional images) and
-// running the OKLab median-cut pipeline on the combined pixel set. Video paths are
-// resolved to extracted frames before sampling; unreadable or unsupported files
-// are skipped and counted in the result.
+// from multiple images (typically the main wallpaper plus additional images).
+// Unreadable or unsupported files are skipped and counted in the result.
 func (a *App) ExtractColorsFromImages(paths []string, lightMode bool, mode string) (ExtractFromImagesResult, error) {
-	resolved := make([]string, 0, len(paths))
-	skipped := 0
-	for _, p := range paths {
-		if p == "" {
-			skipped++
-			continue
-		}
-		resolvedPath, err := resolveImagePath(p)
-		if err != nil {
-			skipped++
-			continue
-		}
-		resolved = append(resolved, resolvedPath)
-	}
-
-	palette, extractionSkipped, err := extraction.ExtractColorsFromImages(resolved, lightMode, mode)
+	palette, skipped, err := extraction.ExtractColorsFromImages(paths, lightMode, mode)
 	if err != nil {
 		return ExtractFromImagesResult{}, err
 	}
 	a.state.SetPalette(palette)
+	a.state.NativeColors = map[string]string{}
 	a.state.LightMode = lightMode
 	a.state.ExtractionMode = mode
 	return ExtractFromImagesResult{
 		Palette: palette,
-		Skipped: skipped + extractionSkipped,
+		Skipped: skipped,
 	}, nil
 }
 
@@ -241,16 +252,23 @@ func (a *App) SetExtractionMode(mode string) {
 type SyncStateRequest struct {
 	Palette          []string                     `json:"palette"`
 	WallpaperPath    string                       `json:"wallpaperPath"`
+	WallpaperBlur    bool                         `json:"wallpaperBlur"`
 	LightMode        bool                         `json:"lightMode"`
 	ExtendedColors   map[string]string            `json:"extendedColors"`
+	NativeColors     map[string]string            `json:"nativeColors"`
 	AppOverrides     map[string]map[string]string `json:"appOverrides"`
 	AdditionalImages []string                     `json:"additionalImages"`
+	IconTheme        icontheme.Selection          `json:"iconTheme"`
 }
 
 // SyncState is called (debounced) by the frontend whenever the editor state
 // changes. Uses SetAdjustedPalette so BasePalette from the last extraction
 // is preserved as the "pristine" reference.
-func (a *App) SyncState(req SyncStateRequest) {
+func (a *App) SyncState(req SyncStateRequest) error {
+	iconTheme, err := icontheme.NormalizeSelection(req.IconTheme)
+	if err != nil {
+		return fmt.Errorf("iconTheme: %w", err)
+	}
 	if len(req.Palette) >= 16 {
 		var p [16]string
 		for i := 0; i < 16; i++ {
@@ -259,9 +277,13 @@ func (a *App) SyncState(req SyncStateRequest) {
 		a.state.SetAdjustedPalette(p)
 	}
 	a.state.WallpaperPath = req.WallpaperPath
+	a.state.WallpaperBlur = req.WallpaperBlur
 	a.state.LightMode = req.LightMode
 	if req.ExtendedColors != nil {
 		a.state.ExtendedColors = req.ExtendedColors
+	}
+	if req.NativeColors != nil {
+		a.state.NativeColors = req.NativeColors
 	}
 	if req.AppOverrides != nil {
 		a.state.AppOverrides = req.AppOverrides
@@ -269,6 +291,8 @@ func (a *App) SyncState(req SyncStateRequest) {
 	if req.AdditionalImages != nil {
 		a.state.AdditionalImages = req.AdditionalImages
 	}
+	a.state.IconTheme = iconTheme
+	return nil
 }
 
 // ANSI 16-color palette positions. Names follow xterm convention; the role
@@ -340,11 +364,14 @@ func (a *App) ComputeVariables(paletteSlice []string, extendedColors map[string]
 type ApplyThemeRequest struct {
 	Palette          []string                     `json:"palette"`
 	WallpaperPath    string                       `json:"wallpaperPath"`
+	WallpaperBlur    bool                         `json:"wallpaperBlur"`
 	LightMode        bool                         `json:"lightMode"`
 	AdditionalImages []string                     `json:"additionalImages"`
 	ExtendedColors   map[string]string            `json:"extendedColors"`
+	NativeColors     map[string]string            `json:"nativeColors"`
 	Settings         theme.Settings               `json:"settings"`
 	AppOverrides     map[string]map[string]string `json:"appOverrides"`
+	IconTheme        icontheme.Selection          `json:"iconTheme"`
 }
 
 // ApplyTheme processes all templates and applies the theme to the system.
@@ -359,14 +386,128 @@ func (a *App) ApplyTheme(req ApplyThemeRequest) (*theme.ApplyResult, error) {
 	state := &theme.ThemeState{
 		Palette:          palette,
 		WallpaperPath:    req.WallpaperPath,
+		WallpaperBlur:    req.WallpaperBlur,
 		LightMode:        req.LightMode,
 		ColorRoles:       roles,
 		ExtendedColors:   req.ExtendedColors,
+		NativeColors:     req.NativeColors,
 		AdditionalImages: req.AdditionalImages,
 		AppOverrides:     appOverrides,
+		IconTheme:        req.IconTheme,
 	}
 
 	return a.writer.ApplyTheme(state, req.Settings)
+}
+
+// SaveAndApplyThemeRequest is the payload for saving the current state as a
+// named theme folder before activating it.
+type SaveAndApplyThemeRequest struct {
+	Name             string                       `json:"name"`
+	UpdateExisting   bool                         `json:"updateExisting"`
+	Palette          []string                     `json:"palette"`
+	WallpaperPath    string                       `json:"wallpaperPath"`
+	WallpaperBlur    bool                         `json:"wallpaperBlur"`
+	LightMode        bool                         `json:"lightMode"`
+	AdditionalImages []string                     `json:"additionalImages"`
+	ExtendedColors   map[string]string            `json:"extendedColors"`
+	NativeColors     map[string]string            `json:"nativeColors"`
+	Settings         theme.Settings               `json:"settings"`
+	AppOverrides     map[string]map[string]string `json:"appOverrides"`
+	IconTheme        icontheme.Selection          `json:"iconTheme"`
+}
+
+// SaveAndApplyTheme writes a reusable named theme folder before applying it.
+func (a *App) SaveAndApplyTheme(req SaveAndApplyThemeRequest) (*theme.ApplyResult, error) {
+	name := req.Name
+	if name == "" || name[0] == '-' {
+		return nil, fmt.Errorf("theme name must start with a lowercase letter or digit")
+	}
+	for _, r := range name {
+		if (r < 'a' || r > 'z') && (r < '0' || r > '9') && r != '-' {
+			return nil, fmt.Errorf("theme name must use lowercase letters, digits, and hyphens")
+		}
+	}
+
+	palette, roles := buildColorRoles(req.Palette, req.ExtendedColors)
+	state := &theme.ThemeState{
+		Palette:          palette,
+		WallpaperPath:    req.WallpaperPath,
+		WallpaperBlur:    req.WallpaperBlur,
+		LightMode:        req.LightMode,
+		ColorRoles:       roles,
+		ExtendedColors:   req.ExtendedColors,
+		NativeColors:     req.NativeColors,
+		AdditionalImages: req.AdditionalImages,
+		AppOverrides:     req.AppOverrides,
+		IconTheme:        req.IconTheme,
+	}
+	if state.AppOverrides == nil {
+		state.AppOverrides = make(map[string]map[string]string)
+	}
+
+	isOmarchy := theme.IsOmarchyInstalled()
+	targetDir := filepath.Join(platform.SavedThemesDir(), name)
+	if isOmarchy {
+		targetDir = filepath.Join(omarchy.UserThemesDir(), name)
+		if !req.UpdateExisting && omarchy.ThemeExists(name) {
+			return nil, fmt.Errorf("Omarchy theme %q already exists", name)
+		}
+	}
+	if _, err := os.Stat(targetDir); err == nil {
+		if !req.UpdateExisting {
+			return nil, fmt.Errorf("theme folder %q already exists", name)
+		}
+	} else if !os.IsNotExist(err) {
+		return nil, fmt.Errorf("check theme folder: %w", err)
+	}
+	if isOmarchy {
+		return a.writer.SaveAndApplyOmarchyTheme(state, req.Settings, name)
+	}
+	if err := a.writer.GenerateOnly(state, req.Settings, targetDir); err != nil {
+		return nil, fmt.Errorf("save theme: %w", err)
+	}
+	return a.writer.ApplyTheme(state, req.Settings)
+}
+
+// ThemeFolderExists checks the output adapter's destination for a saved theme.
+func (a *App) ThemeFolderExists(name string) bool {
+	name = strings.ToLower(strings.TrimSpace(name))
+	if !theme.ValidOmarchyThemeName(name) {
+		return false
+	}
+	root := platform.SavedThemesDir()
+	if omarchy.IsInstalled() {
+		root = omarchy.UserThemesDir()
+	}
+	info, err := os.Stat(filepath.Join(root, name))
+	return err == nil && info.IsDir()
+}
+
+// ListGitHubImages lists a public repository directory.
+func (a *App) ListGitHubImages(rawURL string) (*githubsource.ListContentsResult, error) {
+	return a.githubSource.ListImages(rawURL)
+}
+
+// GetGitHubThumbnail returns a bounded, cached preview for a remote wallpaper.
+func (a *App) GetGitHubThumbnail(rawURL string) (*githubsource.ThumbnailResult, error) {
+	return githubsource.DownloadThumbnail(rawURL)
+}
+
+// BlurWallpaper prepares a cached preview of the derived wallpaper.
+func (a *App) BlurWallpaper(path string) (string, error) {
+	return wallpaper.CreateBlurredVariant(path, platform.BlurDir())
+}
+
+// ApplyWallpaperOnly preserves the active theme and changes its background.
+func (a *App) ApplyWallpaperOnly(path string) error {
+	info, err := os.Stat(path)
+	if err != nil || !info.Mode().IsRegular() {
+		return fmt.Errorf("wallpaper must be a readable regular file")
+	}
+	if err := wallpaper.ValidateImageFile(path); err != nil {
+		return err
+	}
+	return omarchy.SetBackground(path)
 }
 
 // ClearTheme removes the Aether theme and reverts to the default.
@@ -387,17 +528,27 @@ func (a *App) ListBlueprints() ([]map[string]interface{}, error) {
 	// Convert to raw maps to avoid Wails model conversion issues
 	result := make([]map[string]interface{}, len(bps))
 	for i, bp := range bps {
+		iconTheme, err := bp.IconThemeSelection()
+		if err != nil {
+			return nil, fmt.Errorf("blueprint %q icon theme: %w", bp.Name, err)
+		}
 		result[i] = map[string]interface{}{
 			"name":      bp.Name,
 			"timestamp": bp.Timestamp,
 			"palette": map[string]interface{}{
 				"colors":           bp.Palette.Colors,
 				"wallpaper":        bp.Palette.Wallpaper,
+				"wallpaperBlur":    bp.Palette.WallpaperBlur,
 				"lightMode":        bp.Palette.LightMode,
+				"mode":             bp.Palette.Mode,
+				"lockedColors":     bp.Palette.LockedColors,
+				"extendedColors":   bp.Palette.ExtendedColors,
+				"nativeColors":     bp.Palette.NativeColors,
 				"additionalImages": bp.Palette.AdditionalImages,
 			},
 			"adjustments":  bp.Adjustments,
 			"appOverrides": bp.AppOverrides,
+			"iconTheme":    iconTheme,
 		}
 	}
 	return result, nil
@@ -409,12 +560,15 @@ type SaveBlueprintRequest struct {
 	Name             string                       `json:"name"`
 	Palette          []string                     `json:"palette"`
 	WallpaperPath    string                       `json:"wallpaperPath"`
+	WallpaperBlur    bool                         `json:"wallpaperBlur"`
 	LightMode        bool                         `json:"lightMode"`
 	AdditionalImages []string                     `json:"additionalImages"`
 	LockedColors     []int                        `json:"lockedColors"`
 	ExtendedColors   map[string]string            `json:"extendedColors"`
+	NativeColors     map[string]string            `json:"nativeColors"`
 	AppOverrides     map[string]map[string]string `json:"appOverrides"`
 	Adjustments      map[string]float64           `json:"adjustments"`
+	IconTheme        icontheme.Selection          `json:"iconTheme"`
 }
 
 func (a *App) SaveBlueprint(req SaveBlueprintRequest) error {
@@ -422,13 +576,18 @@ func (a *App) SaveBlueprint(req SaveBlueprintRequest) error {
 		Palette: blueprint.PaletteData{
 			Colors:           req.Palette,
 			Wallpaper:        req.WallpaperPath,
+			WallpaperBlur:    req.WallpaperBlur,
 			LightMode:        req.LightMode,
 			AdditionalImages: req.AdditionalImages,
 			LockedColors:     req.LockedColors,
 			ExtendedColors:   req.ExtendedColors,
+			NativeColors:     req.NativeColors,
 		},
 		Adjustments:  req.Adjustments,
 		AppOverrides: req.AppOverrides,
+	}
+	if err := bp.SetIconThemeSelection(req.IconTheme); err != nil {
+		return fmt.Errorf("iconTheme: %w", err)
 	}
 	return a.blueprints.Save(req.Name, bp)
 }
@@ -478,9 +637,15 @@ func (a *App) LoadBlueprint(name string) error {
 	} else {
 		a.state.ExtendedColors = map[string]string{}
 	}
+	if bp.Palette.NativeColors != nil {
+		a.state.NativeColors = bp.Palette.NativeColors
+	} else {
+		a.state.NativeColors = map[string]string{}
+	}
 
 	a.state.SetPalette(palette)
 	a.state.WallpaperPath = a.resolveWallpaper(bp.Palette)
+	a.state.WallpaperBlur = bp.Palette.WallpaperBlur
 	a.state.LightMode = bp.Palette.LightMode
 	if bp.Palette.AdditionalImages != nil {
 		a.state.AdditionalImages = bp.Palette.AdditionalImages
@@ -489,6 +654,11 @@ func (a *App) LoadBlueprint(name string) error {
 	}
 	a.state.Adjustments = a.adjustmentsFromBlueprint(bp)
 	a.state.AppOverrides = a.appOverridesFromBlueprint(bp)
+	iconTheme, err := bp.IconThemeSelection()
+	if err != nil {
+		return fmt.Errorf("blueprint iconTheme: %w", err)
+	}
+	a.state.IconTheme = iconTheme
 	return nil
 }
 
@@ -512,9 +682,15 @@ func (a *App) ApplyBlueprint(name string) (*theme.ApplyResult, error) {
 	} else {
 		a.state.ExtendedColors = map[string]string{}
 	}
+	if bp.Palette.NativeColors != nil {
+		a.state.NativeColors = bp.Palette.NativeColors
+	} else {
+		a.state.NativeColors = map[string]string{}
+	}
 
 	a.state.SetPalette(palette)
 	a.state.WallpaperPath = a.resolveWallpaper(bp.Palette)
+	a.state.WallpaperBlur = bp.Palette.WallpaperBlur
 	a.state.LightMode = bp.Palette.LightMode
 	if bp.Palette.AdditionalImages != nil {
 		a.state.AdditionalImages = bp.Palette.AdditionalImages
@@ -523,6 +699,11 @@ func (a *App) ApplyBlueprint(name string) (*theme.ApplyResult, error) {
 	}
 	a.state.Adjustments = a.adjustmentsFromBlueprint(bp)
 	a.state.AppOverrides = a.appOverridesFromBlueprint(bp)
+	iconTheme, err := bp.IconThemeSelection()
+	if err != nil {
+		return nil, fmt.Errorf("blueprint iconTheme: %w", err)
+	}
+	a.state.IconTheme = iconTheme
 
 	return a.writer.ApplyTheme(a.state, theme.DefaultApplySettings())
 }
@@ -590,18 +771,135 @@ func (a *App) IsFavorite(path string) bool {
 	return a.favorites.IsFavorite(path)
 }
 
+// ExportFavoritesRequest is the payload from the frontend for zipping favorites.
+type ExportFavoritesRequest struct {
+	Paths []string `json:"paths"` // favorite paths, in display order
+}
+
+// ExportFavorites archives the given favorites into a .zip in a user-chosen
+// directory. Wallhaven favorites are remote URLs, so anything not already
+// downloaded is fetched first — which makes this slow enough that the work runs
+// in the background and reports through favorites-export-* events. Returns the
+// path the archive is being written to.
+func (a *App) ExportFavorites(req ExportFavoritesRequest) (string, error) {
+	if a.favExport.IsRunning() {
+		return "", fmt.Errorf("an export is already running")
+	}
+	items := a.favoriteItems(req.Paths)
+	if len(items) == 0 {
+		return "", fmt.Errorf("no favorites to export")
+	}
+
+	dir, err := wailsrt.OpenDirectoryDialog(a.ctx, wailsrt.OpenDialogOptions{
+		Title:                "Choose Export Directory",
+		CanCreateDirectories: true,
+	})
+	if err != nil {
+		return "", fmt.Errorf("choose export directory: %w", err)
+	}
+	if dir == "" {
+		return "", fmt.Errorf("export cancelled")
+	}
+
+	return a.favExport.Start(a.ctx, items, dir)
+}
+
+// CancelFavoritesExport stops a running favorites export.
+func (a *App) CancelFavoritesExport() { a.favExport.Cancel() }
+
+// IsFavoritesExportRunning reports whether an export is in flight. The frontend
+// uses this to recover its progress state after a reload.
+func (a *App) IsFavoritesExportRunning() bool { return a.favExport.IsRunning() }
+
+// favoriteItems resolves frontend-supplied paths against the favorites store.
+// Only the path crosses the boundary — names and metadata are read back from
+// the service so the archive cannot be steered by the caller.
+func (a *App) favoriteItems(paths []string) []favexport.Item {
+	known := make(map[string]favorites.Favorite)
+	for _, fav := range a.favorites.GetAll() {
+		known[fav.Path] = fav
+	}
+
+	items := make([]favexport.Item, 0, len(paths))
+	seen := make(map[string]bool, len(paths))
+	for _, path := range paths {
+		fav, ok := known[path]
+		if !ok || seen[path] {
+			continue
+		}
+		seen[path] = true
+
+		item := favexport.Item{Path: fav.Path, Meta: map[string]interface{}{}}
+		if fav.Type != "" {
+			item.Meta["type"] = fav.Type
+		}
+		for k, v := range fav.Data {
+			if v == nil {
+				continue
+			}
+			item.Meta[k] = v
+		}
+		// The tile label is the local name, falling back to the wallhaven id.
+		if name, ok := fav.Data["name"].(string); ok {
+			item.Name = name
+		} else if id, ok := fav.Data["id"].(string); ok {
+			item.Name = id
+		}
+		items = append(items, item)
+	}
+	return items
+}
+
 // ---------------------------------------------------------------------------
 // App Settings (template toggles, neovim config)
 // ---------------------------------------------------------------------------
 
+const wallpaperFolderSetting = "wallpaperFolder"
+
 // GetSettings reads saved app settings from ~/.config/aether/settings.json.
 func (a *App) GetSettings() map[string]interface{} {
-	return readConfigJSON("settings.json")
+	config := readConfigJSON("settings.json")
+	if config == nil {
+		config = make(map[string]interface{})
+	}
+	config[wallpaperFolderSetting] = wallpaperFolderFromConfig(config)
+	return config
 }
 
 // SaveSettings writes app settings to ~/.config/aether/settings.json.
 func (a *App) SaveSettings(config map[string]interface{}) error {
 	return writeConfigJSON("settings.json", config)
+}
+
+// ChooseWallpaperFolder opens a native directory picker and saves the selected
+// path as the local wallpaper library.
+func (a *App) ChooseWallpaperFolder() (string, error) {
+	defaultDir := wallpaperFolderFromConfig(readConfigJSON("settings.json"))
+	if info, err := os.Stat(defaultDir); err != nil || !info.IsDir() {
+		defaultDir = platform.WallpaperDir()
+		if err := platform.EnsureDir(defaultDir); err != nil {
+			return "", fmt.Errorf("prepare default wallpaper directory: %w", err)
+		}
+	}
+
+	dir, err := wailsrt.OpenDirectoryDialog(a.ctx, wailsrt.OpenDialogOptions{
+		Title:                "Choose Wallpaper Folder",
+		DefaultDirectory:     defaultDir,
+		CanCreateDirectories: true,
+	})
+	if err != nil || dir == "" {
+		return dir, err
+	}
+
+	config := readConfigJSON("settings.json")
+	if config == nil {
+		config = make(map[string]interface{})
+	}
+	config[wallpaperFolderSetting] = dir
+	if err := writeConfigJSON("settings.json", config); err != nil {
+		return "", fmt.Errorf("save wallpaper folder: %w", err)
+	}
+	return dir, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -663,34 +961,27 @@ func (a *App) SearchWallhaven(params wallhaven.SearchParams) (*wallhaven.SearchR
 
 // DownloadWallpaper downloads a wallpaper from a URL. Returns local path.
 func (a *App) DownloadWallpaper(imageURL string) (string, error) {
-	return a.wallhaven.DownloadImage(imageURL)
-}
-
-// ---------------------------------------------------------------------------
-// GitHub Source
-// ---------------------------------------------------------------------------
-
-// ListGitHubImages fetches all image files and subdirectories from a GitHub
-// repository URL. Accepts github.com, <owner>.github.io, and
-// raw.githubusercontent.com URLs.
-func (a *App) ListGitHubImages(rawURL string) (*githubsource.ListContentsResult, error) {
-	return a.github.ListImages(rawURL)
-}
-
-// GetGitHubThumbnail downloads an image from a GitHub raw URL, generates a
-// thumbnail, caches it to disk, and returns a ThumbnailResult with the data
-// URL and original image dimensions.
-func (a *App) GetGitHubThumbnail(rawURL string) (*githubsource.ThumbnailResult, error) {
-	return githubsource.DownloadThumbnail(rawURL)
+	return a.wallhaven.Download(imageURL)
 }
 
 // ---------------------------------------------------------------------------
 // Local Wallpapers
 // ---------------------------------------------------------------------------
 
-// ScanLocalWallpapers scans default directories for local wallpaper images.
+// ScanLocalWallpapers scans the configured local wallpaper directory.
 func (a *App) ScanLocalWallpapers() ([]wallpaper.WallpaperInfo, error) {
-	return wallpaper.ScanDefaultDirs()
+	dir := wallpaperFolderFromConfig(readConfigJSON("settings.json"))
+	if dir == platform.WallpaperDir() {
+		return wallpaper.ScanDefaultDirs()
+	}
+	info, err := os.Stat(dir)
+	if err != nil {
+		return nil, fmt.Errorf("access wallpaper folder: %w", err)
+	}
+	if !info.IsDir() {
+		return nil, fmt.Errorf("wallpaper folder is not a directory: %s", dir)
+	}
+	return wallpaper.ScanDirectory(dir)
 }
 
 // GetThumbnail returns a thumbnail path for an image.
@@ -717,21 +1008,23 @@ func (a *App) LoadOmarchyThemes() ([]omarchy.Theme, error) {
 	return omarchy.LoadAllThemes()
 }
 
-// ApplyOmarchyThemeByName activates an existing Omarchy theme directly
-// by running "omarchy-theme-set <name>" without processing through Aether templates.
+// ApplyOmarchyThemeByName activates an existing theme through Omarchy without
+// processing it through Aether templates.
 func (a *App) ApplyOmarchyThemeByName(name string) error {
-	_, err := platform.RunSync("omarchy-theme-set", name)
-	return err
+	if !omarchy.ThemeExists(name) {
+		return fmt.Errorf("Omarchy theme %q is available for editing only", name)
+	}
+	return omarchy.ActivateTheme(name, "")
 }
 
 // IsOmarchyInstalled returns true if the current system has Omarchy.
 func (a *App) IsOmarchyInstalled() bool {
-	return theme.IsOmarchyInstalled()
+	return omarchy.IsInstalled()
 }
 
-// IsAetherWpAvailable returns true if the aether-wp binary is available for animated wallpapers.
-func (a *App) IsAetherWpAvailable() bool {
-	return theme.IsAetherWpAvailable()
+// GetOmarchyCapabilities returns native Omarchy availability and state.
+func (a *App) GetOmarchyCapabilities() omarchy.Capabilities {
+	return omarchy.DetectCapabilities()
 }
 
 // ---------------------------------------------------------------------------
@@ -752,9 +1045,13 @@ func (a *App) CancelBatchProcessing() {
 // File / Image Utilities
 // ---------------------------------------------------------------------------
 
-// ReadImageAsDataURL reads a local image or video file and returns it as a base64 data URL.
+// ReadImageAsDataURL reads a local image file and returns it as a base64 data URL.
 // This is needed because webkit2gtk cannot load file:// paths directly.
 func (a *App) ReadImageAsDataURL(path string) (string, error) {
+	if !theme.IsImageFile(path) {
+		return "", fmt.Errorf("unsupported image file: %s", path)
+	}
+
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return "", fmt.Errorf("read file: %w", err)
@@ -772,12 +1069,6 @@ func (a *App) ReadImageAsDataURL(path string) (string, error) {
 		mime = "image/webp"
 	case ".bmp":
 		mime = "image/bmp"
-	case ".svg":
-		mime = "image/svg+xml"
-	case ".mp4":
-		mime = "video/mp4"
-	case ".webm":
-		mime = "video/webm"
 	}
 
 	encoded := base64.StdEncoding.EncodeToString(data)
@@ -826,8 +1117,8 @@ func (a *App) OpenFileDialog() (string, error) {
 		Title: "Select Wallpaper",
 		Filters: []wailsrt.FileFilter{
 			{
-				DisplayName: "Images & Videos",
-				Pattern:     "*.jpg;*.jpeg;*.png;*.gif;*.webp;*.bmp;*.mp4;*.webm",
+				DisplayName: "Images",
+				Pattern:     "*.jpg;*.jpeg;*.png;*.gif;*.webp;*.bmp",
 			},
 		},
 	})
@@ -841,15 +1132,8 @@ func (a *App) OpenFileDialog() (string, error) {
 // Takes the first image file from the dropped list.
 // Returns the file path if valid, error otherwise.
 func (a *App) HandleDroppedFiles(paths []string) (string, error) {
-	validExts := map[string]bool{
-		".jpg": true, ".jpeg": true, ".png": true,
-		".gif": true, ".webp": true, ".bmp": true,
-		".mp4": true, ".webm": true,
-	}
-
 	for _, path := range paths {
-		ext := strings.ToLower(filepath.Ext(path))
-		if validExts[ext] {
+		if theme.IsImageFile(path) {
 			return path, nil
 		}
 	}
@@ -866,17 +1150,20 @@ type ExportThemeRequest struct {
 	IncludedApps     []string                     `json:"includedApps"`
 	Palette          []string                     `json:"palette"`
 	WallpaperPath    string                       `json:"wallpaperPath"`
+	WallpaperBlur    bool                         `json:"wallpaperBlur"`
 	LightMode        bool                         `json:"lightMode"`
 	AdditionalImages []string                     `json:"additionalImages"`
 	ExtendedColors   map[string]string            `json:"extendedColors"`
+	NativeColors     map[string]string            `json:"nativeColors"`
 	InstallToOmarchy bool                         `json:"installToOmarchy"`
 	AppOverrides     map[string]map[string]string `json:"appOverrides"`
+	IconTheme        icontheme.Selection          `json:"iconTheme"`
 }
 
 // allExportableApps is the full set of app names that can be exported.
 var allExportableApps = map[string]bool{
 	"alacritty": true, "btop": true, "chromium": true, "colors": true,
-	"foot": true, "ghostty": true, "gtk": true, "hyprland": true, "hyprlock": true,
+	"foot": true, "ghostty": true, "hyprland": true, "hyprlock": true,
 	"icons": true, "kitty": true, "mako": true, "neovim": true,
 	"swayosd": true, "vencord": true, "vscode": true, "walker": true,
 	"warp": true, "waybar": true, "wofi": true, "zed": true,
@@ -899,6 +1186,19 @@ func (a *App) ExportTheme(req ExportThemeRequest) (string, error) {
 	if err != nil || dir == "" {
 		return "", fmt.Errorf("export cancelled")
 	}
+	isOmarchy := theme.IsOmarchyInstalled()
+	linkPath := ""
+	if req.InstallToOmarchy && isOmarchy {
+		if omarchy.ThemeExists(slug) {
+			return "", fmt.Errorf("Omarchy theme %q already exists", slug)
+		}
+		linkPath = filepath.Join(platform.OmarchyThemesDir(), slug)
+		if _, err := os.Lstat(linkPath); err == nil {
+			return "", fmt.Errorf("Omarchy theme %q already exists", slug)
+		} else if !os.IsNotExist(err) {
+			return "", fmt.Errorf("inspect Omarchy theme %q: %w", slug, err)
+		}
+	}
 
 	// Build theme state from the frontend's current palette
 	palette, roles := buildColorRoles(req.Palette, req.ExtendedColors)
@@ -911,11 +1211,14 @@ func (a *App) ExportTheme(req ExportThemeRequest) (string, error) {
 	state := &theme.ThemeState{
 		Palette:          palette,
 		WallpaperPath:    req.WallpaperPath,
+		WallpaperBlur:    req.WallpaperBlur,
 		LightMode:        req.LightMode,
 		ColorRoles:       roles,
 		ExtendedColors:   req.ExtendedColors,
+		NativeColors:     req.NativeColors,
 		AdditionalImages: req.AdditionalImages,
 		AppOverrides:     exportOverrides,
+		IconTheme:        req.IconTheme,
 	}
 
 	// Build included set from the request
@@ -933,7 +1236,6 @@ func (a *App) ExportTheme(req ExportThemeRequest) (string, error) {
 	}
 
 	settings := theme.Settings{
-		IncludeGtk:    included["gtk"],
 		IncludeZed:    included["zed"],
 		IncludeVscode: included["vscode"],
 		IncludeNeovim: included["neovim"],
@@ -941,17 +1243,24 @@ func (a *App) ExportTheme(req ExportThemeRequest) (string, error) {
 	}
 
 	exportDir := filepath.Join(dir, "omarchy-"+slug+"-theme")
-	if err := a.writer.GenerateOnly(state, settings, exportDir); err != nil {
-		return "", fmt.Errorf("export failed: %w", err)
+	var exportErr error
+	if isOmarchy {
+		exportErr = a.writer.GenerateOmarchyV4Only(state, settings, exportDir)
+	} else {
+		exportErr = a.writer.GenerateOnly(state, settings, exportDir)
+	}
+	if exportErr != nil {
+		return "", fmt.Errorf("export failed: %w", exportErr)
 	}
 
-	if req.InstallToOmarchy && theme.IsOmarchyInstalled() {
-		linkPath := filepath.Join(platform.OmarchyThemesDir(), slug)
-		if err := platform.CreateSymlink(exportDir, linkPath); err != nil {
-			log.Printf("Warning: could not symlink to omarchy themes: %v", err)
-		} else {
-			log.Printf("Installed as omarchy theme: %s -> %s", linkPath, exportDir)
+	if req.InstallToOmarchy && isOmarchy {
+		if err := platform.EnsureDir(filepath.Dir(linkPath)); err != nil {
+			return "", fmt.Errorf("create Omarchy themes directory: %w", err)
 		}
+		if err := os.Symlink(exportDir, linkPath); err != nil {
+			return "", fmt.Errorf("install Omarchy theme: %w", err)
+		}
+		log.Printf("Installed as Omarchy theme: %s -> %s", linkPath, exportDir)
 	}
 
 	return exportDir, nil
@@ -959,11 +1268,15 @@ func (a *App) ExportTheme(req ExportThemeRequest) (string, error) {
 
 // ImportResult is returned by ImportFileDialog with the imported colors.
 type ImportResult struct {
-	Colors        []string `json:"colors"`
-	Name          string   `json:"name"`
-	Path          string   `json:"path"`
-	WallpaperPath string   `json:"wallpaperPath"`
-	LightMode     bool     `json:"lightMode"`
+	Colors         []string            `json:"colors"`
+	ExtendedColors map[string]string   `json:"extendedColors"`
+	NativeColors   map[string]string   `json:"nativeColors"`
+	Name           string              `json:"name"`
+	Path           string              `json:"path"`
+	WallpaperPath  string              `json:"wallpaperPath"`
+	WallpaperBlur  bool                `json:"wallpaperBlur"`
+	LightMode      bool                `json:"lightMode"`
+	IconTheme      icontheme.Selection `json:"iconTheme"`
 }
 
 // ImportFileDialog opens a file dialog for importing a theme file.
@@ -1044,17 +1357,29 @@ func (a *App) importFile(path, fileType string) (*ImportResult, error) {
 		palette[i] = bp.Palette.Colors[i]
 	}
 	a.history.Push(*a.state)
+	a.state.ExtendedColors = bp.Palette.ExtendedColors
+	a.state.NativeColors = bp.Palette.NativeColors
 	a.state.SetPalette(palette)
 	a.state.WallpaperPath = a.resolveWallpaper(bp.Palette)
+	a.state.WallpaperBlur = bp.Palette.WallpaperBlur
 	a.state.LightMode = bp.Palette.LightMode
+	iconTheme, err := bp.IconThemeSelection()
+	if err != nil {
+		return nil, fmt.Errorf("iconTheme: %w", err)
+	}
+	a.state.IconTheme = iconTheme
 
 	log.Printf("[import] success: %s (%d colors)", bp.Name, len(bp.Palette.Colors))
 	return &ImportResult{
-		Colors:        palette[:],
-		Name:          bp.Name,
-		Path:          savedPath,
-		WallpaperPath: a.state.WallpaperPath,
-		LightMode:     a.state.LightMode,
+		Colors:         palette[:],
+		ExtendedColors: bp.Palette.ExtendedColors,
+		NativeColors:   bp.Palette.NativeColors,
+		Name:           bp.Name,
+		Path:           savedPath,
+		WallpaperPath:  a.state.WallpaperPath,
+		WallpaperBlur:  a.state.WallpaperBlur,
+		LightMode:      a.state.LightMode,
+		IconTheme:      a.state.IconTheme,
 	}, nil
 }
 
@@ -1085,11 +1410,14 @@ func (a *App) GetTemplateColors() map[string][]string {
 	}
 
 	for _, f := range files {
+		appName := theme.GetAppNameFromFileName(f)
+		if omarchy.IsInstalled() && !theme.SupportsOmarchyOverride(appName) {
+			continue
+		}
 		content, err := template.ReadTemplate(EmbeddedTemplates, "templates", f)
 		if err != nil {
 			continue
 		}
-		appName := theme.GetAppNameFromFileName(f)
 		vars := template.ExtractVariableNames(content)
 		if appColorSets[appName] == nil {
 			appColorSets[appName] = make(map[string]bool)
@@ -1198,11 +1526,16 @@ func (a *App) HandleIPC(req ipc.Request) ipc.Response {
 
 	case "apply":
 		result, err := a.ApplyTheme(ApplyThemeRequest{
-			Palette:        a.state.Palette[:],
-			WallpaperPath:  a.state.WallpaperPath,
-			LightMode:      a.state.LightMode,
-			ExtendedColors: a.state.ExtendedColors,
-			AppOverrides:   a.state.AppOverrides,
+			Palette:          a.state.Palette[:],
+			WallpaperPath:    a.state.WallpaperPath,
+			WallpaperBlur:    a.state.WallpaperBlur,
+			LightMode:        a.state.LightMode,
+			AdditionalImages: a.state.AdditionalImages,
+			ExtendedColors:   a.state.ExtendedColors,
+			NativeColors:     a.state.NativeColors,
+			Settings:         theme.DefaultApplySettings(),
+			AppOverrides:     a.state.AppOverrides,
+			IconTheme:        a.state.IconTheme,
 		})
 		if err != nil {
 			return ipc.Response{OK: false, Error: err.Error()}
@@ -1251,6 +1584,7 @@ func (a *App) HandleIPC(req ipc.Request) ipc.Response {
 			return ipc.Response{OK: false, Error: "set-wallpaper requires a path"}
 		}
 		a.state.WallpaperPath = req.Path
+		a.state.WallpaperBlur = false
 		a.emitIPCStateChanged()
 		return ipc.Response{OK: true, Wallpaper: req.Path}
 
@@ -1288,11 +1622,17 @@ func (a *App) emitIPCStateChanged() {
 		return
 	}
 	wailsrt.EventsEmit(a.ctx, "ipc-state-changed", map[string]interface{}{
-		"palette":     a.state.Palette[:],
-		"lightMode":   a.state.LightMode,
-		"mode":        a.state.ExtractionMode,
-		"wallpaper":   a.state.WallpaperPath,
-		"adjustments": a.state.Adjustments,
+		"palette":          a.state.Palette[:],
+		"extendedColors":   a.state.ExtendedColors,
+		"nativeColors":     a.state.NativeColors,
+		"lightMode":        a.state.LightMode,
+		"mode":             a.state.ExtractionMode,
+		"wallpaper":        a.state.WallpaperPath,
+		"wallpaperBlur":    a.state.WallpaperBlur,
+		"appOverrides":     a.state.AppOverrides,
+		"additionalImages": a.state.AdditionalImages,
+		"adjustments":      a.state.Adjustments,
+		"iconTheme":        a.state.IconTheme,
 	})
 }
 
@@ -1349,4 +1689,11 @@ func readConfigJSON(filename string) map[string]interface{} {
 
 func writeConfigJSON(filename string, v interface{}) error {
 	return platform.WriteJSON(filepath.Join(platform.ConfigDir(), filename), v)
+}
+
+func wallpaperFolderFromConfig(config map[string]interface{}) string {
+	if folder, ok := config[wallpaperFolderSetting].(string); ok && strings.TrimSpace(folder) != "" {
+		return folder
+	}
+	return platform.WallpaperDir()
 }

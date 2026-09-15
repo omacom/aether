@@ -11,9 +11,8 @@ aether --list-blueprints
 # Apply a saved theme
 aether --apply-blueprint "my-theme"
 
-# Generate theme from wallpaper (images and videos)
+# Generate theme from an image wallpaper
 aether --generate ~/Wallpapers/sunset.jpg
-aether --generate ~/Wallpapers/animated.mp4
 
 # Import Base16 color scheme
 aether --import-base16 ~/themes/dracula.yaml
@@ -60,6 +59,7 @@ aether --generate /path/to/wallpaper.jpg
 | `--extract-mode MODE` | Color extraction algorithm (see below) |
 | `--no-apply` | Generate templates only, don't activate theme |
 | `--output PATH` | Custom output directory (use with `--no-apply`) |
+| `--icon-theme automatic\|ID` | Keep color-matched Yaru or write an explicit safe icon-theme directory ID |
 
 **Extraction Modes:**
 
@@ -86,7 +86,12 @@ aether --generate ~/wallpaper.jpg --no-apply
 
 # Generate to custom directory for use with external scripts
 aether --generate ~/wallpaper.jpg --no-apply --output ~/my-themes/generated
+
+# Generate with a specific installed icon theme (installation is not required on this machine)
+aether --generate ~/wallpaper.jpg --no-apply --icon-theme Papirus-Dark
 ```
+
+Omitting `--icon-theme`, or passing `--icon-theme automatic`, preserves Aether's existing palette-derived Yaru behavior. A safe explicit ID is written exactly even when it is not installed locally, so portable blueprints keep their intent. Excluding the Icons target still takes precedence and omits `icons.theme`.
 
 ### Import Blueprint
 
@@ -161,7 +166,7 @@ aether --import-colors-toml /path/to/colors.toml
 
 ```bash
 # Import colors.toml
-aether --import-colors-toml ~/.local/share/omarchy/themes/ethereal/colors.toml
+aether --import-colors-toml /usr/share/omarchy/themes/ethereal/colors.toml
 
 # Import with wallpaper
 aether --import-colors-toml ~/themes/colors.toml --wallpaper ~/wallpaper.jpg
@@ -182,57 +187,16 @@ color1 = "#ff6188"
 color15 = "#ffcead"
 ```
 
-### Blueprint Widget
+### Omarchy Shell Selectors
 
-Show floating theme selector widget:
-
-```bash
-aether --widget-blueprint
-```
-
-Useful for quick theme switching from a keybind.
-
-### Wallpaper Slider Widget
-
-Full-screen overlay slider for browsing and applying wallpapers with material color extraction:
+Wallpaper and blueprint selectors run as native `omarchy-shell` plugins rather than CLI widget modes:
 
 ```bash
-aether --widget-wallpaper-slider
+omarchy-shell shell toggle aether.wallpapers '{}'
+omarchy-shell shell toggle aether.blueprints '{}'
 ```
 
-### Themes Slider Widget
-
-Full-screen overlay slider for browsing and applying system themes:
-
-```bash
-aether --widget-themes-slider
-```
-
-**Controls:**
-
-| Key | Action |
-|-----|--------|
-| Tab / Arrow Right | Next slide |
-| Shift+Tab / Arrow Left | Previous slide |
-| Hold Tab | Fast scroll (accelerates the longer you hold) |
-| Enter | Apply current theme |
-| Escape | Close |
-| Type characters | Search by filename/theme name |
-
-**Hyprland configuration:**
-
-For the slider widgets to display as transparent overlays, add to your Hyprland config:
-
-```conf
-# No window rules needed — the slider handles fullscreen automatically.
-```
-
-**Keybind examples:**
-
-```conf
-bind = SUPER ALT, W, exec, aether --widget-wallpaper-slider
-bind = SUPER ALT, T, exec, aether --widget-themes-slider
-```
+See [Omarchy shell plugins](quickshell.md) for installation and controls.
 
 ### Open with Tab
 
@@ -241,46 +205,6 @@ Launch GUI with a specific tab focused:
 ```bash
 aether --tab <name>
 ```
-
-## aether-wp
-
-`aether-wp` is a standalone binary for animated (live) wallpapers. It uses GStreamer and GTK Layer Shell to render video or GIF files directly on the Wayland desktop background layer.
-
-```bash
-aether-wp /path/to/video.mp4
-aether-wp --cpu /path/to/video.mp4
-aether-wp --stop
-```
-
-| Flag | Description |
-|------|-------------|
-| `--stop` | Stop any running aether-wp instance and clean up the layer surface |
-| `--cpu` | Force CPU rendering (skip GPU-accelerated OpenGL sink) |
-
-Aether launches `aether-wp` automatically when you apply a theme with an animated wallpaper (`.mp4`, `.webm`, `.gif`). You can also run it standalone.
-
-**How it works:**
-
-- Renders on the background layer via `gtk-layer-shell` (replaces `swaybg`)
-- GPU-accelerated playback using `gtkglsink` (OpenGL), auto-falls back to `gtksink` (CPU)
-- Frame rate capped at 30fps to reduce GPU load
-- Loops automatically on end-of-stream
-- Muted audio (audio decoding disabled entirely)
-- PID file at `$XDG_RUNTIME_DIR/aether-wp.pid` for reliable process management
-- Handles `SIGTERM`/`SIGINT` for clean shutdown (tears down layer surface properly)
-
-**Requirements:**
-
-- Wayland compositor with layer-shell support (Hyprland, Sway, etc.)
-- `gtk-layer-shell`
-- GStreamer with GTK sink (`gst-plugins-good` or `gst-plugin-gtk`)
-
-**Binary lookup order:**
-
-1. Same directory as the `aether` binary
-2. `$PATH`
-
-When applying a static wallpaper, Aether automatically kills any running `aether-wp` process and falls back to `swaybg`.
 
 ## Color Utilities
 
@@ -581,12 +505,9 @@ aether --generate "$wallpaper"
 Add to `~/.config/hypr/hyprland.conf`:
 
 ```conf
-# Slider widgets
-bind = SUPER ALT, W, exec, aether --widget-wallpaper-slider
-bind = SUPER ALT, T, exec, aether --widget-themes-slider
-
-# Quick theme selector widget
-bind = SUPER ALT, B, exec, aether --widget-blueprint
+# Native Omarchy shell selectors
+bind = SUPER ALT, W, exec, omarchy-shell shell toggle aether.wallpapers '{}'
+bind = SUPER ALT, B, exec, omarchy-shell shell toggle aether.blueprints '{}'
 
 # Generate theme from current wallpaper
 bind = $mainMod ALT, T, exec, aether --generate $(hyprctl hyprpaper listactive | head -1 | cut -d' ' -f2)
@@ -611,7 +532,8 @@ Aether respects standard XDG directories:
 
 Colon-separated list of additional directories to scan for themes shown
 in the **System Themes** tab. These are searched **before** the omarchy
-defaults (`~/.config/omarchy/themes`, `~/.local/share/omarchy/themes`,
+defaults (`~/.config/omarchy/themes`, `$OMARCHY_PATH/themes` or
+`/usr/share/omarchy/themes`,
 `~/.config/themes`), so a theme with the same name in a custom directory
 wins.
 

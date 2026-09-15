@@ -1,4 +1,5 @@
 <script lang="ts">
+    import {onMount} from 'svelte';
     import WallhavenFilters from './WallhavenFilters.svelte';
     import WallpaperGrid from './WallpaperGrid.svelte';
     import {
@@ -6,10 +7,12 @@
         getIsSearching,
         getIsLoadingMore,
         getHasMore,
+        getSearchError,
         getQuery,
         setQuery,
         search,
         loadMore,
+        initializeSearch,
     } from '$lib/stores/wallhaven.svelte';
     import {observeIntersection} from '$lib/utils/intersection';
     import EmptyState from '$lib/components/shared/EmptyState.svelte';
@@ -19,10 +22,8 @@
     let scrollContainer = $state<HTMLDivElement | null>(null);
     let sentinel = $state<HTMLDivElement | null>(null);
 
-    $effect(() => {
-        if (getResults().length === 0 && !getIsSearching()) {
-            search();
-        }
+    onMount(() => {
+        void initializeSearch();
     });
 
     // Re-observe on every results change so the sentinel fires again even if it
@@ -40,7 +41,8 @@
                     entry.isIntersecting &&
                     getHasMore() &&
                     !getIsSearching() &&
-                    !getIsLoadingMore()
+                    !getIsLoadingMore() &&
+                    !getSearchError()
                 ) {
                     loadMore();
                 }
@@ -56,6 +58,13 @@
     <div class="flex-1 overflow-y-auto p-3" bind:this={scrollContainer}>
         {#if getIsSearching() && getResults().length === 0}
             <LoadingState message="Searching wallhaven…" />
+        {:else if getSearchError() && getResults().length === 0}
+            <EmptyState
+                title="Search failed"
+                body={getSearchError()}
+                actionLabel="Retry"
+                onaction={search}
+            />
         {:else if getResults().length === 0}
             <EmptyState
                 title={getQuery()
@@ -85,6 +94,16 @@
                 <div class="flex h-12 items-center justify-center">
                     <span class="text-fg-dimmed text-[12px]"
                         >Loading more...</span
+                    >
+                </div>
+            {:else if getSearchError()}
+                <div
+                    class="text-fg-dimmed flex items-center justify-center gap-3 py-3 text-[11px]"
+                >
+                    <span>{getSearchError()}</span>
+                    <button
+                        class="text-accent hover:text-accent-hover"
+                        onclick={loadMore}>Retry</button
                     >
                 </div>
             {:else if !getHasMore()}

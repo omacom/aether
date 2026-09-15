@@ -8,6 +8,22 @@ Edit your wallpaper with professional filters before extracting colors.
 2. Click the **edit icon** (pencil) next to the Extract button
 3. The full-screen editor opens
 
+## Source-preserving blur
+
+Use `Heavy blur wallpaper` in the main wallpaper preview to select a blurred desktop variant.
+The wallpaper editor and color extraction continue to use the original image.
+Use `Remove blur` to select the original image again.
+
+Blueprints store the source path and the blur choice.
+Aether recreates the cached variant when needed.
+Saved theme folders contain both the original image and the blurred variant.
+
+## Wallpaper-only changes
+
+On Omarchy, use `Wallpaper only` in Local, Wallhaven, or Favorites to change the background.
+This action preserves the active theme and its colors.
+It requires Omarchy's public background command.
+
 ## Filter Categories
 
 ### Basic Adjustments

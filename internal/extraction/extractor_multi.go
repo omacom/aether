@@ -10,10 +10,11 @@ import (
 // ExtractColorsFromImages blends multiple images into a single 16-color palette
 // by sampling pixels from each image and concatenating them before quantization.
 // Non-image inputs and unreadable files are skipped; the second return value is
-// the count of skipped paths, intended for UI feedback. Callers should resolve
-// video paths to extracted frames before calling this (the extraction package
-// does not decode video).
+// the count of skipped paths, intended for UI feedback.
 func ExtractColorsFromImages(imagePaths []string, lightMode bool, mode string) ([16]string, int, error) {
+	if err := validateMode(mode); err != nil {
+		return [16]string{}, 0, err
+	}
 	if len(imagePaths) == 0 {
 		return [16]string{}, 0, fmt.Errorf("no images provided")
 	}

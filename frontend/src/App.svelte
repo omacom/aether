@@ -1,5 +1,5 @@
 <script lang="ts">
-    import {onMount} from 'svelte';
+    import {onMount, onDestroy} from 'svelte';
     import {fade} from 'svelte/transition';
     import HeaderBar from '$lib/components/layout/HeaderBar.svelte';
     import ActionBar from '$lib/components/layout/ActionBar.svelte';
@@ -11,7 +11,10 @@
     import FavoritesView from '$lib/components/favorites/FavoritesView.svelte';
     import BlueprintsView from '$lib/components/blueprints/BlueprintsView.svelte';
     import OmarchyThemes from '$lib/components/blueprints/OmarchyThemes.svelte';
+    import SettingsView from '$lib/components/settings/SettingsView.svelte';
     import AboutView from '$lib/components/layout/AboutView.svelte';
+    import ExportProgress from '$lib/components/favorites/ExportProgress.svelte';
+    import {initExportEvents} from '$lib/stores/favoritesExport.svelte';
     import {
         getActiveTab,
         setActiveTab,
@@ -32,8 +35,12 @@
         toggleKeymap,
         toggleSidebar,
         getLiveApply,
+        getLiveApplySession,
+        invalidateLiveApplySession,
         setLivePending,
         getTargetsVisible,
+        getApplySaveDialogOpen,
+        setApplySaveDialogOpen,
         type Tab,
     } from '$lib/stores/ui.svelte';
 
@@ -45,29 +52,41 @@
         'favorites',
         'blueprints',
         'system',
+        'settings',
         'about',
     ] as const;
     const isValidTab = (t: string): t is Tab =>
         (VALID_TABS as readonly string[]).includes(t);
     import {
         setWallpaperPath,
+        setWallpaperBlur,
         setPalette,
+        setExtendedColors,
+        setNativeColors,
+        setIconTheme,
         setAdjustments,
         setColor,
         setExtendedColor,
         setAppOverride,
+        setAppOverrides,
+        setAdditionalImages,
         setLightMode,
         setExtractionMode,
         getThemeSnapshot,
         getThemeSignature,
+        getLastAppliedSignature,
+        getIsApplying,
+        getIsAdjusting,
+        getIsExtracting,
         setLastExtractedPath,
     } from '$lib/stores/theme.svelte';
     import {debounce} from '$lib/utils/debounce';
     import {STORAGE_KEYS} from '$lib/constants/storage';
-    import {pushState} from '$lib/stores/history.svelte';
     import {
         applyTheme,
         applyThemeLive,
+        requestThemeApply,
+        saveThemeAsNew,
         undoAction,
         redoAction,
     } from '$lib/actions/themeActions';
@@ -82,6 +101,7 @@
     import KeymapDialog from '$lib/components/shared/KeymapDialog.svelte';
     import CommandPalette from '$lib/components/shared/CommandPalette.svelte';
     import ExternalImportDialog from '$lib/components/ExternalImportDialog.svelte';
+    import ApplySaveDialog from '$lib/components/layout/ApplySaveDialog.svelte';
     import {initKeyboardShortcuts, registerShortcut} from '$lib/utils/keyboard';
     import {
         hexToRgb,
@@ -92,9 +112,16 @@
     import {prefersReducedMotion} from '$lib/utils/browser';
     import {buildCommands} from '$lib/commands/commands.svelte';
     import type {main} from '../wailsjs/go/models';
+    import {
+        getOmarchyAvailable,
+        initOmarchyCapabilities,
+    } from '$lib/stores/omarchy.svelte';
 
     let activeTab = $derived(getActiveTab());
     let commands = $derived(buildCommands());
+    let omarchyAvailable = $derived(getOmarchyAvailable());
+
+    void initOmarchyCapabilities();
 
     const TAB_FADE_DURATION = prefersReducedMotion() ? 0 : 100;
 
@@ -136,29 +163,80 @@
         );
     });
 
-    // Live-preview apply. Tracks the snapshot signature so we don't fire
-    // on object-identity churn. `null` baseline doubles as the
-    // not-yet-armed flag — first read just records the signature.
-    // Long enough to coalesce slider drags but short enough to feel "live".
+    // Arming records the initial state without applying it. Queuing is not an
+    // acknowledgement: only a completed apply advances the applied signature.
     const LIVE_APPLY_DEBOUNCE_MS = 1500;
-    let lastLiveSignature: string | null = null;
-    const debouncedLiveApply = debounce(() => {
-        applyThemeLive();
+    let initialStateLoaded = $state(false);
+    let initialLiveSignature = '';
+    type LiveAttempt = {signature: string; session: number};
+    let queuedLive: LiveAttempt | null = null;
+    let lastLiveAttempt = $state.raw<LiveAttempt | null>(null);
+    const debouncedLiveApply = debounce(async () => {
+        const attempt = queuedLive;
+        queuedLive = null;
+        if (
+            !attempt ||
+            !getLiveApply() ||
+            attempt.session !== getLiveApplySession() ||
+            attempt.signature !== getThemeSignature() ||
+            getIsApplying() ||
+            getIsAdjusting() ||
+            getIsExtracting()
+        )
+            return;
+        lastLiveAttempt = attempt;
+        const result = await applyThemeLive();
+        if (result !== 'failed' && lastLiveAttempt === attempt)
+            lastLiveAttempt = null;
     }, LIVE_APPLY_DEBOUNCE_MS);
     $effect(() => {
         const enabled = getLiveApply();
-        // Once armed, skip the JSON.stringify when the toggle is off.
-        // The first run still reads sig to establish the baseline.
-        if (!enabled && lastLiveSignature !== null) return;
-        const sig = getThemeSignature();
-        if (lastLiveSignature === null) {
-            lastLiveSignature = sig;
+        const session = getLiveApplySession();
+        const signature = getThemeSignature();
+        const applied = getLastAppliedSignature();
+        if (
+            lastLiveAttempt &&
+            (lastLiveAttempt.signature !== signature ||
+                lastLiveAttempt.session !== session ||
+                lastLiveAttempt.signature === applied)
+        ) {
+            lastLiveAttempt = null;
+        }
+        if (!initialStateLoaded) initialLiveSignature = signature;
+        if (
+            !initialStateLoaded ||
+            !enabled ||
+            signature === (applied || initialLiveSignature)
+        ) {
+            debouncedLiveApply.cancel();
+            queuedLive = null;
+            setLivePending(false);
             return;
         }
-        if (sig === lastLiveSignature) return;
-        lastLiveSignature = sig;
+        if (getIsApplying() || getIsAdjusting() || getIsExtracting()) {
+            debouncedLiveApply.cancel();
+            queuedLive = null;
+            setLivePending(true);
+            return;
+        }
+        // Don't loop on a failed request. A new edit or OFF/ON session retries it.
+        if (
+            lastLiveAttempt?.signature === signature &&
+            lastLiveAttempt.session === session
+        ) {
+            setLivePending(false);
+            return;
+        }
+        queuedLive = {signature, session};
         setLivePending(true);
         debouncedLiveApply();
+    });
+
+    onDestroy(() => {
+        invalidateLiveApplySession();
+        debouncedLiveApply.cancel();
+        syncStateToBackend.cancel();
+        setLivePending(false);
     });
 
     onMount(async () => {
@@ -168,11 +246,17 @@
             WindowShow();
         } catch {}
 
+        await initOmarchyCapabilities();
+
         // Focus a specific tab if requested via --tab flag
         try {
             const {GetFocusTab} = await import('../wailsjs/go/main/App');
             const tab = await GetFocusTab();
-            if (tab && isValidTab(tab)) setActiveTab(tab);
+            if (tab && isValidTab(tab)) {
+                setActiveTab(
+                    tab === 'system' && !getOmarchyAvailable() ? 'editor' : tab
+                );
+            }
         } catch {}
 
         // Overwrite module-load DEFAULT_PALETTE with backend defaults
@@ -183,21 +267,32 @@
             if (s?.palette?.length >= 16) {
                 setPalette(s.palette, true /* skipHistory */);
             }
+            if (s?.extendedColors) {
+                setExtendedColors(s.extendedColors);
+            }
+            if (s?.nativeColors) {
+                setNativeColors(s.nativeColors);
+            }
+            setIconTheme(s?.iconTheme, true);
             if (s?.wallpaperPath) {
                 setWallpaperPath(s.wallpaperPath);
                 // Treat the restored wallpaper as already-extracted so a
                 // re-extract on the same image doesn't clear overrides.
                 setLastExtractedPath(s.wallpaperPath);
             }
+            setWallpaperBlur(!!s?.wallpaperBlur, true);
         } catch (e) {
             console.warn('GetInitialState failed:', e);
         }
+        initialLiveSignature = getThemeSignature();
+        initialStateLoaded = true;
 
         initKeyboardShortcuts();
 
         registerShortcut('ctrl+z', undoAction);
         registerShortcut('ctrl+shift+z', redoAction);
         registerShortcut('ctrl+enter', applyTheme);
+        registerShortcut('ctrl+j', saveThemeAsNew);
 
         // Ctrl+S - Save blueprint
         registerShortcut('ctrl+s', () => {
@@ -267,6 +362,12 @@
             else if (getColorPickerOpen()) closeColorPicker();
             else if (getKeymapOpen()) setKeymapOpen(false);
         });
+
+        // Favorites export progress. Wired here rather than in FavoritesView
+        // so an export keeps reporting after the user switches tabs.
+        initExportEvents().catch(error =>
+            console.error('Favorites export events unavailable:', error)
+        );
 
         // Listen for events from Go
         (async () => {
@@ -344,13 +445,14 @@
                         );
                         document.body.style.color = colors.foreground;
                     }
-                    if (colors.blue) {
-                        root.style.setProperty('--color-accent', colors.blue);
+                    const accent = colors.accent || colors.blue;
+                    if (accent) {
+                        root.style.setProperty('--color-accent', accent);
                         // Pick black or white text for content sitting on
                         // the accent button, based on accent luminance.
                         root.style.setProperty(
                             '--color-accent-fg',
-                            contrastInk(colors.blue)
+                            contrastInk(accent)
                         );
                     }
                     if (colors.red) {
@@ -405,25 +507,47 @@
                     'ipc-state-changed',
                     (state: {
                         palette?: string[];
+                        extendedColors?: Record<string, string>;
+                        nativeColors?: Record<string, string>;
+                        iconTheme?: {mode?: string; id?: string};
                         lightMode?: boolean;
                         mode?: string;
                         wallpaper?: string;
+                        wallpaperBlur?: boolean;
                         adjustments?: import('$lib/types/theme').Adjustments;
+                        appOverrides?: Record<string, Record<string, string>>;
+                        additionalImages?: string[];
                     }) => {
                         if (state.palette && state.palette.length >= 16) {
                             setPalette(state.palette);
                         }
+                        if (state.extendedColors) {
+                            setExtendedColors(state.extendedColors);
+                        }
+                        if (state.nativeColors) {
+                            setNativeColors(state.nativeColors);
+                        }
+                        if (state.iconTheme)
+                            setIconTheme(state.iconTheme, true);
                         if (state.lightMode !== undefined) {
                             setLightMode(state.lightMode);
                         }
                         if (state.mode) {
                             setExtractionMode(state.mode);
                         }
-                        if (state.wallpaper) {
+                        if (state.wallpaper !== undefined) {
                             setWallpaperPath(state.wallpaper);
                         }
+                        if (state.wallpaperBlur !== undefined)
+                            setWallpaperBlur(state.wallpaperBlur, true);
                         if (state.adjustments) {
                             setAdjustments(state.adjustments);
+                        }
+                        if (state.appOverrides) {
+                            setAppOverrides(state.appOverrides);
+                        }
+                        if (state.additionalImages) {
+                            setAdditionalImages(state.additionalImages);
                         }
                     }
                 );
@@ -451,16 +575,19 @@
                     <BlueprintsView />
                 {:else if activeTab === 'system'}
                     <OmarchyThemes />
+                {:else if activeTab === 'settings'}
+                    <SettingsView />
                 {:else if activeTab === 'about'}
                     <AboutView />
                 {/if}
             </div>
         {/key}
     </main>
-    {#if activeTab === 'editor' && getTargetsVisible()}
+    {#if activeTab === 'editor' && getTargetsVisible() && !omarchyAvailable}
         <TargetAppsStrip />
     {/if}
     <ActionBar />
+    <ExportProgress />
     <Toast />
     <KeymapDialog open={getKeymapOpen()} onclose={() => setKeymapOpen(false)} />
     <CommandPalette
@@ -469,4 +596,8 @@
         onclose={closeCommandPalette}
     />
     <ExternalImportDialog />
+    <ApplySaveDialog
+        open={getApplySaveDialogOpen()}
+        onclose={() => setApplySaveDialogOpen(false)}
+    />
 </div>

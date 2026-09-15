@@ -4,31 +4,35 @@
 
     // Shared card for the Local and Favorites wallpaper grids. The thumbnail
     // source differs per view (lazy-loaded vs preloaded cache), so it arrives
-    // as a `thumb` snippet; `topRight` is an optional slot for view-specific
-    // actions (e.g. the favourites remove button). Clicking the thumbnail or
-    // the Use button selects the wallpaper.
+    // as a `thumb` snippet. The favourite heart renders only when `onfavorite`
+    // is supplied. Clicking the thumbnail or the Use button selects the
+    // wallpaper.
     let {
         path,
         name,
         isAdded = false,
+        isFavorited = false,
         applying = false,
+        busy = false,
         onuse,
         onwallpaperonly,
         onpreview,
         onaddextra,
+        onfavorite,
         thumb,
-        topRight,
     }: {
         path: string;
         name: string;
         isAdded?: boolean;
+        isFavorited?: boolean;
         applying?: boolean;
+        busy?: boolean;
         onuse: () => void;
         onwallpaperonly: () => void;
         onpreview: () => void;
         onaddextra: () => void;
+        onfavorite?: () => void;
         thumb: Snippet;
-        topRight?: Snippet;
     } = $props();
 </script>
 
@@ -38,6 +42,7 @@
     <button
         class="w-full text-left"
         onclick={onuse}
+        disabled={busy}
         title="Set as wallpaper and open in editor"
     >
         <div
@@ -51,12 +56,13 @@
         class="absolute left-1.5 top-1.5 z-10 flex h-7 w-7 items-center justify-center transition-all duration-150
         {isAdded
             ? 'opacity-100'
-            : 'opacity-0 hover:!opacity-100 group-hover:opacity-60'}"
+            : 'opacity-0 hover:!opacity-100 focus-visible:opacity-100 group-focus-within:opacity-100 group-hover:opacity-60'}"
         onclick={e => {
             e.stopPropagation();
             onaddextra();
         }}
         aria-label="Add to additional images"
+        disabled={busy}
     >
         <svg
             class="h-4 w-4 {isAdded ? 'text-accent' : 'text-white'}"
@@ -73,23 +79,52 @@
         </svg>
     </button>
 
-    {#if topRight}
-        {@render topRight()}
+    {#if onfavorite}
+        <button
+            class="absolute right-1.5 top-1.5 z-10 flex h-7 w-7 items-center justify-center transition-all duration-150
+            {isFavorited
+                ? 'opacity-100'
+                : 'opacity-0 hover:!opacity-100 focus-visible:opacity-100 group-focus-within:opacity-100 group-hover:opacity-60'}"
+            onclick={e => {
+                e.stopPropagation();
+                onfavorite();
+            }}
+            aria-label={isFavorited
+                ? 'Remove from favorites'
+                : 'Add to favorites'}
+        >
+            <svg
+                class="h-4 w-4 {isFavorited
+                    ? 'text-destructive'
+                    : 'text-white'}"
+                viewBox="0 0 24 24"
+                fill={isFavorited ? 'currentColor' : 'none'}
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+            >
+                <path
+                    d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
+                ></path>
+            </svg>
+        </button>
     {/if}
 
     <div
-        class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/60 opacity-0 transition-opacity duration-150 group-hover:opacity-100"
+        class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/60 opacity-0 transition-opacity duration-150 group-focus-within:opacity-100 group-hover:opacity-100"
     >
         <button
             class="bg-accent hover:bg-accent-hover text-accent-fg pointer-events-auto min-w-[7rem] px-4 py-1.5 text-[11px] font-medium transition-colors"
             onclick={onuse}
+            disabled={busy}
             title="Set as wallpaper and open in editor">Use</button
         >
         <div class="flex items-center gap-2 text-[10px] text-white/85">
             <button
                 class="pointer-events-auto px-1 transition-colors hover:text-white disabled:opacity-50"
                 onclick={onwallpaperonly}
-                disabled={applying}
+                disabled={applying || busy}
                 title="Apply this wallpaper without changing the current palette"
                 >Wallpaper only</button
             >

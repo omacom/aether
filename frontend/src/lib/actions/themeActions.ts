@@ -1,27 +1,35 @@
 import type {main} from '../../../wailsjs/go/models';
-import {showToast, setLivePending} from '$lib/stores/ui.svelte';
+import {
+    showToast,
+    getLiveApply,
+    getLiveApplySession,
+    setApplySaveDialogOpen,
+} from '$lib/stores/ui.svelte';
 import {
     getIsApplying,
     setIsApplying,
     getIsExtracting,
+    getIsAdjusting,
     setIsExtracting,
     getWallpaperPath,
+    getWallpaperRevision,
     setWallpaperPath,
-    getPalette,
-    setPalette,
     setPaletteFromExtraction,
     getLightMode,
     getAdditionalImages,
-    getExtendedColors,
     getAppOverrides,
-    getAdjustments,
-    setAdjustments,
-    setAdjustedExtendedColors,
+    getThemeSnapshot,
+    getThemeSignature,
+    getHistorySnapshot,
+    restoreHistorySnapshot,
+    getThemeRevision,
+    invalidateThemeRequests,
     getExtractionMode,
+    setExtractionMode,
+    setPendingExtractionMode,
     markApplied,
 } from '$lib/stores/theme.svelte';
 import {getSettings} from '$lib/stores/settings.svelte';
-import {SPECIAL_APP_FLAGS} from '$lib/constants/apps';
 import type {Settings} from '$lib/types/theme';
 import {
     undo as historyUndo,
@@ -29,73 +37,109 @@ import {
     pushRedo,
     pushUndo,
 } from '$lib/stores/history.svelte';
-import {DEFAULT_ADJUSTMENTS} from '$lib/types/theme';
+import {STORAGE_KEYS} from '$lib/constants/storage';
+import {
+    getOmarchyCapabilities,
+    getOmarchyAvailable,
+    initOmarchyCapabilities,
+} from '$lib/stores/omarchy.svelte';
 
-// Cache the template-apps list — Go side is deterministic per build, so
-// no need to re-fetch.
-let templateAppKeysCache: string[] | null = null;
-async function getTemplateAppKeys(): Promise<string[]> {
-    if (templateAppKeysCache) return templateAppKeysCache;
-    try {
-        const {GetTemplateColors} = await import(
-            '../../../wailsjs/go/main/App'
-        );
-        const result = await GetTemplateColors();
-        templateAppKeysCache = Object.keys(result || {});
-        return templateAppKeysCache;
-    } catch {
-        return [];
-    }
+export function getNativeAppOverrides(): Record<
+    string,
+    Record<string, string>
+> {
+    const overrides = getAppOverrides();
+    return filterNativeAppOverrides(overrides);
 }
 
-function countTargetedApps(allApps: string[], settings: Settings): number {
-    const excluded = settings.excludedApps ?? {};
-    let count = 0;
-    for (const app of allApps) {
-        const flag = SPECIAL_APP_FLAGS[app];
-        if (flag) {
-            if (settings[flag]) count++;
-        } else if (!excluded[app]) {
-            count++;
-        }
-    }
-    return count;
+function filterNativeAppOverrides(
+    overrides: Record<string, Record<string, string>>
+) {
+    const supported = new Set(getOmarchyCapabilities().overrideApps);
+    return Object.fromEntries(
+        Object.entries(overrides).filter(([app]) => supported.has(app))
+    );
 }
 
-async function runApply(): Promise<{success: boolean}> {
-    const {ApplyTheme} = await import('../../../wailsjs/go/main/App');
-    const result = await ApplyTheme({
-        palette: getPalette(),
-        wallpaperPath: getWallpaperPath(),
-        lightMode: getLightMode(),
-        additionalImages: getAdditionalImages(),
-        extendedColors: getExtendedColors(),
-        settings: getSettings(),
-        appOverrides: getAppOverrides(),
-    } as unknown as main.ApplyThemeRequest);
+export function captureApplyRequest() {
+    const settings = getSettings();
+    return {
+        ...getThemeSnapshot(),
+        settings: {...settings, includedApps: {...settings.includedApps}},
+    };
+}
+
+function countTargetedApps(
+    settings: Settings,
+    appOverrides: Record<string, Record<string, string>>
+): number {
+    if (getOmarchyAvailable()) {
+        return Object.values(appOverrides).filter(
+            overrides => Object.keys(overrides).length > 0
+        ).length;
+    }
+    const targeted = new Set(
+        Object.entries(settings.includedApps ?? {})
+            .filter(([, included]) => included)
+            .map(([app]) => app)
+    );
+    for (const [app, overrides] of Object.entries(appOverrides)) {
+        if (Object.keys(overrides).length > 0) targeted.add(app);
+    }
+    return targeted.size;
+}
+
+async function runApply(
+    request: ReturnType<typeof captureApplyRequest>,
+    options: {
+        name?: string;
+        updateExisting?: boolean;
+        isCurrent?: () => boolean;
+    } = {}
+): Promise<{success: boolean; count: number} | null> {
+    const signature = getThemeSignature(request);
+    await initOmarchyCapabilities();
+    const {ApplyTheme, SaveAndApplyTheme} = await import(
+        '../../../wailsjs/go/main/App'
+    );
+    if (options.isCurrent && !options.isCurrent()) return null;
+    const appOverrides = getOmarchyAvailable()
+        ? filterNativeAppOverrides(request.appOverrides)
+        : request.appOverrides;
+    const payload = {...request, appOverrides};
+    const count = countTargetedApps(request.settings, appOverrides);
+    const result =
+        options.name !== undefined
+            ? await SaveAndApplyTheme({
+                  ...payload,
+                  name: options.name,
+                  updateExisting: !!options.updateExisting,
+              } as unknown as main.SaveAndApplyThemeRequest)
+            : await ApplyTheme(payload as unknown as main.ApplyThemeRequest);
     if (result.success) {
-        if (getLightMode()) {
-            document.documentElement.classList.add('light-mode');
-        } else {
-            document.documentElement.classList.remove('light-mode');
-        }
+        markApplied(signature);
+        document.documentElement.classList.toggle(
+            'light-mode',
+            request.lightMode
+        );
     }
-    return {success: !!result.success};
+    return {success: !!result.success, count};
 }
 
 export async function applyTheme(): Promise<void> {
     if (getIsApplying()) return;
+    const request = captureApplyRequest();
     setIsApplying(true);
     try {
-        const result = await runApply();
-        const apps = await getTemplateAppKeys();
-        const count = countTargetedApps(apps, getSettings());
-        markApplied();
-        const apps_label = `${count} app${count === 1 ? '' : 's'}`;
+        const result = await runApply(request);
+        if (!result) return;
+        const suffix = result.count
+            ? ` with ${result.count} app override${result.count === 1 ? '' : 's'}`
+            : '';
         if (result.success) {
-            showToast(`Theme applied to ${apps_label}`);
+            showToast(`Theme applied${suffix}`);
         } else {
-            showToast(`Theme files generated for ${apps_label}`);
+            showToast(`Theme files generated${suffix}`);
         }
     } catch {
         showToast('Couldn’t apply theme — see logs for details');
@@ -104,36 +148,110 @@ export async function applyTheme(): Promise<void> {
     }
 }
 
-// Swap the wallpaper without re-extracting colors. Resolves remote URLs
-// (Wallhaven) by downloading first, then runs the standard apply path so
-// the new wallpaper goes out together with the current palette.
+function getSavedThemeFolder(): string {
+    const wallpaper = getWallpaperPath();
+    if (!wallpaper) return '';
+    try {
+        const folders = JSON.parse(
+            localStorage.getItem(STORAGE_KEYS.savedThemeFolders) ?? '{}'
+        ) as Record<string, string>;
+        return folders[wallpaper] ?? '';
+    } catch {
+        return '';
+    }
+}
+
+function saveThemeFolder(name: string, wallpaper: string): void {
+    if (!wallpaper) return;
+    try {
+        const folders = JSON.parse(
+            localStorage.getItem(STORAGE_KEYS.savedThemeFolders) ?? '{}'
+        ) as Record<string, string>;
+        localStorage.setItem(
+            STORAGE_KEYS.savedThemeFolders,
+            JSON.stringify({...folders, [wallpaper]: name})
+        );
+    } catch {}
+}
+
+// The primary Apply action updates the folder saved for this wallpaper.
+// Ctrl+Enter remains an intentional bypass for quickly applying editor state.
+export function requestThemeApply(): void {
+    if (getIsApplying()) return;
+    const savedFolder = getSavedThemeFolder();
+    if (savedFolder) {
+        saveAndApplyTheme(savedFolder, true);
+    } else {
+        saveThemeAsNew();
+    }
+}
+
+export function saveThemeAsNew(): void {
+    if (!getIsApplying()) setApplySaveDialogOpen(true);
+}
+
+export async function saveAndApplyTheme(
+    name: string,
+    updateExisting = false,
+    request = captureApplyRequest()
+): Promise<boolean> {
+    if (getIsApplying()) return false;
+    setIsApplying(true);
+    try {
+        const result = await runApply(request, {name, updateExisting});
+        if (!result?.success) return false;
+        saveThemeFolder(name, request.wallpaperPath);
+        showToast(
+            updateExisting ? `Applied: ${name}` : `Saved and applied: ${name}`
+        );
+        return true;
+    } catch (e: unknown) {
+        showToast(
+            typeof e === 'string'
+                ? e
+                : e instanceof Error
+                  ? e.message
+                  : 'Could not save and apply the theme'
+        );
+        return false;
+    } finally {
+        setIsApplying(false);
+    }
+}
+
+// Change the background without replacing the active Omarchy theme.
 export async function applyWallpaperOnly(originalPath: string): Promise<void> {
     if (getIsApplying() || !originalPath) return;
-
+    const originalRevision = getWallpaperRevision();
     let path = originalPath;
-    if (path.startsWith('http://') || path.startsWith('https://')) {
-        try {
+    setIsApplying(true);
+    try {
+        if (
+            originalPath.startsWith('http://') ||
+            originalPath.startsWith('https://')
+        ) {
             showToast('Downloading wallpaper…');
             const {DownloadWallpaper} = await import(
                 '../../../wailsjs/go/main/App'
             );
-            path = await DownloadWallpaper(path);
-        } catch {
-            showToast('Failed to download wallpaper');
-            return;
+            path = await DownloadWallpaper(originalPath);
         }
-    }
-    setWallpaperPath(path);
-
-    setIsApplying(true);
-    try {
-        const result = await runApply();
-        markApplied();
-        showToast(
-            result.success ? 'Wallpaper applied' : 'Wallpaper files generated'
+        if (getWallpaperRevision() !== originalRevision) return;
+        const {ApplyWallpaperOnly} = await import(
+            '../../../wailsjs/go/main/App'
         );
-    } catch {
-        showToast('Couldn’t apply wallpaper — see logs for details');
+        if (getWallpaperRevision() !== originalRevision) return;
+        await ApplyWallpaperOnly(path);
+        if (getWallpaperRevision() === originalRevision) setWallpaperPath(path);
+        showToast('Wallpaper applied');
+    } catch (error: unknown) {
+        showToast(
+            typeof error === 'string'
+                ? error
+                : error instanceof Error
+                  ? error.message
+                  : 'Could not apply the wallpaper'
+        );
     } finally {
         setIsApplying(false);
     }
@@ -145,48 +263,60 @@ const LIVE_APPLY_TOAST_MS = 2200;
 
 // Same backend call as applyTheme(), but with a quieter toast that offers
 // Undo. Used by the live-preview effect when the user flips on Live Apply.
-export async function applyThemeLive(): Promise<void> {
-    if (getIsApplying()) {
-        setLivePending(false);
-        return;
-    }
+export async function applyThemeLive(): Promise<
+    'applied' | 'canceled' | 'failed'
+> {
+    if (
+        !getLiveApply() ||
+        getIsApplying() ||
+        getIsAdjusting() ||
+        getIsExtracting()
+    )
+        return 'canceled';
+    const session = getLiveApplySession();
+    const request = captureApplyRequest();
+    const signature = getThemeSignature(request);
+    const isCurrent = () =>
+        getLiveApply() &&
+        session === getLiveApplySession() &&
+        signature === getThemeSignature() &&
+        !getIsAdjusting() &&
+        !getIsExtracting();
     setIsApplying(true);
     try {
-        const result = await runApply();
-        if (result.success) {
-            markApplied();
-            const apps = await getTemplateAppKeys();
-            const count = countTargetedApps(apps, getSettings());
-            showToast(`Live preview applied to ${count} apps`, {
+        const result = await runApply(request, {isCurrent});
+        if (!result) return 'canceled';
+        if (result.success && isCurrent()) {
+            const suffix = result.count
+                ? ` with ${result.count} app override${result.count === 1 ? '' : 's'}`
+                : '';
+            showToast(`Live preview applied${suffix}`, {
                 duration: LIVE_APPLY_TOAST_MS,
                 action: {label: 'Undo', run: undoAction},
             });
         }
+        return result.success ? 'applied' : 'failed';
     } catch {
         // Stay quiet on transient live-apply failures; the user can hit
         // Apply manually if something is wrong.
+        return 'failed';
     } finally {
         setIsApplying(false);
-        setLivePending(false);
     }
 }
 
 export function undoAction(): void {
     const snapshot = historyUndo();
     if (!snapshot) return;
-    pushRedo(getPalette(), getExtendedColors(), getAdjustments());
-    setPalette(snapshot.palette, true);
-    setAdjustedExtendedColors(snapshot.extendedColors);
-    setAdjustments(snapshot.adjustments);
+    pushRedo(getHistorySnapshot());
+    restoreHistorySnapshot(snapshot);
 }
 
 export function redoAction(): void {
     const snapshot = historyRedo();
     if (!snapshot) return;
-    pushUndo(getPalette(), getExtendedColors(), getAdjustments());
-    setPalette(snapshot.palette, true);
-    setAdjustedExtendedColors(snapshot.extendedColors);
-    setAdjustments(snapshot.adjustments);
+    pushUndo(getHistorySnapshot());
+    restoreHistorySnapshot(snapshot);
 }
 
 export async function changeWallpaper(): Promise<void> {
@@ -202,23 +332,61 @@ export async function changeWallpaper(): Promise<void> {
     }
 }
 
-export async function extractColors(): Promise<void> {
+let extractionRequest = 0;
+
+export async function extractColors(
+    options: {
+        mode?: string;
+        allImages?: boolean;
+    } = {}
+): Promise<void> {
     const path = getWallpaperPath();
-    if (!path || getIsExtracting()) return;
-    setIsExtracting(true);
+    const paths = [path, ...getAdditionalImages()].filter(Boolean);
+    if (!options.mode && (!path || getIsExtracting())) return;
+    const mode = options.mode ?? getExtractionMode();
+    const lightMode = getLightMode();
+    const request = ++extractionRequest;
+    const revision = invalidateThemeRequests();
+    const isCurrent = () =>
+        request === extractionRequest && revision === getThemeRevision();
+    setPendingExtractionMode(options.mode ?? null);
+    setIsExtracting(!!path);
     try {
-        const {ExtractColors} = await import('../../../wailsjs/go/main/App');
-        const colors = await ExtractColors(
-            path,
-            getLightMode(),
-            getExtractionMode()
+        const {ExtractColors, ExtractColorsFromImages, SetExtractionMode} =
+            await import('../../../wailsjs/go/main/App');
+        if (!isCurrent()) return;
+        if (options.mode) {
+            await SetExtractionMode(mode);
+            if (!isCurrent()) return;
+        }
+        if (!path) {
+            setExtractionMode(mode);
+            return;
+        }
+        const result = options.allImages
+            ? await ExtractColorsFromImages(paths, lightMode, mode)
+            : {palette: await ExtractColors(path, lightMode, mode), skipped: 0};
+        if (!isCurrent()) return;
+        setPaletteFromExtraction(path, result.palette);
+        setExtractionMode(mode);
+        if (options.allImages) {
+            const used = paths.length - result.skipped;
+            const suffix =
+                result.skipped > 0 ? ` (${result.skipped} skipped)` : '';
+            showToast(
+                `Blended palette from ${used} image${used === 1 ? '' : 's'}${suffix}`
+            );
+            return;
+        }
+        showToast(
+            options.mode ? `Re-extracted with ${mode} mode` : 'Colors extracted'
         );
-        setAdjustments({...DEFAULT_ADJUSTMENTS});
-        setPaletteFromExtraction(path, colors);
-        showToast('Colors extracted');
     } catch {
-        showToast('Couldn’t extract colors from that image');
+        if (isCurrent()) showToast('Couldn’t extract colors from that image');
     } finally {
-        setIsExtracting(false);
+        if (request === extractionRequest) {
+            setIsExtracting(false);
+            setPendingExtractionMode(null);
+        }
     }
 }

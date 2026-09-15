@@ -40,7 +40,7 @@ jobs:
         if: matrix.language == 'go'
         uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Build frontend
         if: matrix.language == 'go'

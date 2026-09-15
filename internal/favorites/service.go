@@ -99,7 +99,10 @@ func (s *Service) GetAll() []Favorite {
 
 		fav := Favorite{Path: path, Data: make(map[string]interface{})}
 
-		if _, ok := obj["id"]; ok {
+		if obj["type"] == "github" {
+			fav.Type = "github"
+			fav.Data["name"] = obj["name"]
+		} else if _, ok := obj["id"]; ok {
 			// Wallhaven format
 			fav.Type = "wallhaven"
 			fav.Data["id"] = obj["id"]
@@ -223,6 +226,9 @@ func (s *Service) buildEntry(path, favType string, data map[string]interface{}) 
 			e.Name = filepath.Base(path)
 		}
 		return e
+	case "github":
+		name, _ := data["name"].(string)
+		return map[string]string{"path": path, "type": "github", "name": name}
 	default:
 		return map[string]string{"path": path}
 	}

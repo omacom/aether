@@ -104,6 +104,8 @@ func Run(args []string, templatesFS embed.FS) int {
 		return runIsFavorite(args[1:])
 
 	// --- Meta ---
+	case "upgrade":
+		return runUpgrade(args[1:])
 	case "--help", "-h":
 		printUsage()
 		return 0
@@ -122,6 +124,7 @@ func printUsage() {
 
 Usage:
   aether                                    Launch GUI
+  aether upgrade                            Upgrade to the latest release
   aether --help                             Show this help
   aether --version                          Show version
 
@@ -130,7 +133,7 @@ Theme generation:
     --light-mode                            Generate light variant
     --no-apply                              Render templates without activating
     --output <path>                         Output dir (defaults to ~/.config/aether/theme)
-    --gtk                                   Also render and install GTK CSS (default off)
+    --icon-theme automatic|<ID>              Use color-matched Yaru or an explicit installed theme ID
     --no-zed                                Skip Zed extension (default on)
     --no-vscode                             Skip VSCode integration (default on)
     --no-neovim                             Skip Neovim template (default on)
@@ -151,12 +154,11 @@ Import commands:
   aether --import-colors-toml <url|file>    Import colors.toml color scheme (URL or file)
     --wallpaper <url|path>                  Set wallpaper from URL or local path
     --light-mode                            Force light mode
-  aether --handle-url <aether://...>        Handle an aether:// web link
+  aether --handle-url <aether://...>        Handle a web link (confirms unless silent=true)
                                               aether://apply?external_theme=URL
                                               aether://apply?colors=URL
                                               aether://apply?wallpaper=URL
                                               aether://apply?mode=light|dark
-                                              aether://apply?silent=true
                                               aether://apply?as_omarchy_theme=NAME
 
 Color utilities:

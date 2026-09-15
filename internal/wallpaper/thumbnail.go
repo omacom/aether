@@ -7,7 +7,6 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
-	"strings"
 
 	// Register decoders for common image formats.
 	_ "image/gif"
@@ -46,15 +45,8 @@ func GetThumbnail(imagePath string) (string, error) {
 	}
 
 	// Generate the thumbnail.
-	thumbDir := platform.ThumbnailDir()
-	if err := platform.EnsureDir(thumbDir); err != nil {
+	if err := platform.EnsureDir(platform.ThumbnailDir()); err != nil {
 		return "", fmt.Errorf("failed to create thumbnail directory: %w", err)
-	}
-
-	// For video files, extract a frame with ffmpeg first
-	ext := strings.ToLower(filepath.Ext(imagePath))
-	if ext == ".mp4" || ext == ".webm" {
-		return getVideoThumbnail(imagePath, thumbDir, thumbPath)
 	}
 
 	src, err := loadImage(imagePath)
@@ -64,15 +56,8 @@ func GetThumbnail(imagePath string) (string, error) {
 
 	thumb := scaleThumbnail(src, thumbnailSize)
 
-	out, err := os.Create(thumbPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to create thumbnail file: %w", err)
-	}
-	defer out.Close()
-
-	if err := png.Encode(out, thumb); err != nil {
-		_ = os.Remove(thumbPath)
-		return "", fmt.Errorf("failed to encode thumbnail: %w", err)
+	if err := writePNG(thumbPath, thumb); err != nil {
+		return "", fmt.Errorf("failed to write thumbnail: %w", err)
 	}
 
 	return thumbPath, nil
@@ -97,33 +82,14 @@ func GetPreview(imagePath string) (string, error) {
 		return "", fmt.Errorf("failed to create preview directory: %w", err)
 	}
 
-	ext := strings.ToLower(filepath.Ext(imagePath))
-	if ext == ".mp4" || ext == ".webm" {
-		_, err := platform.RunSync("ffmpeg",
-			"-ss", "1", "-i", imagePath,
-			"-vframes", "1", "-vf", fmt.Sprintf("scale=%d:-1", previewSize),
-			"-y", previewPath)
-		if err != nil {
-			return "", fmt.Errorf("ffmpeg preview failed: %w", err)
-		}
-		return previewPath, nil
-	}
-
 	src, err := loadImage(imagePath)
 	if err != nil {
 		return "", fmt.Errorf("failed to load image: %w", err)
 	}
 
 	preview := scaleThumbnail(src, previewSize)
-	out, err := os.Create(previewPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to create preview file: %w", err)
-	}
-	defer out.Close()
-
-	if err := png.Encode(out, preview); err != nil {
-		_ = os.Remove(previewPath)
-		return "", fmt.Errorf("failed to encode preview: %w", err)
+	if err := writePNG(previewPath, preview); err != nil {
+		return "", fmt.Errorf("failed to write preview: %w", err)
 	}
 
 	return previewPath, nil
@@ -151,8 +117,23 @@ func loadImage(path string) (image.Image, error) {
 	}
 	defer f.Close()
 
-	img, _, err := image.Decode(f)
-	return img, err
+	return DecodeImage(f)
+}
+
+func writePNG(path string, img image.Image) error {
+	out, err := os.CreateTemp(filepath.Dir(path), ".part-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(out.Name())
+	defer out.Close()
+	if err := png.Encode(out, img); err != nil {
+		return err
+	}
+	if err := out.Close(); err != nil {
+		return err
+	}
+	return os.Rename(out.Name(), path)
 }
 
 // scaleThumbnail scales an image to fit within a size x size bounding box,
@@ -186,53 +167,4 @@ func scaleThumbnail(src image.Image, size int) image.Image {
 	draw.ApproxBiLinear.Scale(dst, dst.Bounds(), src, bounds, draw.Over, nil)
 
 	return dst
-}
-
-// getVideoThumbnail extracts a frame from a video file using ffmpeg.
-func getVideoThumbnail(videoPath, thumbDir, thumbPath string) (string, error) {
-	_, err := platform.RunSync("ffmpeg",
-		"-ss", "1", "-i", videoPath,
-		"-vframes", "1", "-vf", "scale=300:-1",
-		"-y", thumbPath)
-	if err != nil {
-		// Fallback: try first frame (video might be shorter than 1s)
-		_, err = platform.RunSync("ffmpeg",
-			"-i", videoPath,
-			"-vframes", "1", "-vf", "scale=300:-1",
-			"-y", thumbPath)
-		if err != nil {
-			return "", fmt.Errorf("ffmpeg thumbnail failed: %w", err)
-		}
-	}
-	return thumbPath, nil
-}
-
-// ExtractVideoFrame extracts a single frame from a video for color extraction.
-// Returns the path to a cached PNG in the thumbnail directory.
-func ExtractVideoFrame(videoPath string) (string, error) {
-	framePath := cachePath(videoPath, "-frame")
-
-	if info, err := os.Stat(framePath); err == nil {
-		srcInfo, _ := os.Stat(videoPath)
-		if srcInfo != nil && info.ModTime().After(srcInfo.ModTime()) {
-			return framePath, nil
-		}
-	}
-
-	if err := platform.EnsureDir(platform.ThumbnailDir()); err != nil {
-		return "", err
-	}
-
-	_, err := platform.RunSync("ffmpeg",
-		"-ss", "1", "-i", videoPath,
-		"-vframes", "1", "-y", framePath)
-	if err != nil {
-		_, err = platform.RunSync("ffmpeg",
-			"-i", videoPath,
-			"-vframes", "1", "-y", framePath)
-	}
-	if err != nil {
-		return "", fmt.Errorf("ffmpeg frame extraction failed: %w", err)
-	}
-	return framePath, nil
 }

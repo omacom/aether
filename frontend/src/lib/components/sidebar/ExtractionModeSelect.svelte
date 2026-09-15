@@ -1,24 +1,23 @@
 <script lang="ts">
     import {
         getExtractionMode,
-        setExtractionMode,
+        getPendingExtractionMode,
         getWallpaperPath,
         getLightMode,
-        setIsExtracting,
-        setPalette,
-        setAdjustments,
     } from '$lib/stores/theme.svelte';
-    import {showToast} from '$lib/stores/ui.svelte';
+    import {extractColors} from '$lib/actions/themeActions';
     import {
         EXTRACTION_MODES,
         EXTRACTION_MODE_GROUPS,
         type ExtractionMode,
         type ExtractionModeGroup,
     } from '$lib/constants/colors';
-    import {DEFAULT_ADJUSTMENTS} from '$lib/types/theme';
     import ExpandableSection from '$lib/components/shared/ExpandableSection.svelte';
 
     let expanded = $state(true);
+    let selectedMode = $derived(
+        getPendingExtractionMode() ?? getExtractionMode()
+    );
 
     const openGroups: Record<ExtractionModeGroup, boolean> = $state(
         Object.fromEntries(
@@ -34,14 +33,13 @@
     });
 
     function activeInGroup(groupId: ExtractionModeGroup) {
-        return grouped[groupId]?.find(m => m.value === getExtractionMode());
+        return grouped[groupId]?.find(m => m.value === selectedMode);
     }
 
     // Per-mode palette previews keyed by `${path}:${lightMode}:${mode}`.
     // Populated lazily by a serial prefetch keyed to the current wallpaper.
     let stripCache = $state<Record<string, string[]>>({});
     let prefetchToken = 0;
-    let lastPrefetchKey = '';
 
     function stripKey(path: string, lm: boolean, mode: string): string {
         return `${path}:${lm ? 'L' : 'D'}:${mode}`;
@@ -50,32 +48,38 @@
     async function prefetchStrips(path: string, lm: boolean) {
         if (!path) return;
         const myToken = ++prefetchToken;
-        const {PreviewExtractColors} = await import(
-            '../../../../wailsjs/go/main/App'
-        );
-        for (const mode of EXTRACTION_MODES) {
-            if (myToken !== prefetchToken) return;
-            const key = stripKey(path, lm, mode.value);
-            if (stripCache[key]) continue;
-            try {
-                const colors = await PreviewExtractColors(path, lm, mode.value);
+        try {
+            const {PreviewExtractColors} = await import(
+                '../../../../wailsjs/go/main/App'
+            );
+            for (const mode of EXTRACTION_MODES) {
                 if (myToken !== prefetchToken) return;
-                if (Array.isArray(colors) && colors.length >= 8) {
-                    stripCache = {...stripCache, [key]: colors};
+                const key = stripKey(path, lm, mode.value);
+                if (stripCache[key]) continue;
+                try {
+                    const colors = await PreviewExtractColors(
+                        path,
+                        lm,
+                        mode.value
+                    );
+                    if (myToken !== prefetchToken) return;
+                    if (Array.isArray(colors) && colors.length >= 8) {
+                        stripCache = {...stripCache, [key]: colors};
+                    }
+                } catch {
+                    // Leave the strip empty for this mode.
                 }
-            } catch {
-                // ignore — leave the strip empty for this mode
             }
-        }
+        } catch {}
     }
 
     $effect(() => {
         const path = getWallpaperPath();
         const lm = getLightMode();
-        const key = `${path}:${lm}`;
-        if (key === lastPrefetchKey) return;
-        lastPrefetchKey = key;
         prefetchStrips(path, lm);
+        return () => {
+            prefetchToken++;
+        };
     });
 
     function getStrip(mode: string): string[] | null {
@@ -83,42 +87,16 @@
         return stripCache[key] || null;
     }
 
-    async function handleModeChange(mode: string) {
-        if (mode === getExtractionMode()) return;
-
-        setExtractionMode(mode);
-
-        try {
-            const {SetExtractionMode} = await import(
-                '../../../../wailsjs/go/main/App'
-            );
-            await SetExtractionMode(mode);
-        } catch {}
-
-        const path = getWallpaperPath();
-        if (path) {
-            setIsExtracting(true);
-            try {
-                const {ExtractColors} = await import(
-                    '../../../../wailsjs/go/main/App'
-                );
-                const colors = await ExtractColors(path, getLightMode(), mode);
-                setAdjustments({...DEFAULT_ADJUSTMENTS});
-                setPalette(colors);
-                showToast(`Re-extracted with ${mode} mode`);
-            } catch {
-                showToast('Couldn’t re-extract — try a different mode');
-            } finally {
-                setIsExtracting(false);
-            }
-        }
+    function handleModeChange(mode: string) {
+        if (mode === selectedMode) return;
+        void extractColors({mode});
     }
 </script>
 
 {#snippet modeList(items: ExtractionMode[])}
     <ul class="flex flex-col">
         {#each items as mode}
-            {@const isActive = getExtractionMode() === mode.value}
+            {@const isActive = selectedMode === mode.value}
             {@const strip = getStrip(mode.value)}
             <li>
                 <button

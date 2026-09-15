@@ -1,260 +1,158 @@
 package githubsource
 
 import (
+	"bytes"
+	"encoding/base64"
+	"encoding/binary"
+	"hash/crc32"
+	"image"
+	"image/png"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
+
+	"aether/internal/wallpaper"
 )
 
-func TestParseURL_githubCom(t *testing.T) {
-	tests := []struct {
-		raw   string
-		owner string
-		repo  string
-		branch string
-		path  string
-	}{
-		{"https://github.com/dharmx/walls", "dharmx", "walls", "", ""},
-		{"https://github.com/dharmx/walls.git", "dharmx", "walls", "", ""},
-		{"https://github.com/dharmx/walls/", "dharmx", "walls", "", ""},
-		{"https://github.com/dharmx/walls/tree/main", "dharmx", "walls", "main", ""},
-		{"https://github.com/dharmx/walls/tree/main/subdir", "dharmx", "walls", "main", "subdir"},
-		{"https://github.com/dharmx/walls/tree/master/images/nature", "dharmx", "walls", "master", "images/nature"},
-		{"https://github.com/dharmx/walls/blob/main/wallpaper.jpg", "dharmx", "walls", "main", "wallpaper.jpg"},
-		{"https://github.com/bjarneo/wallpapers/tree/gh-pages", "bjarneo", "wallpapers", "gh-pages", ""},
-		{"https://github.com/dharmx/walls/abstract", "dharmx", "walls", "", "abstract"},
-		{"https://github.com/dharmx/walls/subdir/nested", "dharmx", "walls", "", "subdir/nested"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.raw, func(t *testing.T) {
-			gh, err := parseURL(tt.raw)
-			if err != nil {
-				t.Fatalf("parseURL(%q) unexpected error: %v", tt.raw, err)
-			}
-			if gh.Owner != tt.owner {
-				t.Errorf("owner = %q, want %q", gh.Owner, tt.owner)
-			}
-			if gh.Repo != tt.repo {
-				t.Errorf("repo = %q, want %q", gh.Repo, tt.repo)
-			}
-			if gh.Branch != tt.branch {
-				t.Errorf("branch = %q, want %q", gh.Branch, tt.branch)
-			}
-			if gh.Path != tt.path {
-				t.Errorf("path = %q, want %q", gh.Path, tt.path)
+func TestParseRepositoryURLs(t *testing.T) {
+	for _, test := range []struct{ url, branch, path string }{
+		{"https://github.com/example-user/wallpapers", "", ""},
+		{"https://github.com/example-user/wallpapers.git", "", ""},
+		{"https://github.com/example-user/wallpapers/tree/main/nature", "main", "nature"},
+		{"https://github.com/example-user/wallpapers/blob/main/one.png", "main", "one.png"},
+		{"https://github.com/example-user/wallpapers/tree/feature%2Fimages/folder%20name", "feature/images", "folder name"},
+		{"https://raw.githubusercontent.com/example-user/wallpapers/main/one.png", "main", "one.png"},
+		{"https://raw.githubusercontent.com/example-user/wallpapers/refs/heads/main/one.png", "main", "one.png"},
+	} {
+		t.Run(test.url, func(t *testing.T) {
+			got, err := parseURL(test.url)
+			if err != nil || got.Owner != "example-user" || got.Repo != "wallpapers" || got.Branch != test.branch || got.Path != test.path {
+				t.Fatalf("parsed URL = %+v, error = %v", got, err)
 			}
 		})
 	}
 }
 
-func TestParseURL_githubPages(t *testing.T) {
-	tests := []struct {
-		raw   string
-		owner string
-		repo  string
-		branch string
-		path  string
-	}{
-		{"https://bjarneo.github.io/wallpapers/", "bjarneo", "bjarneo.github.io", "", "wallpapers"},
-		{"https://bjarneo.github.io/", "bjarneo", "bjarneo.github.io", "", ""},
-		{"https://bjarneo.github.io/wallpapers/nature", "bjarneo", "bjarneo.github.io", "", "wallpapers/nature"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.raw, func(t *testing.T) {
-			gh, err := parseURL(tt.raw)
-			if err != nil {
-				t.Fatalf("parseURL(%q) unexpected error: %v", tt.raw, err)
-			}
-			if gh.Owner != tt.owner {
-				t.Errorf("owner = %q, want %q", gh.Owner, tt.owner)
-			}
-			if gh.Repo != tt.repo {
-				t.Errorf("repo = %q, want %q", gh.Repo, tt.repo)
-			}
-			if gh.Branch != tt.branch {
-				t.Errorf("branch = %q, want %q", gh.Branch, tt.branch)
-			}
-			if gh.Path != tt.path {
-				t.Errorf("path = %q, want %q", gh.Path, tt.path)
-			}
-		})
-	}
-}
-
-func TestParseURL_rawContent(t *testing.T) {
-	tests := []struct {
-		raw   string
-		owner string
-		repo  string
-		branch string
-		path  string
-	}{
-		{"https://raw.githubusercontent.com/bjarneo/wallpapers/main/wallpaper.jpg", "bjarneo", "wallpapers", "main", "wallpaper.jpg"},
-		{"https://raw.githubusercontent.com/dharmx/walls/master/images/nature/mountain.png", "dharmx", "walls", "master", "images/nature/mountain.png"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.raw, func(t *testing.T) {
-			gh, err := parseURL(tt.raw)
-			if err != nil {
-				t.Fatalf("parseURL(%q) unexpected error: %v", tt.raw, err)
-			}
-			if gh.Owner != tt.owner {
-				t.Errorf("owner = %q, want %q", gh.Owner, tt.owner)
-			}
-			if gh.Repo != tt.repo {
-				t.Errorf("repo = %q, want %q", gh.Repo, tt.repo)
-			}
-			if gh.Branch != tt.branch {
-				t.Errorf("branch = %q, want %q", gh.Branch, tt.branch)
-			}
-			if gh.Path != tt.path {
-				t.Errorf("path = %q, want %q", gh.Path, tt.path)
-			}
-		})
-	}
-}
-
-func TestParseURL_errors(t *testing.T) {
-	invalid := []string{
-		"",
-		"not-a-url",
-		"https://example.com/some/page",
-		"https://gitlab.com/owner/repo",
-		"https://raw.githubusercontent.com/onlyowner",
-	}
-
-	for _, raw := range invalid {
-		t.Run(raw, func(t *testing.T) {
-			_, err := parseURL(raw)
-			if err == nil {
-				t.Errorf("parseURL(%q) expected error, got nil", raw)
-			}
-		})
-	}
-}
-
-func TestFilterImages(t *testing.T) {
-	items := []githubContent{
-		{Name: "photo.jpg", Type: "file", Size: 1024},
-		{Name: "photo.jpeg", Type: "file", Size: 2048},
-		{Name: "screenshot.png", Type: "file", Size: 4096},
-		{Name: "animation.webp", Type: "file", Size: 512},
-		{Name: "document.pdf", Type: "file", Size: 300},
-		{Name: "script.js", Type: "file", Size: 100},
-		{Name: "subdir", Type: "dir", Size: 0},
-		{Name: "archive.zip", Type: "file", Size: 9999},
-		{Name: "image.PNG", Type: "file", Size: 2000},   // uppercase
-		{Name: "Photo.JPG", Type: "file", Size: 3000},   // uppercase
-	}
-
-	images := filterImages(items)
-	if len(images) != 6 {
-		t.Fatalf("got %d images, want 6", len(images))
-	}
-
-	expected := map[string]bool{
-		"photo.jpg":      true,
-		"photo.jpeg":     true,
-		"screenshot.png": true,
-		"animation.webp": true,
-		"image.PNG":      true,
-		"Photo.JPG":      true,
-	}
-
-	for _, img := range images {
-		if !expected[img.Name] {
-			t.Errorf("unexpected image: %s", img.Name)
+func TestRejectUnsupportedRepositoryURLs(t *testing.T) {
+	for _, value := range []string{
+		"", "http://github.com/owner/repo", "https://user@github.com/owner/repo",
+		"https://127.0.0.1/repo", "https://gitlab.com/owner/repo", "https://github.com/owner",
+		"https://github.com/owner/repo/tree", "https://github.com/owner/repo/%2e%2e/other",
+		"https://github.com/owner%2frepo/other", "https://github.com:8443/owner/repo",
+		"https://example-user.github.io/wallpapers", "https://raw.githubusercontent.com/owner/repo/main",
+	} {
+		if _, err := parseURL(value); err == nil {
+			t.Errorf("accepted %q", value)
 		}
 	}
 }
 
-func TestIsImageFile(t *testing.T) {
-	tests := []struct {
-		name  string
-		image bool
-	}{
-		{"photo.jpg", true},
-		{"photo.jpeg", true},
-		{"screenshot.png", true},
-		{"animation.webp", true},
-		{"image.PNG", true},
-		{"Photo.JPG", true},
-		{"noext", false},
-		{"document.pdf", false},
-		{"script.js", false},
-		{"archive.zip", false},
-		{"Makefile", false},
-	}
+type roundTripFunc func(*http.Request) (*http.Response, error)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := isImageFile(tt.name)
-			if got != tt.image {
-				t.Errorf("isImageFile(%q) = %v, want %v", tt.name, got, tt.image)
-			}
+func (f roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) { return f(request) }
+
+func TestListImagesUsesEscapedRequestsAndCachesMetadata(t *testing.T) {
+	client := NewClient()
+	calls := 0
+	client.http.Transport = roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		calls++
+		if req.URL.Host != "api.github.com" || req.URL.Query().Get("ref") != "feature/images" || req.URL.Path != "/repos/owner/repo/contents/folder name" {
+			t.Fatalf("request = %s", req.URL)
+		}
+		body := `[{"name":"dir","path":"dir","type":"dir"},{"name":"one.png","path":"one.png","type":"file","download_url":"https://raw.githubusercontent.com/owner/repo/main/one.png"},{"name":"bad.png","type":"file","download_url":"https://127.0.0.1/bad.png"},{"name":"README.md","type":"file"}]`
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(body))}, nil
+	})
+	for i := 0; i < 2; i++ {
+		result, err := client.ListImages("https://github.com/owner/repo/tree/feature%2Fimages/folder%20name")
+		if err != nil || len(result.Items) != 2 || result.Items[1].Name != "one.png" {
+			t.Fatalf("result = %+v, error = %v", result, err)
+		}
+	}
+	if calls != 1 {
+		t.Fatalf("metadata cache makes %d requests", calls)
+	}
+}
+
+func TestListImagesBoundsResponsesAndReturnsErrors(t *testing.T) {
+	for _, status := range []int{403, 404, 429, 500, 200} {
+		client := NewClient()
+		client.http.Transport = roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader(strings.Repeat(" ", maxAPIBytes+1)))}, nil
 		})
+		if _, err := client.ListImages("https://github.com/owner/repo"); err == nil {
+			t.Errorf("HTTP %d accepts an error or oversized body", status)
+		}
 	}
 }
 
-func TestTTLCache(t *testing.T) {
-	c := newTTLCache(5*time.Minute, 10)
-
-	// Get on empty cache
-	_, ok := c.get("key1")
-	if ok {
-		t.Fatal("expected miss on empty cache")
+func TestThumbnailUsesSharedImageLimits(t *testing.T) {
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	var encoded bytes.Buffer
+	if err := png.Encode(&encoded, image.NewRGBA(image.Rect(0, 0, 20, 10))); err != nil {
+		t.Fatal(err)
 	}
-
-	result := &ListContentsResult{Items: []ImageInfo{{Name: "test.jpg"}}}
-	c.set("key1", result)
-
-	got, ok := c.get("key1")
-	if !ok {
-		t.Fatal("expected hit after set")
+	path := filepath.Join(t.TempDir(), "image.png")
+	if err := os.WriteFile(path, encoded.Bytes(), 0o600); err != nil {
+		t.Fatal(err)
 	}
-	if len(got.Items) != 1 || got.Items[0].Name != "test.jpg" {
-		t.Fatal("wrong cached data")
+	result, err := downloadThumbnail("https://example.com/image.png", func(url string, limit int64) (string, error) {
+		if limit != wallpaper.MaxImageBytes {
+			t.Fatal("download limit changed")
+		}
+		return path, nil
+	})
+	if err != nil || result.Width != 20 || result.Height != 10 {
+		t.Fatalf("thumbnail = %+v, error = %v", result, err)
 	}
-}
-
-func TestTTLCache_expiry(t *testing.T) {
-	c := newTTLCache(1*time.Millisecond, 10)
-	c.set("k", &ListContentsResult{Items: []ImageInfo{{Name: "x"}}})
-
-	time.Sleep(5 * time.Millisecond)
-
-	_, ok := c.get("k")
-	if ok {
-		t.Fatal("expected miss after TTL expiry")
+	data, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(result.DataURL, "data:image/png;base64,"))
+	if err != nil {
+		t.Fatal(err)
 	}
-}
-
-func TestTTLCache_eviction(t *testing.T) {
-	c := newTTLCache(5*time.Minute, 2)
-	c.set("a", &ListContentsResult{Items: []ImageInfo{{Name: "a"}}})
-	c.set("b", &ListContentsResult{Items: []ImageInfo{{Name: "b"}}})
-	c.set("c", &ListContentsResult{Items: []ImageInfo{{Name: "c"}}})
-
-	// "a" should have been evicted
-	_, ok := c.get("a")
-	if ok {
-		t.Fatal("expected eviction of oldest entry")
+	config, err := png.DecodeConfig(bytes.NewReader(data))
+	if err != nil || config.Width > 300 || config.Height > 300 {
+		t.Fatalf("thumbnail dimensions = %+v, %v", config, err)
 	}
-	// "b" and "c" should still be present
-	if _, ok := c.get("b"); !ok {
-		t.Fatal("expected 'b' to still be in cache")
+	oversized := append([]byte(nil), encoded.Bytes()...)
+	binary.BigEndian.PutUint32(oversized[16:20], 20000)
+	binary.BigEndian.PutUint32(oversized[29:33], crc32.ChecksumIEEE(oversized[12:29]))
+	if err := os.WriteFile(path, oversized, 0o600); err != nil {
+		t.Fatal(err)
 	}
-	if _, ok := c.get("c"); !ok {
-		t.Fatal("expected 'c' to still be in cache")
+	if _, err := downloadThumbnail("https://example.com/huge.png", func(string, int64) (string, error) { return path, nil }); err == nil {
+		t.Fatal("oversized source header is accepted")
 	}
 }
 
-func TestBuildRawURL(t *testing.T) {
-	url := buildRawURL("dharmx", "walls", "main", "images/nature/mountain.png")
-	want := "https://raw.githubusercontent.com/dharmx/walls/main/images/nature/mountain.png"
-	if url != want {
-		t.Errorf("got %q, want %q", url, want)
+func TestThumbnailRejectsPrivateDestinationsBeforeDownload(t *testing.T) {
+	for _, value := range []string{"http://example.com/image.png", "https://127.0.0.1/image.png", "https://192.168.1.1/image.png", "https://localhost/image.png"} {
+		_, err := downloadThumbnail(value, func(string, int64) (string, error) { t.Fatal("private destination reaches downloader"); return "", nil })
+		if err == nil {
+			t.Errorf("accepted %s", value)
+		}
+	}
+}
+
+func TestMetadataCacheExpiryAndEviction(t *testing.T) {
+	cache := newTTLCache(time.Minute, 2)
+	for _, key := range []string{"one", "two", "three"} {
+		cache.set(key, &ListContentsResult{})
+	}
+	if _, ok := cache.get("one"); ok {
+		t.Fatal("oldest entry survives eviction")
+	}
+	if _, ok := cache.get("three"); !ok {
+		t.Fatal("new entry is missing")
+	}
+	cache.items["three"].expiresAt = time.Now().Add(-time.Second)
+	if _, ok := cache.get("three"); ok {
+		t.Fatal("expired entry survives")
+	}
+	cache.clear()
+	if _, ok := cache.get("two"); ok {
+		t.Fatal("clear preserves an entry")
 	}
 }

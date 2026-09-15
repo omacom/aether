@@ -2,18 +2,18 @@
     import {
         getWallpaperPath,
         getIsExtracting,
-        setIsExtracting,
-        setPaletteFromExtraction,
         setWallpaperPath,
         setColor,
         setExtendedColor,
         setAppOverride,
-        getLightMode,
-        getExtractionMode,
-        setAdjustments,
         getAdditionalImages,
+        getBlurredWallpaperPath,
+        setBlurredWallpaper,
+        getWallpaperBlur,
+        setWallpaperBlur,
+        getWallpaperRevision,
     } from '$lib/stores/theme.svelte';
-    import {DEFAULT_ADJUSTMENTS} from '$lib/types/theme';
+    import {extractColors} from '$lib/actions/themeActions';
     import {
         showToast,
         getEyedropperActive,
@@ -27,7 +27,6 @@
         getCachedFullImage,
         loadFullImage,
         isPending,
-        isVideoSource,
     } from '$lib/stores/imagecache.svelte';
     import ImagePreview from '$lib/components/shared/ImagePreview.svelte';
 
@@ -35,10 +34,15 @@
         $props();
 
     let wallpaperPath = $derived(getWallpaperPath());
-    let wallpaperImage = $derived(getCachedFullImage(wallpaperPath) || '');
+    let blurredPath = $derived(getBlurredWallpaperPath());
+    // The blurred variant is what gets applied, so it is what the hero shows.
+    // Extraction still uses wallpaperPath (the unblurred original).
+    let displayPath = $derived(blurredPath || wallpaperPath);
+    let wallpaperImage = $derived(getCachedFullImage(displayPath) || '');
     let wallpaperName = $derived(wallpaperPath.split('/').pop() || '');
-    let loading = $derived(isPending(wallpaperPath));
-    let isVideo = $derived(isVideoSource(wallpaperImage));
+    let loading = $derived(isPending(displayPath));
+    let blurred = $derived(getWallpaperBlur());
+    let isBlurring = $state(false);
     let previewOpen = $state(false);
     let eyedropperActive = $derived(getEyedropperActive());
     let containerHeight = $derived(expanded ? 'h-[70vh]' : 'h-96');
@@ -47,7 +51,6 @@
     let extracting = $derived(getIsExtracting());
 
     let imgEl = $state<HTMLImageElement | null>(null);
-    let videoEl = $state<HTMLVideoElement | null>(null);
 
     const LOUPE_SAMPLES = 11; // odd so one pixel is dead-center
     const LOUPE_ZOOM = 10;
@@ -63,7 +66,7 @@
     let loupeHex = $state('#000000');
 
     $effect(() => {
-        const path = getWallpaperPath();
+        const path = displayPath;
         if (path && !getCachedFullImage(path)) {
             loadFullImage(path);
         }
@@ -87,7 +90,7 @@
     }
 
     type SourceCoords = {
-        source: HTMLImageElement | HTMLVideoElement;
+        source: HTMLImageElement;
         srcX: number;
         srcY: number;
         naturalW: number;
@@ -95,20 +98,12 @@
     };
 
     function mapEventToSource(e: MouseEvent): SourceCoords | null {
-        const source: HTMLImageElement | HTMLVideoElement | null = isVideo
-            ? videoEl
-            : imgEl;
+        const source = imgEl;
         if (!source) return null;
 
         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-        const naturalW =
-            source instanceof HTMLVideoElement
-                ? source.videoWidth
-                : source.naturalWidth;
-        const naturalH =
-            source instanceof HTMLVideoElement
-                ? source.videoHeight
-                : source.naturalHeight;
+        const naturalW = source.naturalWidth;
+        const naturalH = source.naturalHeight;
         if (!naturalW || !naturalH) return null;
 
         // CSS `zoom` on <html> scales getBoundingClientRect() but not e.clientX/Y
@@ -234,60 +229,14 @@
         }
     }
 
-    async function handleExtractColors() {
-        const path = getWallpaperPath();
-        if (!path) return;
-        setIsExtracting(true);
-        try {
-            const {ExtractColors} = await import(
-                '../../../../wailsjs/go/main/App'
-            );
-            const colors = await ExtractColors(
-                path,
-                getLightMode(),
-                getExtractionMode()
-            );
-            setAdjustments({...DEFAULT_ADJUSTMENTS});
-            setPaletteFromExtraction(path, colors);
-            showToast('Colors extracted');
-        } catch {
-            showToast('Couldn’t extract colors from that image');
-        } finally {
-            setIsExtracting(false);
-        }
+    function handleExtractColors() {
+        void extractColors();
     }
 
-    async function handleExtractAll() {
-        const paths = [getWallpaperPath(), ...getAdditionalImages()].filter(
-            p => !!p
-        );
-        if (paths.length === 0) return;
-        setIsExtracting(true);
-        try {
-            const {ExtractColorsFromImages} = await import(
-                '../../../../wailsjs/go/main/App'
-            );
-            const result = await ExtractColorsFromImages(
-                paths,
-                getLightMode(),
-                getExtractionMode()
-            );
-            setAdjustments({...DEFAULT_ADJUSTMENTS});
-            // Treat the primary wallpaper as the extraction source for the
-            // override-clear heuristic. Blends switch context too, so this
-            // matches the single-image behaviour.
-            setPaletteFromExtraction(paths[0], result.palette);
-            const used = paths.length - result.skipped;
-            const suffix =
-                result.skipped > 0 ? ` (${result.skipped} skipped)` : '';
-            showToast(
-                `Blended palette from ${used} image${used === 1 ? '' : 's'}${suffix}`
-            );
-        } catch {
-            showToast('Failed to blend colors');
-        } finally {
-            setIsExtracting(false);
-        }
+    function handleExtractAll() {
+        void extractColors({
+            allImages: true,
+        });
     }
 
     async function handleChange() {
@@ -306,6 +255,46 @@
             showToast('Failed to change wallpaper');
         }
     }
+
+    function handleToggleBlur() {
+        if (getWallpaperPath()) setWallpaperBlur(!getWallpaperBlur());
+    }
+
+    $effect(() => {
+        const source = getWallpaperPath();
+        const enabled = getWallpaperBlur();
+        const revision = getWallpaperRevision();
+        let current = true;
+        if (!source || !enabled) {
+            isBlurring = false;
+            return;
+        }
+        isBlurring = true;
+        const isCurrent = () =>
+            current &&
+            revision === getWallpaperRevision() &&
+            getWallpaperBlur();
+        void (async () => {
+            try {
+                const {BlurWallpaper} = await import(
+                    '../../../../wailsjs/go/main/App'
+                );
+                if (!isCurrent()) return;
+                const path = await BlurWallpaper(source);
+                if (isCurrent()) setBlurredWallpaper(source, path, revision);
+            } catch {
+                if (isCurrent())
+                    showToast(
+                        'Could not prepare the blurred wallpaper. Try again.'
+                    );
+            } finally {
+                if (current) isBlurring = false;
+            }
+        })();
+        return () => {
+            current = false;
+        };
+    });
 </script>
 
 <div class="group relative">
@@ -320,18 +309,6 @@
     >
         {#if loading}
             <span class="text-fg-dimmed text-[11px]">Loading preview...</span>
-        {:else if wallpaperImage && isVideo}
-            <!-- svelte-ignore a11y_media_has_caption -->
-            <video
-                bind:this={videoEl}
-                src={wallpaperImage}
-                autoplay
-                loop
-                muted
-                playsinline
-                crossorigin="anonymous"
-                class="h-full w-full {objectFit}"
-            ></video>
         {:else if wallpaperImage}
             <img
                 bind:this={imgEl}
@@ -418,6 +395,35 @@
                         </svg>
                     </button>
                 {/if}
+                <button
+                    class="flex h-7 w-7 items-center justify-center transition-colors disabled:cursor-default disabled:opacity-50
+                        {blurred
+                        ? 'bg-white/20 text-white'
+                        : 'text-white/75 hover:bg-white/15 hover:text-white'}"
+                    onclick={handleToggleBlur}
+                    title={blurred
+                        ? 'Use the original image without blur'
+                        : 'Apply a blurred copy. Extract colors from the original image.'}
+                    aria-busy={isBlurring}
+                    aria-label={blurred
+                        ? 'Remove blur'
+                        : 'Heavy blur wallpaper'}
+                    aria-pressed={blurred}
+                >
+                    <svg
+                        class="h-4 w-4 {isBlurring ? 'animate-spin' : ''}"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    >
+                        <path
+                            d="M12 2.7s6.5 7 6.5 11.3a6.5 6.5 0 1 1-13 0C5.5 9.7 12 2.7 12 2.7z"
+                        ></path>
+                    </svg>
+                </button>
                 <button
                     class="flex h-7 w-7 items-center justify-center text-white/75 transition-colors hover:bg-white/15 hover:text-white"
                     onclick={handleChange}

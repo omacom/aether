@@ -1,0 +1,51 @@
+package theme
+
+import (
+	"fmt"
+	"path/filepath"
+	"regexp"
+	"strings"
+
+	"aether/internal/omarchy"
+)
+
+var omarchyThemeNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$`)
+
+// ValidOmarchyThemeName reports whether name is safe as a theme directory and
+// command argument.
+func ValidOmarchyThemeName(name string) bool {
+	return omarchyThemeNamePattern.MatchString(name)
+}
+
+// SaveAndApplyOmarchyTheme keeps bundle replacement and activation in one transaction.
+func (w *Writer) SaveAndApplyOmarchyTheme(state *ThemeState, settings Settings, name string) (*ApplyResult, error) {
+	if !ValidOmarchyThemeName(name) {
+		return nil, fmt.Errorf("invalid Omarchy theme name %q", name)
+	}
+	target := filepath.Join(omarchy.UserThemesDir(), name)
+	if err := w.generateOmarchyTheme(state, settings, target, name); err != nil {
+		return nil, err
+	}
+	return &ApplyResult{Success: true, IsOmarchy: true, ThemePath: target}, nil
+}
+
+// InstallOmarchyTheme generates a new named Omarchy theme and activates it.
+// Existing themes are never overwritten by web imports.
+func (w *Writer) InstallOmarchyTheme(state *ThemeState, settings Settings, name string) error {
+	if !ValidOmarchyThemeName(name) {
+		return fmt.Errorf("invalid Omarchy theme name %q", name)
+	}
+	name = strings.ToLower(name)
+	if !omarchy.IsInstalled() {
+		return fmt.Errorf("omarchy is not installed")
+	}
+	if omarchy.ThemeExists(name) {
+		return fmt.Errorf("Omarchy theme %q already exists", name)
+	}
+
+	targetDir := filepath.Join(omarchy.UserThemesDir(), name)
+	if err := w.generateOmarchyTheme(state, settings, targetDir, name); err != nil {
+		return fmt.Errorf("install Omarchy theme %q: %w", name, err)
+	}
+	return nil
+}

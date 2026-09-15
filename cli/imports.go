@@ -25,7 +25,15 @@ func resolveWallpaperArg(arg string) (string, error) {
 	}
 	if isURL(arg) {
 		fmt.Printf("Downloading wallpaper from: %s\n", arg)
-		return wallpaper.DownloadToCache(arg)
+		path, err := wallpaper.DownloadToCache(arg, wallpaper.MaxImageBytes)
+		if err != nil {
+			return "", err
+		}
+		if err := wallpaper.ValidateImageFile(path); err != nil {
+			_ = os.Remove(path)
+			return "", err
+		}
+		return path, nil
 	}
 	return expandHome(arg), nil
 }
@@ -38,11 +46,20 @@ func applyImportedTheme(templatesFS embed.FS, bp *blueprint.Blueprint, palette [
 	writer := theme.NewWriter(templatesFS, "templates")
 	state := theme.NewThemeState()
 	state.WallpaperPath = wallpaperPath
+	state.WallpaperBlur = bp.Palette.WallpaperBlur
 	state.LightMode = forceLight || bp.Palette.LightMode
 	for k, v := range bp.Palette.ExtendedColors {
 		state.ExtendedColors[k] = v
 	}
+	for k, v := range bp.Palette.NativeColors {
+		state.NativeColors[k] = v
+	}
 	state.SetPalette(palette)
+	iconTheme, err := bp.IconThemeSelection()
+	if err != nil {
+		return nil, fmt.Errorf("blueprint iconTheme: %w", err)
+	}
+	state.IconTheme = iconTheme
 	return writer.ApplyTheme(state, theme.DefaultApplySettings())
 }
 
@@ -109,7 +126,7 @@ func runImportBase16(args []string, templatesFS embed.FS) int {
 	var filePath string
 	if isURL(source) {
 		fmt.Printf("Downloading Base16 scheme from: %s\n", source)
-		dl, err := wallpaper.DownloadToCache(source)
+		dl, err := wallpaper.DownloadToCache(source, wallpaper.MaxDocumentBytes)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: download base16: %v\n", err)
 			return 1

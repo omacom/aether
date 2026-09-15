@@ -1,14 +1,13 @@
 import type {Settings} from '$lib/types/theme';
-import {ALWAYS_INCLUDED_APPS} from '$lib/constants/apps';
+import {SPECIAL_APP_FLAGS} from '$lib/constants/apps';
 
 const defaults: Settings = {
-    includeGtk: false,
-    includeZed: true,
+    wallpaperFolder: '',
+    includeZed: false,
     includeVscode: false,
-    includeNeovim: true,
+    includeNeovim: false,
     selectedNeovimConfig: '',
-    videoCpuMode: false,
-    excludedApps: {},
+    includedApps: {},
 };
 
 let settings = $state<Settings>({...defaults});
@@ -20,20 +19,38 @@ async function loadSettings() {
     try {
         const {GetSettings} = await import('../../../wailsjs/go/main/App');
         const saved = await GetSettings();
+        let cleanedLegacySettings = false;
         if (saved && typeof saved === 'object') {
-            settings = {...defaults, ...saved};
+            const cleaned = {...saved};
+            if ('includeGtk' in cleaned) {
+                delete cleaned.includeGtk;
+                cleanedLegacySettings = true;
+            }
+            if ('excludedApps' in cleaned) {
+                delete cleaned.excludedApps;
+                cleanedLegacySettings = true;
+            }
+            settings = {...defaults, ...cleaned};
+            settings = {
+                ...settings,
+                includedApps: settings.includedApps ?? {},
+            };
+            if (
+                settings.selectedNeovimConfig &&
+                !settings.includedApps?.neovim
+            ) {
+                settings = {
+                    ...settings,
+                    includeNeovim: true,
+                    includedApps: {
+                        ...(settings.includedApps ?? {}),
+                        neovim: true,
+                    },
+                };
+                cleanedLegacySettings = true;
+            }
         }
-        // Clear any stale exclusions for apps we now mandate.
-        const excluded = settings.excludedApps;
-        if (
-            excluded &&
-            Object.keys(excluded).some(k => ALWAYS_INCLUDED_APPS.has(k))
-        ) {
-            const cleaned = {...excluded};
-            for (const k of ALWAYS_INCLUDED_APPS) delete cleaned[k];
-            settings = {...settings, excludedApps: cleaned};
-            persist();
-        }
+        if (cleanedLegacySettings) persist();
     } catch {}
 }
 
@@ -54,16 +71,26 @@ export function updateSettings(partial: Partial<Settings>): void {
     persist();
 }
 
-export function isAppExcluded(app: string): boolean {
-    return !!settings.excludedApps?.[app];
+export function isAppIncluded(app: string): boolean {
+    if (app === 'icons') return settings.includedApps?.icons !== false;
+    return !!settings.includedApps?.[app];
 }
 
-export function toggleAppExclusion(app: string): void {
-    const current = {...(settings.excludedApps ?? {})};
-    if (current[app]) {
-        delete current[app];
+export function setAppIncluded(app: string, enabled: boolean): void {
+    const current = {...(settings.includedApps ?? {})};
+    if (enabled || app === 'icons') {
+        current[app] = enabled;
     } else {
-        current[app] = true;
+        delete current[app];
     }
-    updateSettings({excludedApps: current});
+
+    const flag = SPECIAL_APP_FLAGS[app];
+    updateSettings({
+        includedApps: current,
+        ...(flag ? {[flag]: enabled} : {}),
+    });
+}
+
+export function toggleAppInclusion(app: string): void {
+    setAppIncluded(app, !isAppIncluded(app));
 }

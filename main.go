@@ -40,6 +40,9 @@ func main() {
 	if len(os.Args) > 1 && ipcCommands[os.Args[1]] {
 		os.Exit(cli.RunIPC(os.Args[1:]))
 	}
+	if len(os.Args) > 1 && os.Args[1] == "upgrade" {
+		os.Exit(cli.Run(os.Args[1:], EmbeddedTemplates))
+	}
 
 	if ipc.IsRunning() {
 		fmt.Fprintln(os.Stderr, "Aether is already running. Use IPC commands to control it.")
@@ -88,6 +91,8 @@ func main() {
 		},
 		Linux: &wailslinux.Options{
 			ProgramName: "Aether",
+			// A non-nil Linux options struct bypasses Wails' GPU-safe default.
+			WebviewGpuPolicy: wailslinux.WebviewGpuPolicyNever,
 		},
 		Mac: &wailsmac.Options{
 			TitleBar:             wailsmac.TitleBarHiddenInset(),

@@ -2,16 +2,9 @@
     import {onMount} from 'svelte';
     import BlueprintCard from './BlueprintCard.svelte';
     import SaveDialog from './SaveDialog.svelte';
-    import {showToast, setActiveTab} from '$lib/stores/ui.svelte';
-    import {
-        setPalette,
-        setWallpaperPath,
-        setAdjustments,
-        setAppOverrides,
-        setAdditionalImages,
-        setLastExtractedPath,
-    } from '$lib/stores/theme.svelte';
-    import {DEFAULT_ADJUSTMENTS, type Blueprint} from '$lib/types/theme';
+    import {showToast} from '$lib/stores/ui.svelte';
+    import {loadBlueprintIntoEditor} from '$lib/actions/blueprintActions';
+    import type {Blueprint} from '$lib/types/theme';
     import EmptyState from '$lib/components/shared/EmptyState.svelte';
     import LoadingState from '$lib/components/shared/LoadingState.svelte';
     import ViewHeader from '$lib/components/shared/ViewHeader.svelte';
@@ -56,29 +49,9 @@
         }
     }
 
-    async function handleLoad(bp: Blueprint) {
+    function handleLoad(bp: Blueprint) {
         try {
-            if (bp.palette?.colors?.length >= 16) {
-                setPalette(bp.palette.colors);
-                if (bp.palette?.wallpaper) {
-                    setWallpaperPath(bp.palette.wallpaper);
-                }
-            } else {
-                const {LoadBlueprint} = await import(
-                    '../../../../wailsjs/go/main/App'
-                );
-                await LoadBlueprint(bp.name);
-            }
-            setAdjustments({...DEFAULT_ADJUSTMENTS, ...(bp.adjustments ?? {})});
-            setAppOverrides(bp.appOverrides ?? {});
-            setAdditionalImages(bp.palette?.additionalImages ?? []);
-            // Anchor the extract baseline to the blueprint's wallpaper so a
-            // re-extract on it preserves the loaded overrides.
-            if (bp.palette?.wallpaper) {
-                setLastExtractedPath(bp.palette.wallpaper);
-            }
-            setActiveTab('editor');
-            showToast(`Loaded: ${bp.name}`);
+            loadBlueprintIntoEditor(bp);
         } catch {
             showToast('Couldn’t load that blueprint');
         }

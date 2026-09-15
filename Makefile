@@ -1,34 +1,29 @@
-.PHONY: build dev test clean aether-wp install
+.PHONY: build dev test clean install install-omarchy-plugins
 
-UNAME_S := $(shell uname -s)
 WEBKIT_TAGS := $(shell pkg-config --exists webkit2gtk-4.0 2>/dev/null || echo "-tags webkit2_41")
 
-aether-wp:
-ifeq ($(UNAME_S),Linux)
-	go build -o build/bin/aether-wp ./cmd/aether-wp/
-else
-	@echo "aether-wp is Linux-only (requires GTK+, gtk-layer-shell, GStreamer), skipping"
-endif
-
 build:
-ifeq ($(UNAME_S),Linux)
-	$(MAKE) aether-wp
-endif
 	wails build $(WEBKIT_TAGS)
 
 install: build
-ifeq ($(UNAME_S),Darwin)
+ifeq ($(shell uname -s),Darwin)
 	cp build/bin/aether.app /Applications/Aether.app 2>/dev/null || \
 		cp build/bin/aether /usr/local/bin/aether
 else
-	sudo cp build/bin/aether-wp /usr/bin/aether-wp
 	sudo cp build/bin/aether /usr/bin/aether
 	mkdir -p $(HOME)/.local/share/applications
 	cp li.oever.aether.desktop $(HOME)/.local/share/applications/
 	cp li.oever.aether.url-handler.desktop $(HOME)/.local/share/applications/
+	mkdir -p $(HOME)/.local/share/icons/hicolor/512x512/apps
+	cp assets/aether-icon-512.png $(HOME)/.local/share/icons/hicolor/512x512/apps/aether.png
 	-update-desktop-database $(HOME)/.local/share/applications 2>/dev/null
+	-gtk-update-icon-cache -f $(HOME)/.local/share/icons/hicolor 2>/dev/null
 	-xdg-mime default li.oever.aether.url-handler.desktop x-scheme-handler/aether 2>/dev/null
+	@if command -v omarchy >/dev/null 2>&1; then $(MAKE) install-omarchy-plugins; fi
 endif
+
+install-omarchy-plugins:
+	AETHER_PLUGIN_SOURCE_DIR="$(CURDIR)/contrib/quickshell" contrib/quickshell/install.sh
 
 dev:
 	wails dev $(WEBKIT_TAGS)

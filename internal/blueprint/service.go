@@ -82,6 +82,9 @@ func (s *Service) FindByName(name string) (*Blueprint, error) {
 func (s *Service) Save(name string, bp Blueprint) error {
 	bp.Name = name
 	bp.Timestamp = time.Now().UnixMilli()
+	if err := validateBlueprint(&bp); err != nil {
+		return fmt.Errorf("validate blueprint: %w", err)
+	}
 
 	// Sanitize filename
 	safeName := strings.ReplaceAll(name, "/", "-")
@@ -92,24 +95,37 @@ func (s *Service) Save(name string, bp Blueprint) error {
 	return platform.WriteJSON(path, bp)
 }
 
-// Delete removes a blueprint by name.
+// Delete removes a blueprint by its full, case-insensitive display name.
+// Empty or duplicate names are rejected; fuzzy lookup is never used for deletion.
 func (s *Service) Delete(name string) error {
-	bp, err := s.FindByName(name)
+	if strings.TrimSpace(name) == "" {
+		return fmt.Errorf("blueprint name must not be empty")
+	}
+	blueprints, err := s.LoadAll()
 	if err != nil {
 		return err
 	}
-	if bp == nil {
+	var match *Blueprint
+	for i := range blueprints {
+		if strings.EqualFold(blueprints[i].Name, name) {
+			if match != nil {
+				return fmt.Errorf("blueprint name %q is ambiguous", name)
+			}
+			match = &blueprints[i]
+		}
+	}
+	if match == nil {
 		return fmt.Errorf("blueprint %q not found", name)
 	}
-	return os.Remove(bp.Path)
+	if err := os.Remove(match.Path); err != nil {
+		return fmt.Errorf("delete blueprint %q: %w", name, err)
+	}
+	return nil
 }
 
-// Validate checks if a blueprint has the minimum required structure.
+// Validate checks a blueprint's structure and color values.
 func (s *Service) Validate(bp *Blueprint) bool {
-	if bp == nil {
-		return false
-	}
-	return len(bp.Palette.Colors) >= 16
+	return validateBlueprint(bp) == nil
 }
 
 func (s *Service) loadFromFile(path, filename string) (Blueprint, error) {
@@ -127,6 +143,9 @@ func (s *Service) loadFromFile(path, filename string) (Blueprint, error) {
 	bp.Filename = filename
 	if bp.Name == "" {
 		bp.Name = strings.TrimSuffix(filename, ".json")
+	}
+	if err := validateBlueprint(&bp); err != nil {
+		return Blueprint{}, err
 	}
 
 	return bp, nil

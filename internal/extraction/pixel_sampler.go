@@ -3,14 +3,11 @@ package extraction
 import (
 	"fmt"
 	"image"
-	_ "image/gif"
-	_ "image/jpeg"
-	_ "image/png"
-	_ "golang.org/x/image/webp"
 	"math"
 	"os"
 
 	"aether/internal/color"
+	"aether/internal/wallpaper"
 
 	"golang.org/x/image/draw"
 )
@@ -25,7 +22,7 @@ func LoadAndSamplePixels(imagePath string) ([]color.RGB, error) {
 	}
 	defer f.Close()
 
-	src, _, err := image.Decode(f)
+	src, err := wallpaper.DecodeImage(f)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode image: %w", err)
 	}

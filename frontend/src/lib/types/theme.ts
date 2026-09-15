@@ -38,15 +38,37 @@ export interface Adjustments {
     whitePoint: number;
 }
 
+export type IconThemeSelection =
+    | {mode: 'automatic'; id?: never}
+    | {mode: 'explicit'; id: string};
+
+export const AUTOMATIC_ICON_THEME: IconThemeSelection = {mode: 'automatic'};
+
+export function normalizeIconThemeSelection(
+    value: {mode?: string; id?: string} | null | undefined
+): IconThemeSelection {
+    if (
+        value?.mode === 'explicit' &&
+        typeof value.id === 'string' &&
+        value.id
+    ) {
+        return {mode: 'explicit', id: value.id};
+    }
+    return {...AUTOMATIC_ICON_THEME};
+}
+
 // Blueprint shape returned by ListBlueprints (Go side returns untyped maps,
 // so this mirrors internal/blueprint.Blueprint by hand).
 export interface BlueprintPaletteData {
     colors: string[];
     wallpaper?: string;
+    wallpaperBlur?: boolean;
     wallpaperUrl?: string;
     lightMode?: boolean;
+    mode?: 'light' | 'dark' | '';
     lockedColors?: number[];
     extendedColors?: Record<string, string>;
+    nativeColors?: Record<string, string>;
     additionalImages?: string[];
     wallpaperSource?: string;
 }
@@ -57,22 +79,21 @@ export interface Blueprint {
     adjustments?: Record<string, number>;
     appOverrides?: Record<string, Record<string, string>>;
     settings?: Record<string, unknown>;
+    iconTheme?: IconThemeSelection;
     timestamp: number;
     path?: string;
     filename?: string;
 }
 
 export interface Settings {
-    includeGtk: boolean;
+    wallpaperFolder: string;
     includeZed: boolean;
     includeVscode: boolean;
     includeNeovim: boolean;
     selectedNeovimConfig: string;
-    videoCpuMode: boolean;
-    // Per-app skip list. Keys are the app names returned by
-    // GetTemplateColors (alacritty, hyprland, …). True = skip the
-    // template during ApplyTheme / GenerateOnly.
-    excludedApps?: Record<string, boolean>;
+    // App templates explicitly included as overrides. Omarchy generates its
+    // standard app configs from colors.toml when an app is not included here.
+    includedApps?: Record<string, boolean>;
 }
 
 export const DEFAULT_ADJUSTMENTS: Adjustments = {
