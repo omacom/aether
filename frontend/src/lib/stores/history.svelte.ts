@@ -1,6 +1,6 @@
 // Frontend-side undo/redo history
 
-import type {Adjustments} from '$lib/types/theme';
+import type {Adjustments, IconThemeSelection} from '$lib/types/theme';
 
 const MAX_HISTORY = 50;
 
@@ -20,6 +20,7 @@ export interface Snapshot {
     extendedColors: Record<string, string>;
     baseExtendedColors: Record<string, string>;
     appOverrides: Record<string, Record<string, string>>;
+    iconTheme: IconThemeSelection;
     adjustments: Adjustments;
     paletteCurvePoints: [number, number][];
     extractionMode: string;
@@ -60,6 +61,7 @@ export function copySnapshot(snapshot: Snapshot): Snapshot {
         adjustments: {...snapshot.adjustments},
         paletteCurvePoints: snapshot.paletteCurvePoints.map(([x, y]) => [x, y]),
         extractionMode: snapshot.extractionMode,
+        iconTheme: {...snapshot.iconTheme},
         pendingAdjustment: pending
             ? {
                   previousAdjustments: {...pending.previousAdjustments},

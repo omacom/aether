@@ -1,4 +1,5 @@
 <script lang="ts">
+    import type {main} from '../../../../wailsjs/go/models';
     import {
         getIsApplying,
         setPalette,
@@ -11,6 +12,8 @@
         getAdditionalImages,
         getExtendedColors,
         getNativeColors,
+        getIconTheme,
+        setIconTheme,
         setNativeColors,
         getAppOverrides,
         isDirty,
@@ -200,11 +203,12 @@
                 additionalImages: getAdditionalImages(),
                 extendedColors: getExtendedColors(),
                 nativeColors: getNativeColors(),
+                iconTheme: {...getIconTheme()},
                 installToOmarchy,
                 appOverrides: nativeExport
                     ? getNativeAppOverrides()
                     : getAppOverrides(),
-            });
+            } as unknown as main.ExportThemeRequest);
             // Path ends with .../omarchy-{slug}-theme — pull the slug so the
             // user can see what name actually went into Omarchy's menu.
             const slug =
@@ -233,6 +237,7 @@
                 setPalette(result.colors);
                 setExtendedColors(result.extendedColors ?? {});
                 setNativeColors(result.nativeColors ?? {});
+                setIconTheme(result.iconTheme, true);
                 if (result.wallpaperPath) {
                     setWallpaperPath(result.wallpaperPath);
                 }

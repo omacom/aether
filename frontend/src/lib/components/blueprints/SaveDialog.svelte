@@ -9,6 +9,7 @@
         getAdditionalImages,
         getExtendedColors,
         getNativeColors,
+        getIconTheme,
         getAppOverrides,
         getAdjustments,
     } from '$lib/stores/theme.svelte';
@@ -80,6 +81,7 @@
             lockedColors: [],
             extendedColors: {...getExtendedColors()},
             nativeColors: {...getNativeColors()},
+            iconTheme: {...getIconTheme()},
             appOverrides: Object.fromEntries(
                 Object.entries(getAppOverrides()).map(([app, colors]) => [
                     app,
@@ -87,7 +89,7 @@
                 ])
             ),
             adjustments: {...getAdjustments()},
-        };
+        } as unknown as main.SaveBlueprintRequest;
         pendingSave = request;
         try {
             const {BlueprintExists} = await import(

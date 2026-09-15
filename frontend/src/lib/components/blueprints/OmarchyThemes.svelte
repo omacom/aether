@@ -4,6 +4,7 @@
         setPalette,
         setExtendedColors,
         setNativeColors,
+        setIconTheme,
         setWallpaperPath,
         setAdditionalImages,
         setAppOverrides,
@@ -63,6 +64,7 @@
         setPalette(theme.colors);
         setExtendedColors(theme.extendedColors ?? {});
         setNativeColors(theme.nativeColors ?? {});
+        setIconTheme(theme.iconTheme, true);
         if (theme.mode) setLightMode(theme.mode === 'light');
         setWallpaperPath(theme.wallpapers?.[0] ?? '');
         setAdditionalImages(theme.wallpapers?.slice(1) ?? []);

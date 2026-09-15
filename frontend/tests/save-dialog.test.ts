@@ -38,6 +38,7 @@ test('repeated Enter cannot bypass overwrite confirmation, and Override saves th
     vi.mocked(SaveBlueprint).mockReturnValue(saved.promise);
     theme.setWallpaperPath('/original.png');
     theme.setAppOverride('kitty', 'background', '#123456');
+    theme.setIconTheme({mode: 'explicit', id: 'Original-Icons'}, true);
     const originalPalette = [...theme.getPalette()];
     const onsave = vi.fn();
     const {target} = render(SaveDialog, {open: true, onclose: vi.fn(), onsave});
@@ -54,6 +55,7 @@ test('repeated Enter cannot bypass overwrite confirmation, and Override saves th
     theme.setColor(0, '#abcdef');
     theme.setWallpaperPath('/different.png');
     theme.setAppOverride('kitty', 'background', '#ffffff');
+    theme.setIconTheme({mode: 'explicit', id: 'Later-Icons'}, true);
     exists.resolve(true);
     await settle();
     expect(target.textContent).toContain('A theme named "Original"');
@@ -71,6 +73,7 @@ test('repeated Enter cannot bypass overwrite confirmation, and Override saves th
             palette: originalPalette,
             wallpaperPath: '/original.png',
             appOverrides: {kitty: {background: '#123456'}},
+            iconTheme: {mode: 'explicit', id: 'Original-Icons'},
         })
     );
     expect(onsave).not.toHaveBeenCalled();

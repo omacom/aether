@@ -94,6 +94,10 @@ export function GetFocusTab() {
     return window['go']['main']['App']['GetFocusTab']();
 }
 
+export function GetIconThemePreview(arg1) {
+    return window['go']['main']['App']['GetIconThemePreview'](arg1);
+}
+
 export function GetInitialState() {
     return window['go']['main']['App']['GetInitialState']();
 }
@@ -170,6 +174,10 @@ export function ListBlueprints() {
     return window['go']['main']['App']['ListBlueprints']();
 }
 
+export function ListInstalledIconThemes() {
+    return window['go']['main']['App']['ListInstalledIconThemes']();
+}
+
 export function LoadBlueprint(arg1) {
     return window['go']['main']['App']['LoadBlueprint'](arg1);
 }
@@ -196,6 +204,10 @@ export function PreviewExtractColors(arg1, arg2, arg3) {
 
 export function ReadImageAsDataURL(arg1) {
     return window['go']['main']['App']['ReadImageAsDataURL'](arg1);
+}
+
+export function RefreshInstalledIconThemes() {
+    return window['go']['main']['App']['RefreshInstalledIconThemes']();
 }
 
 export function ResetState() {

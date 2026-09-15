@@ -27,6 +27,7 @@ const blueprint = {
     },
     adjustments: {brightness: 25},
     appOverrides: {kitty: {background: '#123456'}},
+    iconTheme: {mode: 'explicit' as const, id: 'Forest-Icons'},
 };
 
 beforeEach(() => {
@@ -95,6 +96,7 @@ test('keyboard search loads a saved blueprint into the editor without applying i
     expect(theme.getExtendedColors().accent).toBe('#abcdef');
     expect(theme.getNativeColors()).toEqual(blueprint.palette.nativeColors);
     expect(theme.getAppOverrides()).toEqual(blueprint.appOverrides);
+    expect(theme.getIconTheme()).toEqual(blueprint.iconTheme);
     expect(theme.getWallpaperPath()).toBe('/forest.png');
     expect(theme.getLockedColors()[1]).toBe(true);
     expect(theme.getLockedColors()[2]).toBe(false);

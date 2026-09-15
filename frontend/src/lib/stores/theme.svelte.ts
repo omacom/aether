@@ -1,6 +1,9 @@
 import {
     DEFAULT_PALETTE,
     DEFAULT_ADJUSTMENTS,
+    AUTOMATIC_ICON_THEME,
+    normalizeIconThemeSelection,
+    type IconThemeSelection,
     type Adjustments,
     type ColorRoles,
 } from '$lib/types/theme';
@@ -42,6 +45,7 @@ let isApplying = $state<boolean>(false);
 let additionalImages = $state<string[]>([]);
 let appOverrides = $state<Record<string, Record<string, string>>>({});
 let nativeColors = $state<Record<string, string>>({});
+let iconTheme = $state<IconThemeSelection>({...AUTOMATIC_ICON_THEME});
 let paletteCurvePoints = $state<[number, number][]>([]);
 // Source path of the most recently extracted palette. Used to decide
 // whether per-app template overrides should be cleared on the next
@@ -167,6 +171,19 @@ export function getExtendedColors(): Record<string, string> {
 export function getNativeColors(): Record<string, string> {
     return nativeColors;
 }
+export function getIconTheme(): IconThemeSelection {
+    return iconTheme;
+}
+export function setIconTheme(
+    value: {mode?: string; id?: string} | null | undefined,
+    skipHistory = false
+): void {
+    const next = normalizeIconThemeSelection(value);
+    if (iconTheme.mode === next.mode && iconTheme.id === next.id) return;
+    endColorEditSessions();
+    if (!skipHistory) pushState(getHistorySnapshot());
+    iconTheme = next;
+}
 export function getBaseExtendedColors(): Record<string, string> {
     return baseExtendedColors;
 }
@@ -185,6 +202,7 @@ export function getHistorySnapshot(): Snapshot {
         paletteCurvePoints,
         extractionMode,
         pendingAdjustment,
+        iconTheme,
     });
 }
 
@@ -197,6 +215,7 @@ export function restoreHistorySnapshot(snapshot: Snapshot): void {
     extendedColors = restored.extendedColors;
     baseExtendedColors = restored.baseExtendedColors;
     appOverrides = restored.appOverrides;
+    iconTheme = restored.iconTheme;
     adjustments = restored.adjustments;
     paletteCurvePoints = restored.paletteCurvePoints;
     extractionMode = restored.extractionMode;
@@ -330,6 +349,7 @@ export function getThemeSnapshot(): {
     nativeColors: Record<string, string>;
     appOverrides: Record<string, Record<string, string>>;
     additionalImages: string[];
+    iconTheme: IconThemeSelection;
 } {
     return {
         palette: [...palette],
@@ -344,6 +364,7 @@ export function getThemeSnapshot(): {
             ])
         ),
         additionalImages: [...additionalImages],
+        iconTheme: {...iconTheme},
     };
 }
 
@@ -358,6 +379,7 @@ export function getThemeSignature(snapshot = getThemeSnapshot()): string {
         snapshot.nativeColors,
         snapshot.appOverrides,
         snapshot.additionalImages,
+        snapshot.iconTheme,
     ]);
 }
 
@@ -687,6 +709,7 @@ export function reset(): void {
     baseExtendedColors = {...ext};
     appOverrides = {};
     nativeColors = {};
+    iconTheme = {...AUTOMATIC_ICON_THEME};
     paletteCurvePoints = [];
     lastExtractedPath = '';
 }

@@ -58,6 +58,7 @@
         setPalette,
         setExtendedColors,
         setNativeColors,
+        setIconTheme,
         setAdjustments,
         setColor,
         setExtendedColor,
@@ -268,6 +269,7 @@
             if (s?.nativeColors) {
                 setNativeColors(s.nativeColors);
             }
+            setIconTheme(s?.iconTheme, true);
             if (s?.wallpaperPath) {
                 setWallpaperPath(s.wallpaperPath);
                 // Treat the restored wallpaper as already-extracted so a
@@ -496,6 +498,7 @@
                         palette?: string[];
                         extendedColors?: Record<string, string>;
                         nativeColors?: Record<string, string>;
+                        iconTheme?: {mode?: string; id?: string};
                         lightMode?: boolean;
                         mode?: string;
                         wallpaper?: string;
@@ -512,6 +515,8 @@
                         if (state.nativeColors) {
                             setNativeColors(state.nativeColors);
                         }
+                        if (state.iconTheme)
+                            setIconTheme(state.iconTheme, true);
                         if (state.lightMode !== undefined) {
                             setLightMode(state.lightMode);
                         }

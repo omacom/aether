@@ -1,11 +1,14 @@
 package omarchy
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
+
+	"aether/internal/icontheme"
 )
 
 // slugInvalid matches anything that isn't a lowercase letter, digit, hyphen,
@@ -29,23 +32,24 @@ func SlugifyThemeName(name string) string {
 
 // Theme represents a discovered Omarchy theme.
 type Theme struct {
-	Name              string            `json:"name"`
-	Path              string            `json:"path"`
-	Sources           []string          `json:"sources"`
-	Colors            []string          `json:"colors"`
-	ExtendedColors    map[string]string `json:"extendedColors"`
-	NativeColors      map[string]string `json:"nativeColors"`
-	Background        string            `json:"background"`
-	Foreground        string            `json:"foreground"`
-	Mode              string            `json:"mode"`
-	Preview           string            `json:"preview"`
-	Wallpapers        []string          `json:"wallpapers"`
-	IsSymlink         bool              `json:"isSymlink"`
-	IsOverlay         bool              `json:"isOverlay"`
-	IsUserTheme       bool              `json:"isUserTheme"`
-	CanApply          bool              `json:"canApply"`
-	IsCurrentTheme    bool              `json:"isCurrentTheme"`
-	IsAetherGenerated bool              `json:"isAetherGenerated"`
+	Name              string              `json:"name"`
+	Path              string              `json:"path"`
+	Sources           []string            `json:"sources"`
+	Colors            []string            `json:"colors"`
+	ExtendedColors    map[string]string   `json:"extendedColors"`
+	NativeColors      map[string]string   `json:"nativeColors"`
+	IconTheme         icontheme.Selection `json:"iconTheme"`
+	Background        string              `json:"background"`
+	Foreground        string              `json:"foreground"`
+	Mode              string              `json:"mode"`
+	Preview           string              `json:"preview"`
+	Wallpapers        []string            `json:"wallpapers"`
+	IsSymlink         bool                `json:"isSymlink"`
+	IsOverlay         bool                `json:"isOverlay"`
+	IsUserTheme       bool                `json:"isUserTheme"`
+	CanApply          bool                `json:"canApply"`
+	IsCurrentTheme    bool                `json:"isCurrentTheme"`
+	IsAetherGenerated bool                `json:"isAetherGenerated"`
 }
 
 // AETHER_EXTRA_THEME_DIRS is a colon-separated list of additional
@@ -200,6 +204,7 @@ func LoadAllThemes() ([]Theme, error) {
 			IsUserTheme:       filepath.Clean(filepath.Dir(primary)) == userRoot,
 			IsCurrentTheme:    name == currentName,
 			IsAetherGenerated: IsManagedThemeDir(primary),
+			IconTheme:         readThemeIconSelection(sources),
 		}
 		theme.CanApply = len(sources) > 0
 		for _, source := range sources {
@@ -235,6 +240,27 @@ func LoadAllThemes() ([]Theme, error) {
 	}
 
 	return themes, nil
+}
+
+func readThemeIconSelection(sources []string) icontheme.Selection {
+	file, err := os.Open(firstThemeFile(sources, "icons.theme"))
+	if err != nil {
+		return icontheme.Automatic()
+	}
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil || !info.Mode().IsRegular() {
+		return icontheme.Automatic()
+	}
+	data, err := io.ReadAll(io.LimitReader(file, icontheme.MaxIDBytes+3))
+	if err != nil || len(data) > icontheme.MaxIDBytes+2 {
+		return icontheme.Automatic()
+	}
+	id := strings.TrimSpace(string(data))
+	if icontheme.ValidateID(id) != nil {
+		return icontheme.Automatic()
+	}
+	return icontheme.Selection{Mode: icontheme.SelectionExplicit, ID: id}
 }
 
 // TokyoNightDefaults loads the tokyo-night palette and its first

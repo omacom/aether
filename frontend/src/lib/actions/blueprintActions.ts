@@ -4,6 +4,7 @@ import {
     setPalette,
     setExtendedColors,
     setNativeColors,
+    setIconTheme,
     setLightMode,
     setWallpaperPath,
     setAppOverrides,
@@ -27,6 +28,7 @@ export function loadBlueprintIntoEditor(bp: Blueprint): void {
     setPalette(colors);
     setExtendedColors(bp.palette.extendedColors ?? {});
     setNativeColors(bp.palette.nativeColors ?? {});
+    setIconTheme(bp.iconTheme, true);
     setLightMode(
         bp.palette.mode ? bp.palette.mode === 'light' : !!bp.palette.lightMode
     );
