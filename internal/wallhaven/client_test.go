@@ -201,7 +201,7 @@ func TestDownloadBoundsAndCache(t *testing.T) {
 				calls++
 				return &http.Response{StatusCode: http.StatusOK, Body: body, ContentLength: length}, nil
 			})
-			const rawURL = "https://example.com/image.jpg?token=value#fragment"
+			const rawURL = "https://w.wallhaven.cc/image.jpg?token=value#fragment"
 			if _, err := tc.call(c, rawURL); err == nil || !strings.Contains(err.Error(), "exceeds") || body.read != 0 || !body.closed {
 				t.Fatalf("advertised overflow: error %v, read %d, closed %v", err, body.read, body.closed)
 			}
@@ -224,5 +224,31 @@ func TestDownloadBoundsAndCache(t *testing.T) {
 				t.Fatalf("oversized cache: error %v, requests %d", err, calls)
 			}
 		})
+	}
+}
+
+func TestRemoteSourcesWithSameFilenameUseDistinctCacheEntries(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	client := NewClient()
+	client.http.Transport = roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(req.URL.Path))}, nil
+	})
+	one, err := client.Download("https://example.com/one/wall.png")
+	if err != nil {
+		t.Fatal(err)
+	}
+	two, err := client.Download("https://example.com/two/wall.png")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if one == two {
+		t.Fatal("different remote sources share a cache path")
+	}
+	data, err := os.ReadFile(two)
+	if err != nil || string(data) != "/two/wall.png" {
+		t.Fatalf("wrong source bytes: %q, %v", data, err)
 	}
 }

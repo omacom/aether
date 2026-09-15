@@ -23,13 +23,11 @@ beforeEach(() => {
     theme.setIsApplying(false);
     theme.setWallpaperPath('/original.png');
     vi.mocked(ThemeFolderExists).mockReset().mockResolvedValue(false);
-    vi.mocked(SaveAndApplyTheme)
-        .mockReset()
-        .mockResolvedValue({
-            success: true,
-            isOmarchy: true,
-            themePath: '/theme',
-        });
+    vi.mocked(SaveAndApplyTheme).mockReset().mockResolvedValue({
+        success: true,
+        isOmarchy: true,
+        themePath: '/theme',
+    });
 });
 
 function enter() {

@@ -1,9 +1,10 @@
 <script lang="ts">
-    import {onMount} from 'svelte';
+    import {onMount, onDestroy} from 'svelte';
     import {
         setWallpaperPath,
         addAdditionalImage,
         getAdditionalImages,
+        getWallpaperRevision,
     } from '$lib/stores/theme.svelte';
     import {setActiveTab, showToast} from '$lib/stores/ui.svelte';
     import {
@@ -40,6 +41,12 @@
     let filterTag = $state<string>('');
     let previewIndex = $state(-1);
     let previewSrc = $state<string>('');
+    let current = true;
+    let previewSequence = 0;
+    onDestroy(() => {
+        current = false;
+        previewSequence++;
+    });
 
     let allLabels = $derived(getLabels());
     let allAssignments = $derived(getAssignments());
@@ -66,6 +73,17 @@
         }
     }
 
+    async function loadRemoteThumb(path: string) {
+        try {
+            const {GetGitHubThumbnail} = await import(
+                '../../../../wailsjs/go/main/App'
+            );
+            const result = await GetGitHubThumbnail(path);
+            if (result?.dataURL)
+                setCachedImage('thumb:' + path, result.dataURL);
+        } catch {}
+    }
+
     async function loadThumbnails() {
         for (const fav of favorites) {
             if (isThumbnailCached(fav.path)) continue;
@@ -76,12 +94,24 @@
                 continue;
             }
 
+            // Remote GitHub URLs — use Go thumbnail generator (download +
+            // resize to 300px, cached on disk for subsequent loads). Fire and
+            // forget so the loop doesn't block on HTTP downloads.
+            if (
+                fav.path.startsWith('http://') ||
+                fav.path.startsWith('https://')
+            ) {
+                loadRemoteThumb(fav.path);
+                continue;
+            }
+
             // Local files — load thumbnail
             loadThumbnail(fav.path);
         }
     }
 
     async function handleSelect(fav: Favorite) {
+        const revision = getWallpaperRevision();
         let localPath = fav.path;
 
         if (
@@ -101,6 +131,7 @@
             }
         }
 
+        if (!current || revision !== getWallpaperRevision()) return;
         setWallpaperPath(localPath);
         setActiveTab('editor');
         showToast('Wallpaper selected — click Extract to generate palette');
@@ -116,6 +147,7 @@
     }
 
     async function handleAddExtra(fav: Favorite) {
+        const revision = getWallpaperRevision();
         let localPath = fav.path;
 
         if (
@@ -135,6 +167,7 @@
             }
         }
 
+        if (!current || revision !== getWallpaperRevision()) return;
         if (getAdditionalImages().includes(localPath)) {
             showToast('Already in additional images');
             return;
@@ -144,19 +177,39 @@
     }
 
     async function resolvePreviewSrc(fav: Favorite): Promise<string> {
+        if (fav.type === 'github') {
+            const {DownloadWallpaper} = await import(
+                '../../../../wailsjs/go/main/App'
+            );
+            return loadFullImage(await DownloadWallpaper(fav.path));
+        }
         if (fav.path?.startsWith('http')) return fav.path;
         const cached = getCachedFullImage(fav.path);
         return cached || (await loadFullImage(fav.path));
     }
 
     async function handlePreview(index: number) {
-        previewSrc = await resolvePreviewSrc(filtered[index]);
-        previewIndex = index;
+        const selected = filtered[index];
+        if (!selected) return;
+        const sequence = ++previewSequence;
+        try {
+            const source = await resolvePreviewSrc(selected);
+            if (
+                !current ||
+                sequence !== previewSequence ||
+                filtered[index]?.path !== selected.path
+            )
+                return;
+            previewSrc = source;
+            previewIndex = index;
+        } catch {
+            if (current && sequence === previewSequence)
+                showToast('Could not load the wallpaper preview');
+        }
     }
 
     async function navigatePreview(index: number) {
-        previewSrc = await resolvePreviewSrc(filtered[index]);
-        previewIndex = index;
+        await handlePreview(index);
     }
 </script>
 
@@ -320,6 +373,7 @@
         : ''}
     open={previewIndex >= 0}
     onclose={() => {
+        previewSequence++;
         previewIndex = -1;
         previewSrc = '';
     }}

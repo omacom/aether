@@ -17,6 +17,7 @@ import (
 	"aether/internal/extraction"
 	"aether/internal/favexport"
 	"aether/internal/favorites"
+	"aether/internal/githubsource"
 	"aether/internal/icontheme"
 	"aether/internal/omarchy"
 	"aether/internal/platform"
@@ -41,6 +42,7 @@ type App struct {
 	favorites    *favorites.Service
 	favExport    *favexport.Exporter
 	wallhaven    *wallhaven.Client
+	githubSource *githubsource.Client
 	batch        *batch.Processor
 	iconThemes   *icontheme.Catalog
 	themeWatcher *theme.ThemeWatcher
@@ -101,6 +103,7 @@ func NewApp() *App {
 		favorites:    favorites.NewService(),
 		favExport:    favexport.New(wh),
 		wallhaven:    wh,
+		githubSource: githubsource.NewClient(),
 		batch:        batch.NewProcessor(),
 		iconThemes:   icontheme.NewCatalog(),
 		themeWatcher: theme.NewThemeWatcher(),
@@ -478,6 +481,16 @@ func (a *App) ThemeFolderExists(name string) bool {
 	}
 	info, err := os.Stat(filepath.Join(root, name))
 	return err == nil && info.IsDir()
+}
+
+// ListGitHubImages lists a public repository directory.
+func (a *App) ListGitHubImages(rawURL string) (*githubsource.ListContentsResult, error) {
+	return a.githubSource.ListImages(rawURL)
+}
+
+// GetGitHubThumbnail returns a bounded, cached preview for a remote wallpaper.
+func (a *App) GetGitHubThumbnail(rawURL string) (*githubsource.ThumbnailResult, error) {
+	return githubsource.DownloadThumbnail(rawURL)
 }
 
 // BlurWallpaper prepares a cached preview of the derived wallpaper.

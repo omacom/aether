@@ -110,6 +110,10 @@ export function GetFocusTab() {
     return window['go']['main']['App']['GetFocusTab']();
 }
 
+export function GetGitHubThumbnail(arg1) {
+    return window['go']['main']['App']['GetGitHubThumbnail'](arg1);
+}
+
 export function GetIconThemePreview(arg1) {
     return window['go']['main']['App']['GetIconThemePreview'](arg1);
 }
@@ -192,6 +196,10 @@ export function IsPreviewCached(arg1) {
 
 export function ListBlueprints() {
     return window['go']['main']['App']['ListBlueprints']();
+}
+
+export function ListGitHubImages(arg1) {
+    return window['go']['main']['App']['ListGitHubImages'](arg1);
 }
 
 export function ListInstalledIconThemes() {

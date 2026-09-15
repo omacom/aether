@@ -4,6 +4,7 @@ import {color} from '../models';
 import {theme} from '../models';
 import {main} from '../models';
 import {favorites} from '../models';
+import {githubsource} from '../models';
 import {icontheme} from '../models';
 import {omarchy} from '../models';
 import {ipc} from '../models';
@@ -81,6 +82,10 @@ export function GetFavorites(): Promise<Array<favorites.Favorite>>;
 
 export function GetFocusTab(): Promise<string>;
 
+export function GetGitHubThumbnail(
+    arg1: string
+): Promise<githubsource.ThumbnailResult>;
+
 export function GetIconThemePreview(
     arg1: string
 ): Promise<icontheme.ThemePreview>;
@@ -124,6 +129,10 @@ export function IsOmarchyInstalled(): Promise<boolean>;
 export function IsPreviewCached(arg1: string): Promise<boolean>;
 
 export function ListBlueprints(): Promise<Array<Record<string, any>>>;
+
+export function ListGitHubImages(
+    arg1: string
+): Promise<githubsource.ListContentsResult>;
 
 export function ListInstalledIconThemes(): Promise<
     Array<icontheme.ThemeSummary>

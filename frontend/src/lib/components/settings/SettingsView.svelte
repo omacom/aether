@@ -75,9 +75,7 @@
                     <div class="text-fg-primary text-[12px] font-medium">
                         Wallpaper folder
                     </div>
-                    <p
-                        class="text-fg-dimmed mt-1 text-[10px] leading-relaxed"
-                    >
+                    <p class="text-fg-dimmed mt-1 text-[10px] leading-relaxed">
                         The Local page scans this folder and all of its
                         subfolders for images.
                     </p>

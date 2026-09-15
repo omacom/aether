@@ -2,6 +2,7 @@ package wallhaven
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -250,6 +251,15 @@ func (c *Client) downloadContext(ctx context.Context, rawURL, destDir string, ma
 		return "", fmt.Errorf("invalid download filename")
 	}
 	destPath := filepath.Join(destDir, filename)
+	host := strings.ToLower(u.Hostname())
+	if host != "wallhaven.cc" && !strings.HasSuffix(host, ".wallhaven.cc") {
+		sum := sha256.Sum256([]byte(rawURL))
+		ext := path.Ext(u.Path)
+		if len(ext) > 8 {
+			ext = ""
+		}
+		destPath = filepath.Join(destDir, fmt.Sprintf("%x%s", sum[:8], ext))
+	}
 	client := *c.http
 	if maxBytes == wallpaper.MaxImageBytes {
 		client.Timeout = 5 * time.Minute

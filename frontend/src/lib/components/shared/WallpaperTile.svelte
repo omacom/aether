@@ -13,6 +13,7 @@
         isAdded = false,
         isFavorited = false,
         applying = false,
+        busy = false,
         onuse,
         onwallpaperonly,
         onpreview,
@@ -25,6 +26,7 @@
         isAdded?: boolean;
         isFavorited?: boolean;
         applying?: boolean;
+        busy?: boolean;
         onuse: () => void;
         onwallpaperonly: () => void;
         onpreview: () => void;
@@ -40,6 +42,7 @@
     <button
         class="w-full text-left"
         onclick={onuse}
+        disabled={busy}
         title="Set as wallpaper and open in editor"
     >
         <div
@@ -59,6 +62,7 @@
             onaddextra();
         }}
         aria-label="Add to additional images"
+        disabled={busy}
     >
         <svg
             class="h-4 w-4 {isAdded ? 'text-accent' : 'text-white'}"
@@ -113,13 +117,14 @@
         <button
             class="bg-accent hover:bg-accent-hover text-accent-fg pointer-events-auto min-w-[7rem] px-4 py-1.5 text-[11px] font-medium transition-colors"
             onclick={onuse}
+            disabled={busy}
             title="Set as wallpaper and open in editor">Use</button
         >
         <div class="flex items-center gap-2 text-[10px] text-white/85">
             <button
                 class="pointer-events-auto px-1 transition-colors hover:text-white disabled:opacity-50"
                 onclick={onwallpaperonly}
-                disabled={applying}
+                disabled={applying || busy}
                 title="Apply this wallpaper without changing the current palette"
                 >Wallpaper only</button
             >

@@ -32,9 +32,7 @@
     let isApplying = $state(false);
     // edit=true imports load into the editor instead of applying.
     let isEdit = $derived(!!preview?.edit);
-    let isOmarchyInstall = $derived(
-        !isEdit && !!preview?.omarchy_theme_name
-    );
+    let isOmarchyInstall = $derived(!isEdit && !!preview?.omarchy_theme_name);
 
     onMount(() => {
         // The backend emits this on startup when a staged file is present,
@@ -186,8 +184,7 @@
         {#if isOmarchyInstall}
             <p class="text-fg-secondary mb-2 text-[11px]">
                 Install as:
-                <span class="text-fg-primary"
-                    >{preview.omarchy_theme_name}</span
+                <span class="text-fg-primary">{preview.omarchy_theme_name}</span
                 >
             </p>
         {/if}

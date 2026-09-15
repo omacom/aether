@@ -57,6 +57,13 @@ export function buildCommands(): Command[] {
             run: () => setActiveTab('wallhaven'),
         },
         {
+            id: 'nav.github',
+            label: 'Go to GitHub',
+            category: 'Navigate',
+            keywords: 'repository wallpapers source',
+            run: () => setActiveTab('github'),
+        },
+        {
             id: 'nav.local',
             label: 'Go to Local',
             category: 'Navigate',

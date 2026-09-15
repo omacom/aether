@@ -45,6 +45,11 @@
             icon: '<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
         },
         {
+            id: 'github',
+            label: 'GitHub',
+            icon: '<circle cx="6" cy="5" r="3"/><circle cx="6" cy="19" r="3"/><circle cx="18" cy="5" r="3"/><path d="M6 8v8M18 8a11 11 0 0 1-9 11"/>',
+        },
+        {
             id: 'local',
             label: 'Local',
             // Folder
@@ -124,7 +129,11 @@
             </svg>
         </button>
     {/if}
-    <nav class="flex flex-1 justify-end gap-0.5">
+    <nav
+        class="flex min-w-0 flex-1 justify-end gap-0.5 overflow-x-auto"
+        aria-label="Main navigation"
+        style="--wails-draggable:no-drag"
+    >
         {#each visibleTabs as tab}
             <button
                 class="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium transition-all duration-100
@@ -132,6 +141,7 @@
                     ? 'text-accent bg-accent-muted'
                     : 'text-fg-dimmed hover:text-fg-secondary hover:bg-bg-hover'}"
                 onclick={() => setActiveTab(tab.id)}
+                aria-current={activeTab === tab.id ? 'page' : undefined}
             >
                 <svg
                     class="h-3 w-3 shrink-0"

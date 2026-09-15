@@ -22,6 +22,7 @@ A visual theming application for [Omarchy](https://omarchy.org). Extract colors 
 
 ### Wallpaper Tools
 - Search and download wallpapers from wallhaven.cc directly in the app
+- Browse public GitHub repositories for wallpapers
 - Export favorite wallpapers as a ZIP archive with source metadata
 - Apply a blurred wallpaper variant while extraction uses the original image
 - Full wallpaper editor with blur, exposure, sharpen, vignette, grain, and color toning
@@ -133,6 +134,7 @@ From `frontend/`, run `npm ci`, `npm run check`, `npm test`, and `npm run build`
 | [Base16 Schemes](docs/base16.md) | Import community color schemes |
 | [Wallpaper Editor](docs/wallpaper-editor.md) | Image filters and presets |
 | [Wallhaven](docs/wallhaven.md) | Browse online wallpapers |
+| [GitHub Source](docs/github-source.md) | Browse repository wallpapers |
 | [Favorites](docs/favorites.md) | Save wallpapers and export a collection |
 | [Blueprints](docs/blueprints.md) | Save and restore themes |
 | [Custom Templates](docs/custom-templates.md) | Add support for your apps |
