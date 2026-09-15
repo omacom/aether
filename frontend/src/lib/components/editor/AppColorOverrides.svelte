@@ -6,8 +6,13 @@
         getAppOverrides,
         clearAppOverridesForApp,
         removeAppOverride,
+        setAppOverride,
     } from '$lib/stores/theme.svelte';
-    import {openOverrideColorPicker} from '$lib/stores/ui.svelte';
+    import {
+        openOverrideColorPicker,
+        getColorDrag,
+        setColorDrag,
+    } from '$lib/stores/ui.svelte';
     import {isLightColor, copyColor} from '$lib/utils/color';
     import ContextMenu from '$lib/components/shared/ContextMenu.svelte';
     import ExpandableSection from '$lib/components/shared/ExpandableSection.svelte';
@@ -113,6 +118,24 @@
         return SHORT_LABELS[role] || role.replace(/_/g, ' ');
     }
 
+    let dragOverRole = $state('');
+
+    $effect(() => {
+        if (!getColorDrag()) dragOverRole = '';
+    });
+
+    function onButtonMouseEnter(role: string) {
+        if (getColorDrag()) dragOverRole = role;
+    }
+
+    function onButtonMouseUp(e: MouseEvent, role: string) {
+        const drag = getColorDrag();
+        if (!drag || e.button !== 0) return;
+        setColorDrag(null);
+        setAppOverride(selectedApp, role, drag.color, true);
+        dragOverRole = '';
+    }
+
     let menu = $state({open: false, x: 0, y: 0, role: ''});
 
     function openMenu(e: MouseEvent, role: string) {
@@ -207,14 +230,19 @@
                             class="group relative flex h-9 cursor-pointer items-end justify-center overflow-hidden border px-1 transition-all duration-100
                             {isOverridden
                                 ? 'border-accent border-2'
-                                : 'border-border hover:border-border-focus'}"
+                                : dragOverRole === role
+                                  ? 'border-accent scale-[1.06] border-2 shadow-md'
+                                  : 'border-border hover:border-border-focus'}"
                             style:background-color={display}
                             onclick={() =>
                                 openOverrideColorPicker(selectedApp, role)}
                             oncontextmenu={e => openMenu(e, role)}
+                            onmouseenter={() => onButtonMouseEnter(role)}
+                            onmouseleave={() => (dragOverRole = '')}
+                            onmouseup={e => onButtonMouseUp(e, role)}
                             title="{role}{isOverridden
                                 ? ` · override ${appOverrides[role]}`
-                                : ` · computed ${display}`}\nClick edit · Right-click for menu"
+                                : ` · computed ${display}`}\nClick edit · Right-click for menu · Drag palette color to override"
                         >
                             <span
                                 class="block w-full select-none truncate pb-0.5 text-center text-[8px] leading-none opacity-80 transition-opacity group-hover:opacity-100

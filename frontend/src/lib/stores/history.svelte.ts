@@ -19,6 +19,7 @@ export interface Snapshot {
     basePalette: string[];
     extendedColors: Record<string, string>;
     baseExtendedColors: Record<string, string>;
+    appOverrides: Record<string, Record<string, string>>;
     adjustments: Adjustments;
     paletteCurvePoints: [number, number][];
     extractionMode: string;
@@ -50,6 +51,12 @@ export function copySnapshot(snapshot: Snapshot): Snapshot {
         basePalette: [...snapshot.basePalette],
         extendedColors: {...snapshot.extendedColors},
         baseExtendedColors: {...snapshot.baseExtendedColors},
+        appOverrides: Object.fromEntries(
+            Object.entries(snapshot.appOverrides).map(([app, colors]) => [
+                app,
+                {...colors},
+            ])
+        ),
         adjustments: {...snapshot.adjustments},
         paletteCurvePoints: snapshot.paletteCurvePoints.map(([x, y]) => [x, y]),
         extractionMode: snapshot.extractionMode,

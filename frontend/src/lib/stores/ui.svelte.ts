@@ -45,6 +45,7 @@ function writeBoolPref(key: string, value: boolean): void {
     } catch {}
 }
 let colorPickerOpen = $state<boolean>(false);
+let colorDrag = $state<{color: string; x: number; y: number} | null>(null);
 let colorPickerIndex = $state<number>(-1);
 let colorPickerExtKey = $state<string>(''); // non-empty = editing an extended color
 let colorPickerOverrideApp = $state<string>(''); // non-empty = editing an app override
@@ -275,4 +276,13 @@ export function getApplySaveDialogOpen(): boolean {
 }
 export function setApplySaveDialogOpen(v: boolean): void {
     applySaveDialogOpen = v;
+}
+
+export function getColorDrag(): {color: string; x: number; y: number} | null {
+    return colorDrag;
+}
+export function setColorDrag(
+    v: {color: string; x: number; y: number} | null
+): void {
+    colorDrag = v;
 }

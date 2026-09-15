@@ -180,6 +180,7 @@ export function getHistorySnapshot(): Snapshot {
         basePalette,
         extendedColors,
         baseExtendedColors,
+        appOverrides,
         adjustments,
         paletteCurvePoints,
         extractionMode,
@@ -195,6 +196,7 @@ export function restoreHistorySnapshot(snapshot: Snapshot): void {
     basePalette = restored.basePalette;
     extendedColors = restored.extendedColors;
     baseExtendedColors = restored.baseExtendedColors;
+    appOverrides = restored.appOverrides;
     adjustments = restored.adjustments;
     paletteCurvePoints = restored.paletteCurvePoints;
     extractionMode = restored.extractionMode;
@@ -379,8 +381,18 @@ export function setPaletteCurvePoints(pts: [number, number][]): void {
     invalidateThemeRequests();
     paletteCurvePoints = pts.map(([x, y]) => [x, y]);
 }
-export function setAppOverride(app: string, role: string, hex: string): void {
+export function setAppOverride(
+    app: string,
+    role: string,
+    hex: string,
+    recordHistory = false
+): void {
     const current = appOverrides[app] || {};
+    if (current[role] === hex) return;
+    if (recordHistory) {
+        endColorEditSessions();
+        pushState(getHistorySnapshot());
+    }
     appOverrides = {...appOverrides, [app]: {...current, [role]: hex}};
 }
 export function removeAppOverride(app: string, role: string): void {
