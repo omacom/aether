@@ -1,31 +1,54 @@
 import {
     DEFAULT_PALETTE,
     DEFAULT_ADJUSTMENTS,
+    AUTOMATIC_ICON_THEME,
+    normalizeIconThemeSelection,
+    type IconThemeSelection,
     type Adjustments,
     type ColorRoles,
 } from '$lib/types/theme';
-import {pushState} from '$lib/stores/history.svelte';
+import {
+    pushState,
+    clearHistory,
+    copySnapshot,
+    type PendingAdjustment,
+    type Snapshot,
+} from '$lib/stores/history.svelte';
+import {debounce} from '$lib/utils/debounce';
+import {buildCurveLUT, applyCurveToColors} from '$lib/utils/canvas-filters';
+
+// Extraction follows this revision. Adjustment jobs are invalidated separately
+// so unrelated wallpaper/light-mode edits do not discard valid calculations.
+let themeRevision = 0;
+export function getThemeRevision(): number {
+    return themeRevision;
+}
+export function invalidateThemeRequests(cancelAdjustment = true): number {
+    if (cancelAdjustment) cancelPendingAdjustment();
+    return ++themeRevision;
+}
 
 // --- Reactive state ---
 let palette = $state<string[]>([...DEFAULT_PALETTE]);
 let basePalette = $state<string[]>([...DEFAULT_PALETTE]);
 let wallpaperPath = $state<string>('');
-// Heavily-blurred variant of the wallpaper (backend-generated JPEG in the
-// cache dir). When active, the hero previews it and Apply sends it as the
-// wallpaper — while extraction keeps sampling wallpaperPath, the unblurred
-// original. Tracked with its source path so a wallpaper change can
-// invalidate a stale variant.
-let blur = $state<{source: string; blurred: string} | null>(null);
+let wallpaperBlur = $state(false);
+let wallpaperRevision = $state(0);
+let blurPreview = $state<{source: string; path: string} | null>(null);
 let lightMode = $state<boolean>(false);
 let lockedColors = $state<Record<number, boolean>>({});
 let selectedColors = $state<Record<number, boolean>>({}); // empty = all selected
 let selectedExtColors = $state<Record<string, boolean>>({}); // extended color selection
 let adjustments = $state<Adjustments>({...DEFAULT_ADJUSTMENTS});
 let extractionMode = $state<string>('normal');
+let pendingExtractionMode = $state<string | null>(null);
+let pendingAdjustment = $state.raw<PendingAdjustment | null>(null);
 let isExtracting = $state<boolean>(false);
 let isApplying = $state<boolean>(false);
 let additionalImages = $state<string[]>([]);
 let appOverrides = $state<Record<string, Record<string, string>>>({});
+let nativeColors = $state<Record<string, string>>({});
+let iconTheme = $state<IconThemeSelection>({...AUTOMATIC_ICON_THEME});
 let paletteCurvePoints = $state<[number, number][]>([]);
 // Source path of the most recently extracted palette. Used to decide
 // whether per-app template overrides should be cleared on the next
@@ -87,19 +110,35 @@ export function getBasePalette(): string[] {
 export function getWallpaperPath(): string {
     return wallpaperPath;
 }
+export function getWallpaperBlur(): boolean {
+    return wallpaperBlur;
+}
+export function getWallpaperRevision(): number {
+    return wallpaperRevision;
+}
 export function getBlurredWallpaperPath(): string {
-    return blur?.blurred ?? '';
+    return wallpaperBlur && blurPreview?.source === wallpaperPath
+        ? blurPreview.path
+        : '';
 }
-export function setBlurredWallpaper(source: string, blurred: string): void {
-    blur = {source, blurred};
+export function setBlurredWallpaper(
+    source: string,
+    path: string,
+    revision: number
+): void {
+    if (
+        wallpaperBlur &&
+        source === wallpaperPath &&
+        revision === wallpaperRevision
+    )
+        blurPreview = {source, path};
 }
-export function clearBlurredWallpaper(): void {
-    blur = null;
-}
-// Path sent to ApplyTheme/SaveAndApplyTheme: the blurred variant when one
-// is active for the current wallpaper, otherwise the original.
-export function getApplyWallpaperPath(): string {
-    return blur?.blurred || wallpaperPath;
+export function setWallpaperBlur(enabled: boolean, skipHistory = false): void {
+    if (wallpaperBlur === enabled) return;
+    endColorEditSessions();
+    if (!skipHistory) pushState(getHistorySnapshot());
+    wallpaperBlur = enabled;
+    wallpaperRevision++;
 }
 export function getLightMode(): boolean {
     return lightMode;
@@ -114,9 +153,11 @@ export function hasColorSelection(): boolean {
     return Object.values(selectedColors).some(v => v);
 }
 export function toggleColorSelection(index: number): void {
+    invalidateThemeRequests();
     selectedColors = {...selectedColors, [index]: !selectedColors[index]};
 }
 export function clearColorSelection(): void {
+    invalidateThemeRequests();
     selectedColors = {};
     selectedExtColors = {};
 }
@@ -127,6 +168,7 @@ export function hasExtColorSelection(): boolean {
     return Object.values(selectedExtColors).some(v => v);
 }
 export function toggleExtColorSelection(key: string): void {
+    invalidateThemeRequests();
     selectedExtColors = {...selectedExtColors, [key]: !selectedExtColors[key]};
 }
 export function hasAnySelection(): boolean {
@@ -137,6 +179,15 @@ export function getAdjustments(): Adjustments {
 }
 export function getExtractionMode(): string {
     return extractionMode;
+}
+export function getPendingExtractionMode(): string | null {
+    return pendingExtractionMode;
+}
+export function setPendingExtractionMode(mode: string | null): void {
+    pendingExtractionMode = mode;
+}
+export function getIsAdjusting(): boolean {
+    return pendingAdjustment !== null;
 }
 export function getIsExtracting(): boolean {
     return isExtracting;
@@ -150,6 +201,22 @@ export function getAdditionalImages(): string[] {
 export function getExtendedColors(): Record<string, string> {
     return extendedColors;
 }
+export function getNativeColors(): Record<string, string> {
+    return nativeColors;
+}
+export function getIconTheme(): IconThemeSelection {
+    return iconTheme;
+}
+export function setIconTheme(
+    value: {mode?: string; id?: string} | null | undefined,
+    skipHistory = false
+): void {
+    const next = normalizeIconThemeSelection(value);
+    if (iconTheme.mode === next.mode && iconTheme.id === next.id) return;
+    endColorEditSessions();
+    if (!skipHistory) pushState(getHistorySnapshot());
+    iconTheme = next;
+}
 export function getBaseExtendedColors(): Record<string, string> {
     return baseExtendedColors;
 }
@@ -157,49 +224,213 @@ export function getAppOverrides(): Record<string, Record<string, string>> {
     return appOverrides;
 }
 
+export function getHistorySnapshot(): Snapshot {
+    return copySnapshot({
+        wallpaperPath,
+        wallpaperBlur,
+        palette,
+        basePalette,
+        extendedColors,
+        baseExtendedColors,
+        appOverrides,
+        adjustments,
+        paletteCurvePoints,
+        extractionMode,
+        pendingAdjustment,
+        iconTheme,
+    });
+}
+
+export function restoreHistorySnapshot(snapshot: Snapshot): void {
+    invalidateThemeRequests();
+    endColorEditSessions();
+    const restored = copySnapshot(snapshot);
+    wallpaperPath = restored.wallpaperPath;
+    wallpaperBlur = restored.wallpaperBlur;
+    blurPreview = null;
+    wallpaperRevision++;
+    palette = restored.palette;
+    basePalette = restored.basePalette;
+    extendedColors = restored.extendedColors;
+    baseExtendedColors = restored.baseExtendedColors;
+    appOverrides = restored.appOverrides;
+    iconTheme = restored.iconTheme;
+    adjustments = restored.adjustments;
+    paletteCurvePoints = restored.paletteCurvePoints;
+    extractionMode = restored.extractionMode;
+    pendingAdjustment = restored.pendingAdjustment;
+    // Only unfinished calculations resume. Recomputing settled snapshots would
+    // overwrite manual color edits made after their adjustment was applied.
+    if (pendingAdjustment)
+        applyPendingAdjustment(getHistorySnapshot(), pendingAdjustment);
+}
+
+function cancelPendingAdjustment(): void {
+    applyPendingAdjustment.cancel();
+    if (!pendingAdjustment) return;
+    adjustments = {...pendingAdjustment.previousAdjustments};
+    paletteCurvePoints = pendingAdjustment.previousCurvePoints.map(([x, y]) => [
+        x,
+        y,
+    ]);
+    pendingAdjustment = null;
+}
+
+export function adjustPalette(
+    next: Adjustments,
+    points: [number, number][] = paletteCurvePoints
+): void {
+    const previous = pendingAdjustment;
+    invalidateThemeRequests(false);
+    pendingAdjustment = {
+        previousAdjustments: {
+            ...(previous?.previousAdjustments ?? adjustments),
+        },
+        previousCurvePoints: (
+            previous?.previousCurvePoints ?? paletteCurvePoints
+        ).map(([x, y]) => [x, y]),
+        lockedColors: {...lockedColors},
+        selectedColors: {...selectedColors},
+        selectedExtColors: {...selectedExtColors},
+    };
+    adjustments = {...next};
+    paletteCurvePoints = points.map(([x, y]) => [x, y]);
+    applyPendingAdjustment(getHistorySnapshot(), pendingAdjustment);
+}
+
+// The calculation belongs to editor state, not the sidebar that initiated it.
+const applyPendingAdjustment = debounce(
+    async (snapshot: Snapshot, job: PendingAdjustment) => {
+        const isCurrent = () => pendingAdjustment === job;
+        if (!isCurrent()) return;
+        const base = snapshot.basePalette;
+        const baseExt = snapshot.baseExtendedColors;
+        const extKeys = Object.keys(baseExt);
+        const paletteSelection = Object.values(job.selectedColors).some(
+            Boolean
+        );
+        const extSelection = Object.values(job.selectedExtColors).some(Boolean);
+        const curveLUT = buildCurveLUT(snapshot.paletteCurvePoints);
+        try {
+            const {AdjustPaletteColors} = await import(
+                '../../../wailsjs/go/main/App'
+            );
+            if (!isCurrent()) return;
+            const [result, extResult] = await Promise.all([
+                extSelection && !paletteSelection
+                    ? null
+                    : AdjustPaletteColors(base, snapshot.adjustments),
+                paletteSelection && !extSelection
+                    ? null
+                    : AdjustPaletteColors(
+                          Object.values(baseExt),
+                          snapshot.adjustments
+                      ),
+            ]);
+            if (!isCurrent()) return;
+            if (
+                (result !== null &&
+                    (!Array.isArray(result) ||
+                        result.length !== base.length)) ||
+                (extResult !== null &&
+                    (!Array.isArray(extResult) ||
+                        extResult.length !== extKeys.length))
+            ) {
+                throw new Error('Incomplete adjustment result');
+            }
+            // Build both outputs before publishing, and apply selection masks after curves.
+            let nextPalette = snapshot.palette;
+            let nextExt = snapshot.extendedColors;
+            if (result) {
+                const curved = curveLUT
+                    ? applyCurveToColors(result, curveLUT)
+                    : result;
+                nextPalette = curved.map((c, i) =>
+                    job.lockedColors[i] ||
+                    (paletteSelection && !job.selectedColors[i])
+                        ? base[i]
+                        : c
+                );
+            }
+            if (extResult) {
+                const curved = curveLUT
+                    ? applyCurveToColors(extResult, curveLUT)
+                    : extResult;
+                nextExt = Object.fromEntries(
+                    extKeys.map((key, i) => [
+                        key,
+                        extSelection && !job.selectedExtColors[key]
+                            ? baseExt[key]
+                            : curved[i],
+                    ])
+                );
+            }
+            palette = nextPalette;
+            extendedColors = nextExt;
+            pendingAdjustment = null;
+        } catch (e) {
+            if (isCurrent()) {
+                cancelPendingAdjustment();
+                console.error('AdjustPaletteColors failed:', e);
+            }
+        }
+    },
+    75
+);
+
 // Snapshot of the fields mirrored into Go for IPC reads (aether status) and
 // for constructing ApplyThemeRequest/SaveBlueprintRequest payloads.
 export function getThemeSnapshot(): {
     palette: string[];
     wallpaperPath: string;
-    originalWallpaperPath: string;
+    wallpaperBlur: boolean;
     lightMode: boolean;
     extendedColors: Record<string, string>;
+    nativeColors: Record<string, string>;
     appOverrides: Record<string, Record<string, string>>;
     additionalImages: string[];
+    iconTheme: IconThemeSelection;
 } {
     return {
-        palette,
-        // Mirrored for IPC readers (`aether status`) and CLI apply — report
-        // the blurred variant when one is active, since that is what an
-        // apply would set as the wallpaper. The unblurred original travels
-        // alongside so theme folders keep both for background cycling.
-        wallpaperPath: getApplyWallpaperPath(),
-        originalWallpaperPath: getWallpaperPath(),
+        palette: [...palette],
+        wallpaperPath,
+        wallpaperBlur,
         lightMode,
-        extendedColors,
-        appOverrides,
-        additionalImages,
+        extendedColors: {...extendedColors},
+        nativeColors: {...nativeColors},
+        appOverrides: Object.fromEntries(
+            Object.entries(appOverrides).map(([app, colors]) => [
+                app,
+                {...colors},
+            ])
+        ),
+        additionalImages: [...additionalImages],
+        iconTheme: {...iconTheme},
     };
 }
 
 // Snapshot signature is used as a cheap dirty-state and live-apply trigger.
 // Field order here is fixed so JSON.stringify is stable across calls.
-export function getThemeSignature(): string {
+export function getThemeSignature(snapshot = getThemeSnapshot()): string {
     return JSON.stringify([
-        palette,
-        wallpaperPath,
-        blur?.blurred ?? '',
-        lightMode,
-        extendedColors,
-        appOverrides,
-        additionalImages,
+        snapshot.palette,
+        snapshot.wallpaperPath,
+        snapshot.wallpaperBlur,
+        snapshot.lightMode,
+        snapshot.extendedColors,
+        snapshot.nativeColors,
+        snapshot.appOverrides,
+        snapshot.additionalImages,
+        snapshot.iconTheme,
     ]);
 }
 
 let lastAppliedSignature = $state<string>('');
-export function markApplied(): void {
-    lastAppliedSignature = getThemeSignature();
+export function markApplied(signature = getThemeSignature()): void {
+    lastAppliedSignature = signature;
+}
+export function getLastAppliedSignature(): string {
+    return lastAppliedSignature;
 }
 export function isDirty(): boolean {
     // Empty signature means nothing has been applied yet in this session,
@@ -211,10 +442,21 @@ export function getPaletteCurvePoints(): [number, number][] {
     return paletteCurvePoints;
 }
 export function setPaletteCurvePoints(pts: [number, number][]): void {
-    paletteCurvePoints = pts;
+    invalidateThemeRequests();
+    paletteCurvePoints = pts.map(([x, y]) => [x, y]);
 }
-export function setAppOverride(app: string, role: string, hex: string): void {
+export function setAppOverride(
+    app: string,
+    role: string,
+    hex: string,
+    recordHistory = false
+): void {
     const current = appOverrides[app] || {};
+    if (current[role] === hex) return;
+    if (recordHistory) {
+        endColorEditSessions();
+        pushState(getHistorySnapshot());
+    }
     appOverrides = {...appOverrides, [app]: {...current, [role]: hex}};
 }
 export function removeAppOverride(app: string, role: string): void {
@@ -241,18 +483,20 @@ export function setAppOverrides(
 
 // setPalette sets both the display palette AND the base palette.
 // Also initializes extended colors from the new palette.
-// Pass skipHistory=true when restoring from undo/redo to avoid double-push.
-let hasEverChanged = false;
+// Pass skipHistory=true when initializing; undo/redo uses restoreHistorySnapshot.
 
 export function setPalette(colors: string[], skipHistory = false): void {
-    if (!skipHistory && hasEverChanged) {
-        pushState(palette, extendedColors, adjustments);
+    if (!skipHistory) {
+        pushState(getHistorySnapshot());
     }
-    hasEverChanged = true;
+    invalidateThemeRequests();
+    endColorEditSessions();
     basePalette = [...colors];
     palette = [...colors];
+    adjustments = {...DEFAULT_ADJUSTMENTS};
+    paletteCurvePoints = [];
     if (!skipHistory) {
-        // Only derive extended colors when not restoring from history
+        // Initial state supplies its own extended colors.
         const ext = {
             accent: colors[4] || extendedColors.accent,
             cursor: colors[7] || extendedColors.cursor,
@@ -280,6 +524,7 @@ export function setPaletteFromExtraction(path: string, colors: string[]): void {
         appOverrides = {};
     }
     lastExtractedPath = path;
+    nativeColors = {};
     setPalette(colors);
 }
 
@@ -298,6 +543,7 @@ export function setAdjustedExtendedColors(
 // loading persisted/imported state. Keeping them aligned lets adjustments use
 // explicit roles such as an imported accent instead of the ANSI blue fallback.
 export function setExtendedColors(colors: Record<string, string>): void {
+    invalidateThemeRequests();
     const next = {
         accent: colors.accent || palette[4],
         cursor: colors.cursor || palette[7],
@@ -307,6 +553,10 @@ export function setExtendedColors(colors: Record<string, string>): void {
     };
     extendedColors = next;
     baseExtendedColors = {...next};
+}
+
+export function setNativeColors(colors: Record<string, string>): void {
+    nativeColors = colors ? {...colors} : {};
 }
 
 // Window after the last edit during which subsequent edits are folded
@@ -321,7 +571,7 @@ let colorEditSnapshotPushed = false;
 export function setColor(index: number, hex: string): void {
     // Push history once at the start of a color edit session, not on every drag tick
     if (!colorEditSnapshotPushed) {
-        pushState(palette, extendedColors, adjustments);
+        pushState(getHistorySnapshot());
         colorEditSnapshotPushed = true;
     }
     if (colorEditTimer) clearTimeout(colorEditTimer);
@@ -329,6 +579,7 @@ export function setColor(index: number, hex: string): void {
         colorEditSnapshotPushed = false;
     }, EDIT_SESSION_TIMEOUT_MS);
 
+    invalidateThemeRequests();
     palette[index] = hex;
     basePalette[index] = hex;
     palette = [...palette];
@@ -338,9 +589,18 @@ export function setColor(index: number, hex: string): void {
 let extEditSnapshotPushed = false;
 let extEditTimer: ReturnType<typeof setTimeout> | null = null;
 
+function endColorEditSessions(): void {
+    if (colorEditTimer) clearTimeout(colorEditTimer);
+    if (extEditTimer) clearTimeout(extEditTimer);
+    colorEditTimer = null;
+    extEditTimer = null;
+    colorEditSnapshotPushed = false;
+    extEditSnapshotPushed = false;
+}
+
 export function setExtendedColor(key: string, hex: string): void {
     if (!extEditSnapshotPushed) {
-        pushState(palette, extendedColors, adjustments);
+        pushState(getHistorySnapshot());
         extEditSnapshotPushed = true;
     }
     if (extEditTimer) clearTimeout(extEditTimer);
@@ -348,6 +608,7 @@ export function setExtendedColor(key: string, hex: string): void {
         extEditSnapshotPushed = false;
     }, EDIT_SESSION_TIMEOUT_MS);
 
+    invalidateThemeRequests();
     extendedColors = {...extendedColors, [key]: hex};
     baseExtendedColors = {...baseExtendedColors, [key]: hex};
 }
@@ -361,7 +622,8 @@ export function clearExtendedColors(keys: string[]): void {
         k => k in extendedColors || k in baseExtendedColors
     );
     if (present.length === 0) return;
-    pushState(palette, extendedColors, adjustments);
+    pushState(getHistorySnapshot());
+    invalidateThemeRequests();
     const next = {...extendedColors};
     const base = {...baseExtendedColors};
     for (const k of present) {
@@ -377,21 +639,26 @@ export function clearExtendedColor(key: string): void {
 }
 
 export function setWallpaperPath(path: string): void {
+    wallpaperRevision++;
+    wallpaperBlur = false;
+    blurPreview = null;
+    invalidateThemeRequests(false);
     wallpaperPath = path;
-    if (blur && blur.source !== path) {
-        blur = null;
-    }
 }
 export function setLightMode(enabled: boolean): void {
+    invalidateThemeRequests(false);
     lightMode = enabled;
 }
 export function setLockedColor(index: number, locked: boolean): void {
+    invalidateThemeRequests();
     lockedColors = {...lockedColors, [index]: locked};
 }
 export function setAdjustments(adj: Adjustments): void {
+    invalidateThemeRequests();
     adjustments = {...adj};
 }
 export function setExtractionMode(mode: string): void {
+    invalidateThemeRequests();
     extractionMode = mode;
 }
 export function setIsExtracting(v: boolean): void {
@@ -402,27 +669,28 @@ export function setIsApplying(v: boolean): void {
 }
 
 export function setAdditionalImages(images: string[]): void {
+    invalidateThemeRequests(false);
     additionalImages = [...images];
 }
 
 export function addAdditionalImage(path: string): void {
     if (!additionalImages.includes(path)) {
+        invalidateThemeRequests(false);
         additionalImages = [...additionalImages, path];
     }
 }
 
 export function removeAdditionalImage(path: string): void {
+    invalidateThemeRequests(false);
     additionalImages = additionalImages.filter(p => p !== path);
 }
 
 export function swapMainWithAdditional(path: string): void {
     const idx = additionalImages.indexOf(path);
     if (idx === -1) return;
+    invalidateThemeRequests(false);
     const oldMain = wallpaperPath;
-    wallpaperPath = path;
-    if (blur && blur.source !== path) {
-        blur = null;
-    }
+    setWallpaperPath(path);
     const next = [...additionalImages];
     if (oldMain) {
         next[idx] = oldMain;
@@ -436,11 +704,11 @@ export function swapMainWithAdditional(path: string): void {
 // Randomly reassigns ANSI color roles 1-6 (and their bright counterparts 9-14).
 // Locked colors are excluded from the shuffle.
 export function shufflePalette(): void {
-    pushState(palette, extendedColors, adjustments);
-
     const indices = [1, 2, 3, 4, 5, 6];
     const unlocked = indices.filter(i => !lockedColors[i]);
     if (unlocked.length < 2) return; // nothing to shuffle
+    pushState(getHistorySnapshot());
+    invalidateThemeRequests();
 
     // Fisher-Yates shuffle on unlocked indices
     const colors = unlocked.map(i => palette[i]);
@@ -462,14 +730,22 @@ export function shufflePalette(): void {
 
 // --- Reset ---
 export function reset(): void {
+    invalidateThemeRequests();
+    endColorEditSessions();
+    clearHistory();
     palette = [...DEFAULT_PALETTE];
     basePalette = [...DEFAULT_PALETTE];
     wallpaperPath = '';
-    blur = null;
+    wallpaperBlur = false;
+    wallpaperRevision++;
+    blurPreview = null;
     lightMode = false;
     lockedColors = {};
+    selectedColors = {};
+    selectedExtColors = {};
     adjustments = {...DEFAULT_ADJUSTMENTS};
     extractionMode = 'normal';
+    pendingExtractionMode = null;
     additionalImages = [];
     const ext = {
         accent: DEFAULT_PALETTE[4],
@@ -480,5 +756,8 @@ export function reset(): void {
     extendedColors = {...ext};
     baseExtendedColors = {...ext};
     appOverrides = {};
+    nativeColors = {};
+    iconTheme = {...AUTOMATIC_ICON_THEME};
     paletteCurvePoints = [];
+    lastExtractedPath = '';
 }

@@ -2,24 +2,20 @@ package template
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"aether/internal/platform"
 )
 
 func TestProcessCustomApps_NoDir(t *testing.T) {
 	themeDir := t.TempDir()
 	// Point to a non-existent custom dir — should return nil, not error.
-	orig := os.Getenv("XDG_CONFIG_HOME")
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(t.TempDir(), "nonexistent"))
-	defer func() {
-		if orig != "" {
-			os.Setenv("XDG_CONFIG_HOME", orig)
-		} else {
-			os.Unsetenv("XDG_CONFIG_HOME")
-		}
-	}()
 
 	err := ProcessCustomApps(themeDir, map[string]string{"background": "#1e1e2e"})
 	if err != nil {
@@ -130,6 +126,23 @@ rgba = {blue.rgba:0.7}
 	if linkTarget != outputPath {
 		t.Errorf("symlink target = %s, want %s", linkTarget, outputPath)
 	}
+	before, err := os.Lstat(config.Destination)
+	if err != nil {
+		t.Fatal(err)
+	}
+	variables["background"] = "#000000"
+	if err := ProcessCustomApps(themeDir, variables); err != nil {
+		t.Fatalf("reapplying an owned symlink failed: %v", err)
+	}
+	after, err := os.Lstat(config.Destination)
+	if err != nil || !os.SameFile(before, after) {
+		t.Fatalf("owned symlink was replaced: %v", err)
+	}
+	updated, err := os.ReadFile(config.Destination)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertContains(t, string(updated), "bg = #000000")
 }
 
 func TestProcessCustomApps_MissingConfigJSON(t *testing.T) {
@@ -166,8 +179,8 @@ func TestProcessCustomApps_EmptyTemplateField(t *testing.T) {
 
 	themeDir := t.TempDir()
 	err := ProcessCustomApps(themeDir, map[string]string{})
-	if err != nil {
-		t.Fatalf("expected nil error for empty template field, got: %v", err)
+	if err == nil || !strings.Contains(err.Error(), "missing 'template'") {
+		t.Fatalf("expected error for empty template field, got: %v", err)
 	}
 }
 
@@ -188,9 +201,191 @@ func TestProcessCustomApps_MissingTemplateFile(t *testing.T) {
 
 	themeDir := t.TempDir()
 	err := ProcessCustomApps(themeDir, map[string]string{})
-	if err != nil {
-		t.Fatalf("expected nil error for missing template file, got: %v", err)
+	if !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected error for missing template file, got: %v", err)
 	}
+}
+
+func TestProcessCustomApps_InstallFailuresSkipHooks(t *testing.T) {
+	for _, existing := range []string{"regular", "foreign symlink", "dangling symlink", "directory", "blocked parent", "blocked output"} {
+		t.Run(existing, func(t *testing.T) {
+			customDir, themeDir, hookLog := setupCustomAppsTest(t)
+			dir := t.TempDir()
+			destination := filepath.Join(dir, "destination")
+			foreign := filepath.Join(dir, "foreign")
+			if err := os.WriteFile(foreign, []byte("user data"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			linkTarget := ""
+			switch existing {
+			case "regular":
+				if err := os.WriteFile(destination, []byte("user config"), 0600); err != nil {
+					t.Fatal(err)
+				}
+			case "foreign symlink":
+				linkTarget = foreign
+			case "dangling symlink":
+				linkTarget = filepath.Join(dir, "missing")
+			case "directory":
+				if err := os.Mkdir(destination, 0755); err != nil {
+					t.Fatal(err)
+				}
+			case "blocked parent":
+				destination = filepath.Join(foreign, "destination")
+			case "blocked output":
+				if err := os.Mkdir(filepath.Join(themeDir, "testapp-theme.conf"), 0755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if linkTarget != "" {
+				if err := os.Symlink(linkTarget, destination); err != nil {
+					t.Fatal(err)
+				}
+			}
+			before, _ := os.Lstat(destination)
+			writeCustomApp(t, customDir, "testapp", destination, true)
+			err := ProcessCustomApps(themeDir, map[string]string{"background": "#123456"})
+			if err == nil || !strings.Contains(err.Error(), "testapp") {
+				t.Fatalf("expected a contextual install error, got %v", err)
+			}
+			if before != nil {
+				after, err := os.Lstat(destination)
+				if err != nil || !os.SameFile(before, after) {
+					t.Fatalf("destination was replaced: %v", err)
+				}
+			}
+			if linkTarget != "" {
+				if got, err := os.Readlink(destination); err != nil || got != linkTarget {
+					t.Errorf("foreign symlink changed: %q, %v", got, err)
+				}
+			}
+			if existing == "regular" {
+				data, err := os.ReadFile(destination)
+				if err != nil || string(data) != "user config" {
+					t.Errorf("user config changed: %q, %v", data, err)
+				}
+			}
+			data, err := os.ReadFile(foreign)
+			if err != nil || string(data) != "user data" {
+				t.Errorf("foreign target changed: %q, %v", data, err)
+			}
+			// Hooks start asynchronously; give an incorrectly launched fake hook time
+			// to leave its marker before checking that none ran.
+			time.Sleep(100 * time.Millisecond)
+			if _, err := os.Stat(hookLog); !os.IsNotExist(err) {
+				t.Fatalf("hook ran after failed installation: %v", err)
+			}
+		})
+	}
+}
+
+func TestProcessCustomApps_ReturnsAllErrors(t *testing.T) {
+	customDir, themeDir, _ := setupCustomAppsTest(t)
+	invalid := writeCustomApp(t, customDir, "a-invalid", "", false)
+	if err := os.WriteFile(filepath.Join(invalid, "config.json"), []byte("{"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	destination := filepath.Join(t.TempDir(), "user.conf")
+	if err := os.WriteFile(destination, []byte("user config"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	writeCustomApp(t, customDir, "b-conflict", destination, false)
+	writeCustomApp(t, customDir, "c-valid", "", false)
+
+	err := ProcessCustomApps(themeDir, map[string]string{"background": "#123456"})
+	var syntaxError *json.SyntaxError
+	if !errors.As(err, &syntaxError) || !errors.Is(err, os.ErrExist) {
+		t.Fatalf("expected both parse and installation errors, got %v", err)
+	}
+	assertContains(t, err.Error(), "a-invalid")
+	assertContains(t, err.Error(), "b-conflict")
+	data, err := os.ReadFile(filepath.Join(themeDir, "c-valid-theme.conf"))
+	if err != nil || string(data) != "bg=#123456\n" {
+		t.Fatalf("valid app was not processed after failures: %q, %v", data, err)
+	}
+}
+
+func TestProcessCustomApps_HookAfterInstall(t *testing.T) {
+	customDir, themeDir, hookLog := setupCustomAppsTest(t)
+	destination := filepath.Join(t.TempDir(), "destination")
+	appDir := writeCustomApp(t, customDir, "testapp", destination, true)
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	relativeThemeDir, err := filepath.Rel(cwd, themeDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ProcessCustomApps(relativeThemeDir, map[string]string{"background": "#123456"}); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := os.Readlink(destination); err != nil || got != filepath.Join(themeDir, "testapp-theme.conf") {
+		t.Fatalf("relative theme directory produced an incorrect symlink: %q, %v", got, err)
+	}
+	data, err := os.ReadFile(destination)
+	if err != nil || string(data) != "bg=#123456\n" {
+		t.Fatalf("destination contents = %q, %v", data, err)
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		data, err := os.ReadFile(hookLog)
+		if err == nil && string(data) == filepath.Join(appDir, "post-apply.sh")+"\n" {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("fake hook did not run: %q, %v", data, err)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+func TestProcessCustomApps_ReturnsHookStartFailure(t *testing.T) {
+	customDir, themeDir, _ := setupCustomAppsTest(t)
+	t.Setenv("PATH", t.TempDir())
+	writeCustomApp(t, customDir, "testapp", "", true)
+	err := ProcessCustomApps(themeDir, map[string]string{})
+	if err == nil || !strings.Contains(err.Error(), "start post-apply.sh") {
+		t.Fatalf("expected hook start failure, got %v", err)
+	}
+}
+
+func setupCustomAppsTest(t *testing.T) (customDir, themeDir, hookLog string) {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	binDir := t.TempDir()
+	hookLog = filepath.Join(home, "hooks.log")
+	t.Setenv("AETHER_TEST_HOOK_LOG", hookLog)
+	t.Setenv("PATH", binDir)
+	// The fake interpreter only records invocations; it never runs an app hook.
+	if err := os.WriteFile(filepath.Join(binDir, "bash"), []byte("#!/bin/sh\nprintf '%s\\n' \"$1\" >> \"$AETHER_TEST_HOOK_LOG\"\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	return platform.CustomDir(), t.TempDir(), hookLog
+}
+
+func writeCustomApp(t *testing.T, customDir, name, destination string, hook bool) string {
+	t.Helper()
+	appDir := filepath.Join(customDir, name)
+	if err := os.MkdirAll(appDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	data, err := json.Marshal(customAppConfig{Template: "theme.conf", Destination: destination})
+	if err != nil {
+		t.Fatal(err)
+	}
+	files := map[string]string{"config.json": string(data), "theme.conf": "bg={background}\n"}
+	if hook {
+		files["post-apply.sh"] = "# fake hook\n"
+	}
+	for name, content := range files {
+		if err := os.WriteFile(filepath.Join(appDir, name), []byte(content), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return appDir
 }
 
 func TestProcessCustomApps_NoDestination(t *testing.T) {

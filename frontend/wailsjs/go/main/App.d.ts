@@ -4,8 +4,9 @@ import {color} from '../models';
 import {theme} from '../models';
 import {main} from '../models';
 import {favorites} from '../models';
-import {ipc} from '../models';
+import {icontheme} from '../models';
 import {omarchy} from '../models';
+import {ipc} from '../models';
 import {wallpaper} from '../models';
 import {wallhaven} from '../models';
 
@@ -22,11 +23,17 @@ export function ApplyTheme(
     arg1: main.ApplyThemeRequest
 ): Promise<theme.ApplyResult>;
 
+export function ApplyWallpaperOnly(arg1: string): Promise<void>;
+
 export function BlueprintExists(arg1: string): Promise<boolean>;
+
+export function BlurWallpaper(arg1: string): Promise<string>;
 
 export function CancelBatchProcessing(): Promise<void>;
 
 export function CancelExternalImport(arg1: string): Promise<void>;
+
+export function CancelFavoritesExport(): Promise<void>;
 
 export function ChooseWallpaperFolder(): Promise<string>;
 
@@ -47,6 +54,10 @@ export function ContrastRatio(arg1: string, arg2: string): Promise<number>;
 export function DeleteBlueprint(arg1: string): Promise<void>;
 
 export function DownloadWallpaper(arg1: string): Promise<string>;
+
+export function ExportFavorites(
+    arg1: main.ExportFavoritesRequest
+): Promise<string>;
 
 export function ExportTheme(arg1: main.ExportThemeRequest): Promise<string>;
 
@@ -70,13 +81,19 @@ export function GetFavorites(): Promise<Array<favorites.Favorite>>;
 
 export function GetFocusTab(): Promise<string>;
 
+export function GetIconThemePreview(
+    arg1: string
+): Promise<icontheme.ThemePreview>;
+
 export function GetInitialState(): Promise<theme.StateSnapshot>;
 
-export function GetReleaseStatus(arg1: string): Promise<Record<string, any>>;
+export function GetOmarchyCapabilities(): Promise<omarchy.Capabilities>;
 
 export function GetPendingExternalImport(): Promise<main.ExternalImportPreview>;
 
 export function GetPreview(arg1: string): Promise<string>;
+
+export function GetReleaseStatus(arg1: string): Promise<Record<string, any>>;
 
 export function GetSettings(): Promise<Record<string, any>>;
 
@@ -98,6 +115,8 @@ export function ImportFileDialog(arg1: string): Promise<main.ImportResult>;
 
 export function IsFavorite(arg1: string): Promise<boolean>;
 
+export function IsFavoritesExportRunning(): Promise<boolean>;
+
 export function IsMacOS(): Promise<boolean>;
 
 export function IsOmarchyInstalled(): Promise<boolean>;
@@ -105,6 +124,10 @@ export function IsOmarchyInstalled(): Promise<boolean>;
 export function IsPreviewCached(arg1: string): Promise<boolean>;
 
 export function ListBlueprints(): Promise<Array<Record<string, any>>>;
+
+export function ListInstalledIconThemes(): Promise<
+    Array<icontheme.ThemeSummary>
+>;
 
 export function LoadBlueprint(arg1: string): Promise<void>;
 
@@ -122,9 +145,15 @@ export function PreviewExtractColors(
 
 export function ReadImageAsDataURL(arg1: string): Promise<string>;
 
+export function RefreshInstalledIconThemes(): Promise<
+    Array<icontheme.ThemeSummary>
+>;
+
 export function ResetState(): Promise<void>;
 
-export function SaveAndApplyTheme(arg1: main.SaveAndApplyThemeRequest): Promise<theme.ApplyResult>;
+export function SaveAndApplyTheme(
+    arg1: main.SaveAndApplyThemeRequest
+): Promise<theme.ApplyResult>;
 
 export function SaveBlueprint(arg1: main.SaveBlueprintRequest): Promise<void>;
 
@@ -154,6 +183,8 @@ export function StartBatchProcessing(
 export function StartUpgrade(): Promise<void>;
 
 export function SyncState(arg1: main.SyncStateRequest): Promise<void>;
+
+export function ThemeFolderExists(arg1: string): Promise<boolean>;
 
 export function ToggleFavorite(
     arg1: string,

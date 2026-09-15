@@ -4,11 +4,15 @@ import (
 	"fmt"
 
 	"aether/internal/color"
+	"aether/internal/omarchy"
 )
 
 func validateBlueprint(bp *Blueprint) error {
 	if bp == nil {
 		return fmt.Errorf("blueprint is empty")
+	}
+	if bp.Palette.WallpaperBlur && bp.Palette.Wallpaper == "" && bp.Palette.WallpaperURL == "" {
+		return fmt.Errorf("wallpaper blur requires a source image")
 	}
 	if len(bp.Palette.Colors) < 16 {
 		return fmt.Errorf("palette has %d colors; want at least 16", len(bp.Palette.Colors))
@@ -23,6 +27,9 @@ func validateBlueprint(bp *Blueprint) error {
 			return fmt.Errorf("extended color %q is not a hex color", key)
 		}
 	}
+	if err := omarchy.ValidateNativeColors(bp.Palette.NativeColors); err != nil {
+		return err
+	}
 	for app, overrides := range bp.AppOverrides {
 		for key, value := range overrides {
 			if value != "" && !color.IsHexColor(value) {
@@ -34,6 +41,13 @@ func validateBlueprint(bp *Blueprint) error {
 		if index < 0 || index >= 16 {
 			return fmt.Errorf("locked color index %d is out of range", index)
 		}
+	}
+	selection, err := bp.IconThemeSelection()
+	if err != nil {
+		return fmt.Errorf("iconTheme: %w", err)
+	}
+	if err := bp.SetIconThemeSelection(selection); err != nil {
+		return fmt.Errorf("iconTheme: %w", err)
 	}
 	return nil
 }

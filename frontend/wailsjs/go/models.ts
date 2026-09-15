@@ -54,6 +54,91 @@ export namespace favorites {
     }
 }
 
+export namespace icontheme {
+    export class PreviewSample {
+        kind: string;
+        pngData: string;
+
+        static createFrom(source: any = {}) {
+            return new PreviewSample(source);
+        }
+
+        constructor(source: any = {}) {
+            if ('string' === typeof source) source = JSON.parse(source);
+            this.kind = source['kind'];
+            this.pngData = source['pngData'];
+        }
+    }
+    export class Selection {
+        mode: string;
+        id?: string;
+
+        static createFrom(source: any = {}) {
+            return new Selection(source);
+        }
+
+        constructor(source: any = {}) {
+            if ('string' === typeof source) source = JSON.parse(source);
+            this.mode = source['mode'];
+            this.id = source['id'];
+        }
+    }
+    export class ThemePreview {
+        themeId: string;
+        samples: PreviewSample[];
+
+        static createFrom(source: any = {}) {
+            return new ThemePreview(source);
+        }
+
+        constructor(source: any = {}) {
+            if ('string' === typeof source) source = JSON.parse(source);
+            this.themeId = source['themeId'];
+            this.samples = this.convertValues(source['samples'], PreviewSample);
+        }
+
+        convertValues(a: any, classs: any, asMap: boolean = false): any {
+            if (!a) {
+                return a;
+            }
+            if (a.slice && a.map) {
+                return (a as any[]).map(elem =>
+                    this.convertValues(elem, classs)
+                );
+            } else if ('object' === typeof a) {
+                if (asMap) {
+                    for (const key of Object.keys(a)) {
+                        a[key] = new classs(a[key]);
+                    }
+                    return a;
+                }
+                return new classs(a);
+            }
+            return a;
+        }
+    }
+    export class ThemeSummary {
+        id: string;
+        name: string;
+        inherits?: string[];
+        origin: string;
+        hasPreview: boolean;
+
+        static createFrom(source: any = {}) {
+            return new ThemeSummary(source);
+        }
+
+        constructor(source: any = {}) {
+            if ('string' === typeof source) source = JSON.parse(source);
+            this.id = source['id'];
+            this.name = source['name'];
+            this.inherits = source['inherits'];
+            this.origin = source['origin'];
+            this.hasPreview = source['hasPreview'];
+        }
+    }
+}
+
 export namespace ipc {
     export class Request {
         cmd: string;
@@ -135,11 +220,14 @@ export namespace main {
     export class ApplyThemeRequest {
         palette: string[];
         wallpaperPath: string;
+        wallpaperBlur: boolean;
         lightMode: boolean;
         additionalImages: string[];
         extendedColors: Record<string, string>;
+        nativeColors: Record<string, string>;
         settings: theme.Settings;
         appOverrides: Record<string, any>;
+        iconTheme: icontheme.Selection;
 
         static createFrom(source: any = {}) {
             return new ApplyThemeRequest(source);
@@ -149,14 +237,20 @@ export namespace main {
             if ('string' === typeof source) source = JSON.parse(source);
             this.palette = source['palette'];
             this.wallpaperPath = source['wallpaperPath'];
+            this.wallpaperBlur = source['wallpaperBlur'];
             this.lightMode = source['lightMode'];
             this.additionalImages = source['additionalImages'];
             this.extendedColors = source['extendedColors'];
+            this.nativeColors = source['nativeColors'];
             this.settings = this.convertValues(
                 source['settings'],
                 theme.Settings
             );
             this.appOverrides = source['appOverrides'];
+            this.iconTheme = this.convertValues(
+                source['iconTheme'],
+                icontheme.Selection
+            );
         }
 
         convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -179,16 +273,31 @@ export namespace main {
             return a;
         }
     }
+    export class ExportFavoritesRequest {
+        paths: string[];
+
+        static createFrom(source: any = {}) {
+            return new ExportFavoritesRequest(source);
+        }
+
+        constructor(source: any = {}) {
+            if ('string' === typeof source) source = JSON.parse(source);
+            this.paths = source['paths'];
+        }
+    }
     export class ExportThemeRequest {
         name: string;
         includedApps: string[];
         palette: string[];
         wallpaperPath: string;
+        wallpaperBlur: boolean;
         lightMode: boolean;
         additionalImages: string[];
         extendedColors: Record<string, string>;
+        nativeColors: Record<string, string>;
         installToOmarchy: boolean;
         appOverrides: Record<string, any>;
+        iconTheme: icontheme.Selection;
 
         static createFrom(source: any = {}) {
             return new ExportThemeRequest(source);
@@ -200,11 +309,37 @@ export namespace main {
             this.includedApps = source['includedApps'];
             this.palette = source['palette'];
             this.wallpaperPath = source['wallpaperPath'];
+            this.wallpaperBlur = source['wallpaperBlur'];
             this.lightMode = source['lightMode'];
             this.additionalImages = source['additionalImages'];
             this.extendedColors = source['extendedColors'];
+            this.nativeColors = source['nativeColors'];
             this.installToOmarchy = source['installToOmarchy'];
             this.appOverrides = source['appOverrides'];
+            this.iconTheme = this.convertValues(
+                source['iconTheme'],
+                icontheme.Selection
+            );
+        }
+
+        convertValues(a: any, classs: any, asMap: boolean = false): any {
+            if (!a) {
+                return a;
+            }
+            if (a.slice && a.map) {
+                return (a as any[]).map(elem =>
+                    this.convertValues(elem, classs)
+                );
+            } else if ('object' === typeof a) {
+                if (asMap) {
+                    for (const key of Object.keys(a)) {
+                        a[key] = new classs(a[key]);
+                    }
+                    return a;
+                }
+                return new classs(a);
+            }
+            return a;
         }
     }
     export class ExternalImportPreview {
@@ -254,10 +389,13 @@ export namespace main {
     export class ImportResult {
         colors: string[];
         extendedColors: Record<string, string>;
+        nativeColors: Record<string, string>;
         name: string;
         path: string;
         wallpaperPath: string;
+        wallpaperBlur: boolean;
         lightMode: boolean;
+        iconTheme: icontheme.Selection;
 
         static createFrom(source: any = {}) {
             return new ImportResult(source);
@@ -267,10 +405,36 @@ export namespace main {
             if ('string' === typeof source) source = JSON.parse(source);
             this.colors = source['colors'];
             this.extendedColors = source['extendedColors'];
+            this.nativeColors = source['nativeColors'];
             this.name = source['name'];
             this.path = source['path'];
             this.wallpaperPath = source['wallpaperPath'];
+            this.wallpaperBlur = source['wallpaperBlur'];
             this.lightMode = source['lightMode'];
+            this.iconTheme = this.convertValues(
+                source['iconTheme'],
+                icontheme.Selection
+            );
+        }
+
+        convertValues(a: any, classs: any, asMap: boolean = false): any {
+            if (!a) {
+                return a;
+            }
+            if (a.slice && a.map) {
+                return (a as any[]).map(elem =>
+                    this.convertValues(elem, classs)
+                );
+            } else if ('object' === typeof a) {
+                if (asMap) {
+                    for (const key of Object.keys(a)) {
+                        a[key] = new classs(a[key]);
+                    }
+                    return a;
+                }
+                return new classs(a);
+            }
+            return a;
         }
     }
     export class SaveAndApplyThemeRequest {
@@ -278,11 +442,14 @@ export namespace main {
         updateExisting: boolean;
         palette: string[];
         wallpaperPath: string;
+        wallpaperBlur: boolean;
         lightMode: boolean;
         additionalImages: string[];
         extendedColors: Record<string, string>;
+        nativeColors: Record<string, string>;
         settings: theme.Settings;
         appOverrides: Record<string, any>;
+        iconTheme: icontheme.Selection;
 
         static createFrom(source: any = {}) {
             return new SaveAndApplyThemeRequest(source);
@@ -294,14 +461,20 @@ export namespace main {
             this.updateExisting = source['updateExisting'];
             this.palette = source['palette'];
             this.wallpaperPath = source['wallpaperPath'];
+            this.wallpaperBlur = source['wallpaperBlur'];
             this.lightMode = source['lightMode'];
             this.additionalImages = source['additionalImages'];
             this.extendedColors = source['extendedColors'];
+            this.nativeColors = source['nativeColors'];
             this.settings = this.convertValues(
                 source['settings'],
                 theme.Settings
             );
             this.appOverrides = source['appOverrides'];
+            this.iconTheme = this.convertValues(
+                source['iconTheme'],
+                icontheme.Selection
+            );
         }
 
         convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -328,12 +501,15 @@ export namespace main {
         name: string;
         palette: string[];
         wallpaperPath: string;
+        wallpaperBlur: boolean;
         lightMode: boolean;
         additionalImages: string[];
         lockedColors: number[];
         extendedColors: Record<string, string>;
+        nativeColors: Record<string, string>;
         appOverrides: Record<string, any>;
         adjustments: Record<string, number>;
+        iconTheme: icontheme.Selection;
 
         static createFrom(source: any = {}) {
             return new SaveBlueprintRequest(source);
@@ -344,21 +520,50 @@ export namespace main {
             this.name = source['name'];
             this.palette = source['palette'];
             this.wallpaperPath = source['wallpaperPath'];
+            this.wallpaperBlur = source['wallpaperBlur'];
             this.lightMode = source['lightMode'];
             this.additionalImages = source['additionalImages'];
             this.lockedColors = source['lockedColors'];
             this.extendedColors = source['extendedColors'];
+            this.nativeColors = source['nativeColors'];
             this.appOverrides = source['appOverrides'];
             this.adjustments = source['adjustments'];
+            this.iconTheme = this.convertValues(
+                source['iconTheme'],
+                icontheme.Selection
+            );
+        }
+
+        convertValues(a: any, classs: any, asMap: boolean = false): any {
+            if (!a) {
+                return a;
+            }
+            if (a.slice && a.map) {
+                return (a as any[]).map(elem =>
+                    this.convertValues(elem, classs)
+                );
+            } else if ('object' === typeof a) {
+                if (asMap) {
+                    for (const key of Object.keys(a)) {
+                        a[key] = new classs(a[key]);
+                    }
+                    return a;
+                }
+                return new classs(a);
+            }
+            return a;
         }
     }
     export class SyncStateRequest {
         palette: string[];
         wallpaperPath: string;
+        wallpaperBlur: boolean;
         lightMode: boolean;
         extendedColors: Record<string, string>;
+        nativeColors: Record<string, string>;
         appOverrides: Record<string, any>;
         additionalImages: string[];
+        iconTheme: icontheme.Selection;
 
         static createFrom(source: any = {}) {
             return new SyncStateRequest(source);
@@ -368,24 +573,80 @@ export namespace main {
             if ('string' === typeof source) source = JSON.parse(source);
             this.palette = source['palette'];
             this.wallpaperPath = source['wallpaperPath'];
+            this.wallpaperBlur = source['wallpaperBlur'];
             this.lightMode = source['lightMode'];
             this.extendedColors = source['extendedColors'];
+            this.nativeColors = source['nativeColors'];
             this.appOverrides = source['appOverrides'];
             this.additionalImages = source['additionalImages'];
+            this.iconTheme = this.convertValues(
+                source['iconTheme'],
+                icontheme.Selection
+            );
+        }
+
+        convertValues(a: any, classs: any, asMap: boolean = false): any {
+            if (!a) {
+                return a;
+            }
+            if (a.slice && a.map) {
+                return (a as any[]).map(elem =>
+                    this.convertValues(elem, classs)
+                );
+            } else if ('object' === typeof a) {
+                if (asMap) {
+                    for (const key of Object.keys(a)) {
+                        a[key] = new classs(a[key]);
+                    }
+                    return a;
+                }
+                return new classs(a);
+            }
+            return a;
         }
     }
 }
 
 export namespace omarchy {
+    export class Capabilities {
+        available: boolean;
+        version: string;
+        themesDir: string;
+        stateDir: string;
+        currentTheme: string;
+        overrideApps: string[];
+
+        static createFrom(source: any = {}) {
+            return new Capabilities(source);
+        }
+
+        constructor(source: any = {}) {
+            if ('string' === typeof source) source = JSON.parse(source);
+            this.available = source['available'];
+            this.version = source['version'];
+            this.themesDir = source['themesDir'];
+            this.stateDir = source['stateDir'];
+            this.currentTheme = source['currentTheme'];
+            this.overrideApps = source['overrideApps'];
+        }
+    }
     export class Theme {
         name: string;
         path: string;
+        sources: string[];
         colors: string[];
         extendedColors: Record<string, string>;
+        nativeColors: Record<string, string>;
+        iconTheme: icontheme.Selection;
         background: string;
         foreground: string;
+        mode: string;
+        preview: string;
         wallpapers: string[];
         isSymlink: boolean;
+        isOverlay: boolean;
+        isUserTheme: boolean;
+        canApply: boolean;
         isCurrentTheme: boolean;
         isAetherGenerated: boolean;
 
@@ -397,14 +658,45 @@ export namespace omarchy {
             if ('string' === typeof source) source = JSON.parse(source);
             this.name = source['name'];
             this.path = source['path'];
+            this.sources = source['sources'];
             this.colors = source['colors'];
             this.extendedColors = source['extendedColors'];
+            this.nativeColors = source['nativeColors'];
+            this.iconTheme = this.convertValues(
+                source['iconTheme'],
+                icontheme.Selection
+            );
             this.background = source['background'];
             this.foreground = source['foreground'];
+            this.mode = source['mode'];
+            this.preview = source['preview'];
             this.wallpapers = source['wallpapers'];
             this.isSymlink = source['isSymlink'];
+            this.isOverlay = source['isOverlay'];
+            this.isUserTheme = source['isUserTheme'];
+            this.canApply = source['canApply'];
             this.isCurrentTheme = source['isCurrentTheme'];
             this.isAetherGenerated = source['isAetherGenerated'];
+        }
+
+        convertValues(a: any, classs: any, asMap: boolean = false): any {
+            if (!a) {
+                return a;
+            }
+            if (a.slice && a.map) {
+                return (a as any[]).map(elem =>
+                    this.convertValues(elem, classs)
+                );
+            } else if ('object' === typeof a) {
+                if (asMap) {
+                    for (const key of Object.keys(a)) {
+                        a[key] = new classs(a[key]);
+                    }
+                    return a;
+                }
+                return new classs(a);
+            }
+            return a;
         }
     }
 }
@@ -508,13 +800,16 @@ export namespace theme {
     export class StateSnapshot {
         palette: string[];
         wallpaperPath: string;
+        wallpaperBlur: boolean;
         lightMode: boolean;
         lockedColors: Record<number, boolean>;
         colorRoles: template.ColorRoles;
         extendedColors: Record<string, string>;
+        nativeColors: Record<string, string>;
         extractionMode: string;
         additionalImages: string[];
         appOverrides: Record<string, any>;
+        iconTheme: icontheme.Selection;
 
         static createFrom(source: any = {}) {
             return new StateSnapshot(source);
@@ -524,6 +819,7 @@ export namespace theme {
             if ('string' === typeof source) source = JSON.parse(source);
             this.palette = source['palette'];
             this.wallpaperPath = source['wallpaperPath'];
+            this.wallpaperBlur = source['wallpaperBlur'];
             this.lightMode = source['lightMode'];
             this.lockedColors = source['lockedColors'];
             this.colorRoles = this.convertValues(
@@ -531,9 +827,14 @@ export namespace theme {
                 template.ColorRoles
             );
             this.extendedColors = source['extendedColors'];
+            this.nativeColors = source['nativeColors'];
             this.extractionMode = source['extractionMode'];
             this.additionalImages = source['additionalImages'];
             this.appOverrides = source['appOverrides'];
+            this.iconTheme = this.convertValues(
+                source['iconTheme'],
+                icontheme.Selection
+            );
         }
 
         convertValues(a: any, classs: any, asMap: boolean = false): any {

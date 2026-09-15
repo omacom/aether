@@ -56,15 +56,8 @@ func GetThumbnail(imagePath string) (string, error) {
 
 	thumb := scaleThumbnail(src, thumbnailSize)
 
-	out, err := os.Create(thumbPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to create thumbnail file: %w", err)
-	}
-	defer out.Close()
-
-	if err := png.Encode(out, thumb); err != nil {
-		_ = os.Remove(thumbPath)
-		return "", fmt.Errorf("failed to encode thumbnail: %w", err)
+	if err := writePNG(thumbPath, thumb); err != nil {
+		return "", fmt.Errorf("failed to write thumbnail: %w", err)
 	}
 
 	return thumbPath, nil
@@ -95,15 +88,8 @@ func GetPreview(imagePath string) (string, error) {
 	}
 
 	preview := scaleThumbnail(src, previewSize)
-	out, err := os.Create(previewPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to create preview file: %w", err)
-	}
-	defer out.Close()
-
-	if err := png.Encode(out, preview); err != nil {
-		_ = os.Remove(previewPath)
-		return "", fmt.Errorf("failed to encode preview: %w", err)
+	if err := writePNG(previewPath, preview); err != nil {
+		return "", fmt.Errorf("failed to write preview: %w", err)
 	}
 
 	return previewPath, nil
@@ -131,8 +117,23 @@ func loadImage(path string) (image.Image, error) {
 	}
 	defer f.Close()
 
-	img, _, err := image.Decode(f)
-	return img, err
+	return DecodeImage(f)
+}
+
+func writePNG(path string, img image.Image) error {
+	out, err := os.CreateTemp(filepath.Dir(path), ".part-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(out.Name())
+	defer out.Close()
+	if err := png.Encode(out, img); err != nil {
+		return err
+	}
+	if err := out.Close(); err != nil {
+		return err
+	}
+	return os.Rename(out.Name(), path)
 }
 
 // scaleThumbnail scales an image to fit within a size x size bounding box,

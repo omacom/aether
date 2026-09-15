@@ -46,11 +46,20 @@ func applyImportedTheme(templatesFS embed.FS, bp *blueprint.Blueprint, palette [
 	writer := theme.NewWriter(templatesFS, "templates")
 	state := theme.NewThemeState()
 	state.WallpaperPath = wallpaperPath
+	state.WallpaperBlur = bp.Palette.WallpaperBlur
 	state.LightMode = forceLight || bp.Palette.LightMode
 	for k, v := range bp.Palette.ExtendedColors {
 		state.ExtendedColors[k] = v
 	}
+	for k, v := range bp.Palette.NativeColors {
+		state.NativeColors[k] = v
+	}
 	state.SetPalette(palette)
+	iconTheme, err := bp.IconThemeSelection()
+	if err != nil {
+		return nil, fmt.Errorf("blueprint iconTheme: %w", err)
+	}
+	state.IconTheme = iconTheme
 	return writer.ApplyTheme(state, theme.DefaultApplySettings())
 }
 

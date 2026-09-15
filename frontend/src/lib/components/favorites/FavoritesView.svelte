@@ -15,6 +15,10 @@
         getCachedFullImage,
     } from '$lib/stores/imagecache.svelte';
     import {getLabels, getAssignments} from '$lib/stores/tags.svelte';
+    import {
+        getExportBusy,
+        startExport,
+    } from '$lib/stores/favoritesExport.svelte';
     import WallpaperTile from '$lib/components/shared/WallpaperTile.svelte';
     import ImagePreview from '$lib/components/shared/ImagePreview.svelte';
     import EmptyState from '$lib/components/shared/EmptyState.svelte';
@@ -22,11 +26,16 @@
     import ViewHeader from '$lib/components/shared/ViewHeader.svelte';
     import {applyWallpaperOnly} from '$lib/actions/themeActions';
     import {getIsApplying} from '$lib/stores/theme.svelte';
-    import type {favorites as favoritesNs} from '../../../../wailsjs/go/models';
+    import {
+        getFavorites,
+        getFavoritesError,
+        refreshFavorites,
+        toggleFavorite,
+        type Favorite,
+    } from '$lib/stores/favorites.svelte';
 
-    type Favorite = favoritesNs.Favorite;
-
-    let favorites = $state<Favorite[]>([]);
+    let favorites = $derived(getFavorites());
+    let loadError = $derived(getFavoritesError());
     let isLoading = $state(true);
     let filterTag = $state<string>('');
     let previewIndex = $state(-1);
@@ -45,17 +54,13 @@
         loadFavorites();
     });
 
+    // Re-sync with the backend on every mount so favourites added via the
+    // CLI/IPC while this tab was closed show up.
     async function loadFavorites() {
         isLoading = true;
         try {
-            const {GetFavorites} = await import(
-                '../../../../wailsjs/go/main/App'
-            );
-            const result = await GetFavorites();
-            favorites = Array.isArray(result) ? result : [];
+            await refreshFavorites();
             loadThumbnails();
-        } catch {
-            favorites = [];
         } finally {
             isLoading = false;
         }
@@ -103,12 +108,11 @@
 
     async function handleRemove(fav: Favorite) {
         try {
-            const {ToggleFavorite} = await import(
-                '../../../../wailsjs/go/main/App'
-            );
-            await ToggleFavorite(fav.path, fav.type ?? '', {});
-            favorites = favorites.filter(f => f.path !== fav.path);
-        } catch {}
+            await toggleFavorite(fav.path, fav.type ?? '');
+        } catch (err) {
+            console.error('ToggleFavorite failed', err);
+            showToast('Could not update favorites');
+        }
     }
 
     async function handleAddExtra(fav: Favorite) {
@@ -193,15 +197,36 @@
             {/each}
         {/if}
 
-        <span class="text-fg-dimmed ml-auto text-[10px]"
+        <button
+            class="bg-accent text-accent-fg hover:bg-accent-hover ml-auto px-2 py-0.5 text-[10px] font-medium transition-colors duration-100 disabled:opacity-50"
+            disabled={filtered.length === 0 || getExportBusy()}
+            onclick={() => startExport(filtered.map(f => f.path))}
+            title="Export the listed favorites as a .zip archive"
+            >Export .zip ({filtered.length})</button
+        >
+
+        <span class="text-fg-dimmed text-[10px]"
             >{filtered.length}{filterTag ? `/${favorites.length}` : ''}</span
         >
     </ViewHeader>
 
     <div class="flex-1 overflow-y-auto p-3">
+        {#if loadError}
+            <div
+                class="border-border bg-bg-surface text-fg-primary mb-3 flex items-center justify-between gap-3 border p-3 text-xs"
+                role="alert"
+            >
+                <span>{loadError}</span>
+                <button
+                    class="text-accent shrink-0 px-2 py-1"
+                    onclick={loadFavorites}
+                    disabled={isLoading}>Retry</button
+                >
+            </div>
+        {/if}
         {#if isLoading}
             <LoadingState message="Loading favorites…" />
-        {:else if filtered.length === 0}
+        {:else if filtered.length === 0 && !loadError}
             {#if filterTag}
                 <EmptyState
                     title="No favorites with this label"
@@ -260,11 +285,13 @@
                         path={fav.path}
                         name={fav.data?.name || fav.data?.id || 'Wallpaper'}
                         isAdded={getAdditionalImages().includes(fav.path)}
+                        isFavorited={true}
                         applying={getIsApplying()}
                         onuse={() => handleSelect(fav)}
                         onwallpaperonly={() => applyWallpaperOnly(fav.path)}
                         onpreview={() => handlePreview(i)}
                         onaddextra={() => handleAddExtra(fav)}
+                        onfavorite={() => handleRemove(fav)}
                     >
                         {#snippet thumb()}
                             {#if getCachedThumbnail(fav.path)}
@@ -278,27 +305,6 @@
                                     >...</span
                                 >
                             {/if}
-                        {/snippet}
-                        {#snippet topRight()}
-                            <button
-                                class="absolute right-1.5 top-1.5 z-10 flex h-7 w-7 items-center justify-center opacity-100"
-                                onclick={() => handleRemove(fav)}
-                                aria-label="Remove from favorites"
-                            >
-                                <svg
-                                    class="text-destructive h-4 w-4"
-                                    viewBox="0 0 24 24"
-                                    fill="currentColor"
-                                    stroke="currentColor"
-                                    stroke-width="2"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                >
-                                    <path
-                                        d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
-                                    ></path>
-                                </svg>
-                            </button>
                         {/snippet}
                     </WallpaperTile>
                 {/each}

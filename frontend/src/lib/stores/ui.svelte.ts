@@ -22,6 +22,7 @@ let toastMessage = $state<string>('');
 let toastVisible = $state<boolean>(false);
 let toastAction = $state<ToastAction | null>(null);
 let liveApply = $state<boolean>(readBoolPref(STORAGE_KEYS.liveApply, false));
+let liveApplySession = $state(0);
 let livePending = $state<boolean>(false);
 let targetsVisible = $state<boolean>(
     readBoolPref(STORAGE_KEYS.targetsVisible, true)
@@ -44,6 +45,7 @@ function writeBoolPref(key: string, value: boolean): void {
     } catch {}
 }
 let colorPickerOpen = $state<boolean>(false);
+let colorDrag = $state<{color: string; x: number; y: number} | null>(null);
 let colorPickerIndex = $state<number>(-1);
 let colorPickerExtKey = $state<string>(''); // non-empty = editing an extended color
 let colorPickerOverrideApp = $state<string>(''); // non-empty = editing an app override
@@ -174,7 +176,14 @@ export function getToastQueueDepth(): number {
 export function getLiveApply(): boolean {
     return liveApply;
 }
+export function getLiveApplySession(): number {
+    return liveApplySession;
+}
+export function invalidateLiveApplySession(): void {
+    liveApplySession++;
+}
 export function setLiveApply(v: boolean): void {
+    if (v !== liveApply) invalidateLiveApplySession();
     liveApply = v;
     writeBoolPref(STORAGE_KEYS.liveApply, v);
     if (!v) livePending = false;
@@ -267,4 +276,13 @@ export function getApplySaveDialogOpen(): boolean {
 }
 export function setApplySaveDialogOpen(v: boolean): void {
     applySaveDialogOpen = v;
+}
+
+export function getColorDrag(): {color: string; x: number; y: number} | null {
+    return colorDrag;
+}
+export function setColorDrag(
+    v: {color: string; x: number; y: number} | null
+): void {
+    colorDrag = v;
 }

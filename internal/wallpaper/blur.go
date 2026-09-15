@@ -34,6 +34,8 @@ const (
 	blurJPEGQuality = 92
 )
 
+var blurSlots = make(chan struct{}, 1)
+
 // CreateBlurredVariant decodes the image at srcPath, applies a heavy Gaussian
 // blur and writes a JPEG variant into destDir. The source file is never
 // modified — callers keep using it for color extraction and editing.
@@ -41,9 +43,17 @@ const (
 // blur parameters, so unchanged images reuse their cached variant.
 // Returns the path of the blurred variant.
 func CreateBlurredVariant(srcPath, destDir string) (string, error) {
+	if !IsImageFile(srcPath) {
+		return "", fmt.Errorf("unsupported image file: %s", srcPath)
+	}
+	blurSlots <- struct{}{}
+	defer func() { <-blurSlots }()
 	srcInfo, err := os.Stat(srcPath)
 	if err != nil {
 		return "", fmt.Errorf("stat image: %w", err)
+	}
+	if !srcInfo.Mode().IsRegular() {
+		return "", fmt.Errorf("image source is not a regular file")
 	}
 
 	key := fmt.Sprintf("v1|%s|%d|%d|%d|%g", srcPath, srcInfo.Size(),

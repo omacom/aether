@@ -18,8 +18,16 @@ export function ApplyTheme(arg1) {
     return window['go']['main']['App']['ApplyTheme'](arg1);
 }
 
+export function ApplyWallpaperOnly(arg1) {
+    return window['go']['main']['App']['ApplyWallpaperOnly'](arg1);
+}
+
 export function BlueprintExists(arg1) {
     return window['go']['main']['App']['BlueprintExists'](arg1);
+}
+
+export function BlurWallpaper(arg1) {
+    return window['go']['main']['App']['BlurWallpaper'](arg1);
 }
 
 export function CancelBatchProcessing() {
@@ -28,6 +36,10 @@ export function CancelBatchProcessing() {
 
 export function CancelExternalImport(arg1) {
     return window['go']['main']['App']['CancelExternalImport'](arg1);
+}
+
+export function CancelFavoritesExport() {
+    return window['go']['main']['App']['CancelFavoritesExport']();
 }
 
 export function ChooseWallpaperFolder() {
@@ -62,6 +74,10 @@ export function DownloadWallpaper(arg1) {
     return window['go']['main']['App']['DownloadWallpaper'](arg1);
 }
 
+export function ExportFavorites(arg1) {
+    return window['go']['main']['App']['ExportFavorites'](arg1);
+}
+
 export function ExportTheme(arg1) {
     return window['go']['main']['App']['ExportTheme'](arg1);
 }
@@ -94,12 +110,16 @@ export function GetFocusTab() {
     return window['go']['main']['App']['GetFocusTab']();
 }
 
+export function GetIconThemePreview(arg1) {
+    return window['go']['main']['App']['GetIconThemePreview'](arg1);
+}
+
 export function GetInitialState() {
     return window['go']['main']['App']['GetInitialState']();
 }
 
-export function GetReleaseStatus(arg1) {
-    return window['go']['main']['App']['GetReleaseStatus'](arg1);
+export function GetOmarchyCapabilities() {
+    return window['go']['main']['App']['GetOmarchyCapabilities']();
 }
 
 export function GetPendingExternalImport() {
@@ -108,6 +128,10 @@ export function GetPendingExternalImport() {
 
 export function GetPreview(arg1) {
     return window['go']['main']['App']['GetPreview'](arg1);
+}
+
+export function GetReleaseStatus(arg1) {
+    return window['go']['main']['App']['GetReleaseStatus'](arg1);
 }
 
 export function GetSettings() {
@@ -150,6 +174,10 @@ export function IsFavorite(arg1) {
     return window['go']['main']['App']['IsFavorite'](arg1);
 }
 
+export function IsFavoritesExportRunning() {
+    return window['go']['main']['App']['IsFavoritesExportRunning']();
+}
+
 export function IsMacOS() {
     return window['go']['main']['App']['IsMacOS']();
 }
@@ -164,6 +192,10 @@ export function IsPreviewCached(arg1) {
 
 export function ListBlueprints() {
     return window['go']['main']['App']['ListBlueprints']();
+}
+
+export function ListInstalledIconThemes() {
+    return window['go']['main']['App']['ListInstalledIconThemes']();
 }
 
 export function LoadBlueprint(arg1) {
@@ -192,6 +224,10 @@ export function PreviewExtractColors(arg1, arg2, arg3) {
 
 export function ReadImageAsDataURL(arg1) {
     return window['go']['main']['App']['ReadImageAsDataURL'](arg1);
+}
+
+export function RefreshInstalledIconThemes() {
+    return window['go']['main']['App']['RefreshInstalledIconThemes']();
 }
 
 export function ResetState() {
@@ -248,6 +284,10 @@ export function StartUpgrade() {
 
 export function SyncState(arg1) {
     return window['go']['main']['App']['SyncState'](arg1);
+}
+
+export function ThemeFolderExists(arg1) {
+    return window['go']['main']['App']['ThemeFolderExists'](arg1);
 }
 
 export function ToggleFavorite(arg1, arg2, arg3) {

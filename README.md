@@ -22,6 +22,8 @@ A visual theming application for [Omarchy](https://omarchy.org). Extract colors 
 
 ### Wallpaper Tools
 - Search and download wallpapers from wallhaven.cc directly in the app
+- Export favorite wallpapers as a ZIP archive with source metadata
+- Apply a blurred wallpaper variant while extraction uses the original image
 - Full wallpaper editor with blur, exposure, sharpen, vignette, grain, and color toning
 - 12 one-click image presets: Cinematic, Vintage, Film, Dramatic, and more
 
@@ -30,6 +32,7 @@ A visual theming application for [Omarchy](https://omarchy.org). Extract colors 
 - Import 250+ community Base16 color schemes
 - Save and restore complete themes as blueprint files
 - Export themes as shareable packages with selective app inclusion
+- Keep the palette-matched Yaru icon default or choose an installed desktop icon theme per blueprint
 
 ### Application Support
 - 20+ pre-configured apps: Hyprland, Waybar, Kitty, Alacritty, Ghostty, Neovim, VS Code, Zed, btop, and more
@@ -80,6 +83,12 @@ cd aether && make build
 3. Adjust colors as needed
 4. Click **Apply Theme**
 
+### Desktop Icon Themes
+
+Use the compact **Icons** control directly below **Light mode** in the editor sidebar. Its switch enables or disables the existing Icons target, while the selection opens the installed-theme chooser. **Automatic** preserves Aether's color-matched Yaru output. An explicit choice writes the installed theme's directory ID; if that theme is later uninstalled, Aether keeps the saved ID and marks it as missing instead of silently replacing it. Disabling Icons omits `icons.theme` without erasing the choice.
+
+The picker searches the standard user and system XDG icon roots and the legacy `~/.icons` root. **Refresh** rescans after you install a theme. Aether does not download or install icon themes.
+
 ## CLI
 
 ```bash
@@ -106,7 +115,13 @@ wails dev
 wails build
 ```
 
-**Prerequisites:** Go 1.23+, Node.js 18+, [Wails v2](https://wails.io), webkit2gtk, gtk-layer-shell, gstreamer, gst-plugins-good
+**Prerequisites:** Go 1.23+, Node.js 22.22.2+ or 24.15+ LTS, [Wails v2](https://wails.io), webkit2gtk, gtk-layer-shell, gstreamer, gst-plugins-good
+
+### Verification
+
+Run `make test` for the Go package tests. With the native build dependencies installed, `go test -race -tags webkit2_41 ./...` also covers the app entry points and enables Go's race detector (omit the tag on WebKitGTK 4.0 systems).
+
+From `frontend/`, run `npm ci`, `npm run check`, `npm test`, and `npm run build`. The frontend regression suite uses mocked Wails calls, so it does not change your desktop. Use `make dev` for manual verification of native dialogs, rendering, and theme application.
 
 ## Documentation
 
@@ -118,13 +133,14 @@ wails build
 | [Base16 Schemes](docs/base16.md) | Import community color schemes |
 | [Wallpaper Editor](docs/wallpaper-editor.md) | Image filters and presets |
 | [Wallhaven](docs/wallhaven.md) | Browse online wallpapers |
+| [Favorites](docs/favorites.md) | Save wallpapers and export a collection |
 | [Blueprints](docs/blueprints.md) | Save and restore themes |
 | [Custom Templates](docs/custom-templates.md) | Add support for your apps |
 | [Custom Apps](docs/custom-apps.md) | Per-app template system |
 | [File System](docs/filesystem.md) | Where Aether stores files |
 | [Remote Control](docs/remote-control.md) | IPC commands and AI integration |
 | [Protocol Handler](docs/protocol-handler.md) | Register `aether://` links |
-| [Quickshell Widgets](docs/quickshell.md) | QML widgets for Hyprland-style bars |
+| [Omarchy Shell Plugins](docs/quickshell.md) | Native wallpaper and blueprint selectors |
 | [Standalone](docs/standalone.md) | Using Aether without Omarchy |
 | [Troubleshooting](docs/troubleshooting.md) | Common issues |
 

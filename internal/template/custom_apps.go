@@ -2,6 +2,8 @@ package template
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -19,6 +21,7 @@ type customAppConfig struct {
 // ProcessCustomApps scans ~/.config/aether/custom/ for app-specific templates,
 // processes each template with variable substitution, writes the output to
 // themeDir, creates destination symlinks, and runs any post-apply.sh scripts.
+// App failures are collected and returned; failed installs never run their hook.
 //
 // Directory structure expected:
 //
@@ -38,6 +41,7 @@ func ProcessCustomApps(themeDir string, variables map[string]string) error {
 		return err
 	}
 
+	var errs []error
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
@@ -47,11 +51,11 @@ func ProcessCustomApps(themeDir string, variables map[string]string) error {
 		appPath := filepath.Join(customDir, appName)
 
 		if err := processCustomApp(appPath, appName, themeDir, variables); err != nil {
-			log.Printf("[%s] Error processing custom app: %v", appName, err)
+			errs = append(errs, fmt.Errorf("custom app %q: %w", appName, err))
 		}
 	}
 
-	return nil
+	return errors.Join(errs...)
 }
 
 // processCustomApp handles a single custom app directory: reads config.json,
@@ -59,12 +63,11 @@ func ProcessCustomApps(themeDir string, variables map[string]string) error {
 func processCustomApp(appPath, appName, themeDir string, variables map[string]string) error {
 	// Read config.json
 	configPath := filepath.Join(appPath, "config.json")
-	if !platform.FileExists(configPath) {
+	data, err := os.ReadFile(configPath)
+	if os.IsNotExist(err) {
 		log.Printf("[%s] Missing config.json, skipping", appName)
 		return nil
 	}
-
-	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return err
 	}
@@ -75,17 +78,11 @@ func processCustomApp(appPath, appName, themeDir string, variables map[string]st
 	}
 
 	if config.Template == "" {
-		log.Printf("[%s] config.json missing 'template' field, skipping", appName)
-		return nil
+		return fmt.Errorf("config.json missing 'template' field")
 	}
 
 	// Read and process the template
 	templatePath := filepath.Join(appPath, config.Template)
-	if !platform.FileExists(templatePath) {
-		log.Printf("[%s] Template '%s' not found, skipping", appName, config.Template)
-		return nil
-	}
-
 	content, err := platform.ReadText(templatePath)
 	if err != nil {
 		return err
@@ -95,7 +92,10 @@ func processCustomApp(appPath, appName, themeDir string, variables map[string]st
 
 	// Write processed output to theme directory
 	outputFileName := appName + "-" + config.Template
-	outputPath := filepath.Join(themeDir, outputFileName)
+	outputPath, err := filepath.Abs(filepath.Join(themeDir, outputFileName))
+	if err != nil {
+		return err
+	}
 	if err := platform.WriteText(outputPath, processed); err != nil {
 		return err
 	}
@@ -104,24 +104,19 @@ func processCustomApp(appPath, appName, themeDir string, variables map[string]st
 	// Create destination symlink if configured
 	if config.Destination != "" {
 		destPath := expandHome(config.Destination)
-		if err := platform.EnsureDir(filepath.Dir(destPath)); err != nil {
-			return err
-		}
 		if err := platform.CreateSymlink(outputPath, destPath); err != nil {
-			log.Printf("[%s] Error creating symlink to %s: %v", appName, destPath, err)
-		} else {
-			log.Printf("[%s] Symlinked -> %s", appName, destPath)
+			return fmt.Errorf("install symlink at %s: %w", destPath, err)
 		}
+		log.Printf("[%s] Symlinked -> %s", appName, destPath)
 	}
 
 	// Run post-apply.sh if it exists
 	postApplyPath := filepath.Join(appPath, "post-apply.sh")
 	if platform.FileExists(postApplyPath) {
 		if err := platform.RunAsync("bash", postApplyPath); err != nil {
-			log.Printf("[%s] Error running post-apply.sh: %v", appName, err)
-		} else {
-			log.Printf("[%s] Executed post-apply.sh", appName)
+			return fmt.Errorf("start post-apply.sh: %w", err)
 		}
+		log.Printf("[%s] Executed post-apply.sh", appName)
 	}
 
 	return nil
