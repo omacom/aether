@@ -162,7 +162,7 @@ func prepareThemeDir(targetDir string, state *ThemeState) (string, error) {
 		return "", err
 	}
 
-	if state.WallpaperPath == "" && len(state.AdditionalImages) == 0 {
+	if state.WallpaperPath == "" && state.OriginalWallpaperPath == "" && len(state.AdditionalImages) == 0 {
 		return "", nil
 	}
 
@@ -185,6 +185,18 @@ func prepareThemeDir(targetDir string, state *ThemeState) (string, error) {
 
 	// Sources may be inside the live backgrounds directory, including symlinks.
 	sources := append([]string{state.WallpaperPath}, state.AdditionalImages...)
+	if original := state.OriginalWallpaperPath; original != "" && original != state.WallpaperPath {
+		found := false
+		for _, source := range sources {
+			if source == original {
+				found = true
+				break
+			}
+		}
+		if !found {
+			sources = append(sources, original)
+		}
+	}
 	seen := make(map[string]string, len(sources))
 	for i, src := range sources {
 		if i == 0 && src == "" {
@@ -323,6 +335,10 @@ func (w *Writer) GenerateOmarchyV4Only(state *ThemeState, settings Settings, out
 }
 
 func (w *Writer) generateOmarchyTheme(state *ThemeState, settings Settings, outputPath, activateName string) error {
+	state, err := materializeWallpaper(state)
+	if err != nil {
+		return err
+	}
 	if err := validateIconTheme(state.IconTheme, settings.includesApp("icons")); err != nil {
 		return err
 	}
@@ -389,6 +405,10 @@ func (w *Writer) generateOmarchyTheme(state *ThemeState, settings Settings, outp
 
 // ApplyTheme generates all theme files and applies the theme to the system.
 func (w *Writer) ApplyTheme(state *ThemeState, settings Settings) (*ApplyResult, error) {
+	state, err := materializeWallpaper(state)
+	if err != nil {
+		return nil, err
+	}
 	if err := validateIconTheme(state.IconTheme, settings.includesApp("icons")); err != nil {
 		return nil, err
 	}
@@ -437,6 +457,10 @@ func (w *Writer) ApplyTheme(state *ThemeState, settings Settings) (*ApplyResult,
 // GenerateOnly generates theme files to the specified output path without
 // applying them (no symlinks, no service restarts, no omarchy activation).
 func (w *Writer) GenerateOnly(state *ThemeState, settings Settings, outputPath string) error {
+	state, err := materializeWallpaper(state)
+	if err != nil {
+		return err
+	}
 	if err := validateIconTheme(state.IconTheme, settings.includesApp("icons")); err != nil {
 		return err
 	}

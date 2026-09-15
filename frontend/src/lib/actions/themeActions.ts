@@ -12,6 +12,7 @@ import {
     getIsAdjusting,
     setIsExtracting,
     getWallpaperPath,
+    getWallpaperRevision,
     setWallpaperPath,
     setPaletteFromExtraction,
     getLightMode,
@@ -60,7 +61,7 @@ function filterNativeAppOverrides(
     );
 }
 
-function captureApplyRequest() {
+export function captureApplyRequest() {
     const settings = getSettings();
     return {
         ...getThemeSnapshot(),
@@ -191,34 +192,38 @@ export function saveThemeAsNew(): void {
 
 export async function saveAndApplyTheme(
     name: string,
-    updateExisting = false
-): Promise<void> {
-    if (getIsApplying()) return;
-    const request = captureApplyRequest();
+    updateExisting = false,
+    request = captureApplyRequest()
+): Promise<boolean> {
+    if (getIsApplying()) return false;
     setIsApplying(true);
     try {
-        await runApply(request, {name, updateExisting});
+        const result = await runApply(request, {name, updateExisting});
+        if (!result?.success) return false;
         saveThemeFolder(name, request.wallpaperPath);
         showToast(
             updateExisting ? `Applied: ${name}` : `Saved and applied: ${name}`
         );
+        return true;
     } catch (e: unknown) {
         showToast(
-            e instanceof Error ? e.message : 'Couldn’t save and apply theme'
+            typeof e === 'string'
+                ? e
+                : e instanceof Error
+                  ? e.message
+                  : 'Could not save and apply the theme'
         );
+        return false;
     } finally {
         setIsApplying(false);
     }
 }
 
-// Swap the wallpaper without re-extracting colors. Resolves remote URLs
-// (Wallhaven) by downloading first, then runs the standard apply path so
-// the new wallpaper goes out together with the current palette.
+// Change the background without replacing the active Omarchy theme.
 export async function applyWallpaperOnly(originalPath: string): Promise<void> {
     if (getIsApplying() || !originalPath) return;
-    const request = captureApplyRequest();
-    const originalSignature = getThemeSignature(request);
-    request.wallpaperPath = originalPath;
+    const originalRevision = getWallpaperRevision();
+    let path = originalPath;
     setIsApplying(true);
     try {
         if (
@@ -229,18 +234,24 @@ export async function applyWallpaperOnly(originalPath: string): Promise<void> {
             const {DownloadWallpaper} = await import(
                 '../../../wailsjs/go/main/App'
             );
-            request.wallpaperPath = await DownloadWallpaper(originalPath);
+            path = await DownloadWallpaper(originalPath);
         }
-        // A slow download must not replace the wallpaper of a newly loaded theme.
-        if (getThemeSignature() === originalSignature)
-            setWallpaperPath(request.wallpaperPath);
-        const result = await runApply(request);
-        if (!result) return;
-        showToast(
-            result.success ? 'Wallpaper applied' : 'Wallpaper files generated'
+        if (getWallpaperRevision() !== originalRevision) return;
+        const {ApplyWallpaperOnly} = await import(
+            '../../../wailsjs/go/main/App'
         );
-    } catch {
-        showToast('Couldn’t apply wallpaper — see logs for details');
+        if (getWallpaperRevision() !== originalRevision) return;
+        await ApplyWallpaperOnly(path);
+        if (getWallpaperRevision() === originalRevision) setWallpaperPath(path);
+        showToast('Wallpaper applied');
+    } catch (error: unknown) {
+        showToast(
+            typeof error === 'string'
+                ? error
+                : error instanceof Error
+                  ? error.message
+                  : 'Could not apply the wallpaper'
+        );
     } finally {
         setIsApplying(false);
     }

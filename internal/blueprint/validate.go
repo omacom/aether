@@ -11,6 +11,9 @@ func validateBlueprint(bp *Blueprint) error {
 	if bp == nil {
 		return fmt.Errorf("blueprint is empty")
 	}
+	if bp.Palette.WallpaperBlur && bp.Palette.Wallpaper == "" && bp.Palette.WallpaperURL == "" {
+		return fmt.Errorf("wallpaper blur requires a source image")
+	}
 	if len(bp.Palette.Colors) < 16 {
 		return fmt.Errorf("palette has %d colors; want at least 16", len(bp.Palette.Colors))
 	}

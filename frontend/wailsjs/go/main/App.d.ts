@@ -23,7 +23,11 @@ export function ApplyTheme(
     arg1: main.ApplyThemeRequest
 ): Promise<theme.ApplyResult>;
 
+export function ApplyWallpaperOnly(arg1: string): Promise<void>;
+
 export function BlueprintExists(arg1: string): Promise<boolean>;
+
+export function BlurWallpaper(arg1: string): Promise<string>;
 
 export function CancelBatchProcessing(): Promise<void>;
 
@@ -179,6 +183,8 @@ export function StartBatchProcessing(
 export function StartUpgrade(): Promise<void>;
 
 export function SyncState(arg1: main.SyncStateRequest): Promise<void>;
+
+export function ThemeFolderExists(arg1: string): Promise<boolean>;
 
 export function ToggleFavorite(
     arg1: string,

@@ -37,6 +37,7 @@ test('repeated Enter cannot bypass overwrite confirmation, and Override saves th
     vi.mocked(BlueprintExists).mockReturnValue(exists.promise);
     vi.mocked(SaveBlueprint).mockReturnValue(saved.promise);
     theme.setWallpaperPath('/original.png');
+    theme.setWallpaperBlur(true, true);
     theme.setAppOverride('kitty', 'background', '#123456');
     theme.setIconTheme({mode: 'explicit', id: 'Original-Icons'}, true);
     const originalPalette = [...theme.getPalette()];
@@ -72,6 +73,7 @@ test('repeated Enter cannot bypass overwrite confirmation, and Override saves th
             name: 'Original',
             palette: originalPalette,
             wallpaperPath: '/original.png',
+            wallpaperBlur: true,
             appOverrides: {kitty: {background: '#123456'}},
             iconTheme: {mode: 'explicit', id: 'Original-Icons'},
         })

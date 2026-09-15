@@ -57,6 +57,7 @@
         (VALID_TABS as readonly string[]).includes(t);
     import {
         setWallpaperPath,
+        setWallpaperBlur,
         setPalette,
         setExtendedColors,
         setNativeColors,
@@ -82,7 +83,6 @@
     import {
         applyTheme,
         applyThemeLive,
-        saveAndApplyTheme,
         requestThemeApply,
         saveThemeAsNew,
         undoAction,
@@ -278,6 +278,7 @@
                 // re-extract on the same image doesn't clear overrides.
                 setLastExtractedPath(s.wallpaperPath);
             }
+            setWallpaperBlur(!!s?.wallpaperBlur, true);
         } catch (e) {
             console.warn('GetInitialState failed:', e);
         }
@@ -510,6 +511,7 @@
                         lightMode?: boolean;
                         mode?: string;
                         wallpaper?: string;
+                        wallpaperBlur?: boolean;
                         adjustments?: import('$lib/types/theme').Adjustments;
                         appOverrides?: Record<string, Record<string, string>>;
                         additionalImages?: string[];
@@ -534,6 +536,8 @@
                         if (state.wallpaper !== undefined) {
                             setWallpaperPath(state.wallpaper);
                         }
+                        if (state.wallpaperBlur !== undefined)
+                            setWallpaperBlur(state.wallpaperBlur, true);
                         if (state.adjustments) {
                             setAdjustments(state.adjustments);
                         }
@@ -591,9 +595,5 @@
     <ApplySaveDialog
         open={getApplySaveDialogOpen()}
         onclose={() => setApplySaveDialogOpen(false)}
-        onsave={name => {
-            setApplySaveDialogOpen(false);
-            saveAndApplyTheme(name);
-        }}
     />
 </div>

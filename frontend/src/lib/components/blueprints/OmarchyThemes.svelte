@@ -230,7 +230,8 @@
                                 <button
                                     class="text-fg-dimmed border-border hover:bg-bg-elevated border px-2 py-1 text-[10px] transition-colors"
                                     onclick={() => handleEdit(theme)}
-                                    >Edit</button
+                                    title="Import colors, icons, and wallpapers into the editor"
+                                    >Import</button
                                 >
                                 <button
                                     class="bg-accent hover:bg-accent-hover text-accent-fg disabled:bg-bg-elevated disabled:text-fg-dimmed px-2 py-1 text-[10px] font-medium transition-colors"

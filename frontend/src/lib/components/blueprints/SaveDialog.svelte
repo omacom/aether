@@ -5,6 +5,7 @@
     import {
         getPalette,
         getWallpaperPath,
+        getWallpaperBlur,
         getLightMode,
         getAdditionalImages,
         getExtendedColors,
@@ -76,6 +77,7 @@
             name: name.trim(),
             palette: [...getPalette()],
             wallpaperPath: getWallpaperPath(),
+            wallpaperBlur: getWallpaperBlur(),
             lightMode: getLightMode(),
             additionalImages: [...getAdditionalImages()],
             lockedColors: [],

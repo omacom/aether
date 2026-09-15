@@ -220,6 +220,7 @@ export namespace main {
     export class ApplyThemeRequest {
         palette: string[];
         wallpaperPath: string;
+        wallpaperBlur: boolean;
         lightMode: boolean;
         additionalImages: string[];
         extendedColors: Record<string, string>;
@@ -236,6 +237,7 @@ export namespace main {
             if ('string' === typeof source) source = JSON.parse(source);
             this.palette = source['palette'];
             this.wallpaperPath = source['wallpaperPath'];
+            this.wallpaperBlur = source['wallpaperBlur'];
             this.lightMode = source['lightMode'];
             this.additionalImages = source['additionalImages'];
             this.extendedColors = source['extendedColors'];
@@ -288,6 +290,7 @@ export namespace main {
         includedApps: string[];
         palette: string[];
         wallpaperPath: string;
+        wallpaperBlur: boolean;
         lightMode: boolean;
         additionalImages: string[];
         extendedColors: Record<string, string>;
@@ -306,6 +309,7 @@ export namespace main {
             this.includedApps = source['includedApps'];
             this.palette = source['palette'];
             this.wallpaperPath = source['wallpaperPath'];
+            this.wallpaperBlur = source['wallpaperBlur'];
             this.lightMode = source['lightMode'];
             this.additionalImages = source['additionalImages'];
             this.extendedColors = source['extendedColors'];
@@ -389,6 +393,7 @@ export namespace main {
         name: string;
         path: string;
         wallpaperPath: string;
+        wallpaperBlur: boolean;
         lightMode: boolean;
         iconTheme: icontheme.Selection;
 
@@ -404,6 +409,7 @@ export namespace main {
             this.name = source['name'];
             this.path = source['path'];
             this.wallpaperPath = source['wallpaperPath'];
+            this.wallpaperBlur = source['wallpaperBlur'];
             this.lightMode = source['lightMode'];
             this.iconTheme = this.convertValues(
                 source['iconTheme'],
@@ -436,6 +442,7 @@ export namespace main {
         updateExisting: boolean;
         palette: string[];
         wallpaperPath: string;
+        wallpaperBlur: boolean;
         lightMode: boolean;
         additionalImages: string[];
         extendedColors: Record<string, string>;
@@ -454,6 +461,7 @@ export namespace main {
             this.updateExisting = source['updateExisting'];
             this.palette = source['palette'];
             this.wallpaperPath = source['wallpaperPath'];
+            this.wallpaperBlur = source['wallpaperBlur'];
             this.lightMode = source['lightMode'];
             this.additionalImages = source['additionalImages'];
             this.extendedColors = source['extendedColors'];
@@ -493,6 +501,7 @@ export namespace main {
         name: string;
         palette: string[];
         wallpaperPath: string;
+        wallpaperBlur: boolean;
         lightMode: boolean;
         additionalImages: string[];
         lockedColors: number[];
@@ -511,6 +520,7 @@ export namespace main {
             this.name = source['name'];
             this.palette = source['palette'];
             this.wallpaperPath = source['wallpaperPath'];
+            this.wallpaperBlur = source['wallpaperBlur'];
             this.lightMode = source['lightMode'];
             this.additionalImages = source['additionalImages'];
             this.lockedColors = source['lockedColors'];
@@ -547,6 +557,7 @@ export namespace main {
     export class SyncStateRequest {
         palette: string[];
         wallpaperPath: string;
+        wallpaperBlur: boolean;
         lightMode: boolean;
         extendedColors: Record<string, string>;
         nativeColors: Record<string, string>;
@@ -562,6 +573,7 @@ export namespace main {
             if ('string' === typeof source) source = JSON.parse(source);
             this.palette = source['palette'];
             this.wallpaperPath = source['wallpaperPath'];
+            this.wallpaperBlur = source['wallpaperBlur'];
             this.lightMode = source['lightMode'];
             this.extendedColors = source['extendedColors'];
             this.nativeColors = source['nativeColors'];
@@ -788,6 +800,7 @@ export namespace theme {
     export class StateSnapshot {
         palette: string[];
         wallpaperPath: string;
+        wallpaperBlur: boolean;
         lightMode: boolean;
         lockedColors: Record<number, boolean>;
         colorRoles: template.ColorRoles;
@@ -806,6 +819,7 @@ export namespace theme {
             if ('string' === typeof source) source = JSON.parse(source);
             this.palette = source['palette'];
             this.wallpaperPath = source['wallpaperPath'];
+            this.wallpaperBlur = source['wallpaperBlur'];
             this.lightMode = source['lightMode'];
             this.lockedColors = source['lockedColors'];
             this.colorRoles = this.convertValues(

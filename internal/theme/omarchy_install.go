@@ -17,6 +17,18 @@ func ValidOmarchyThemeName(name string) bool {
 	return omarchyThemeNamePattern.MatchString(name)
 }
 
+// SaveAndApplyOmarchyTheme keeps bundle replacement and activation in one transaction.
+func (w *Writer) SaveAndApplyOmarchyTheme(state *ThemeState, settings Settings, name string) (*ApplyResult, error) {
+	if !ValidOmarchyThemeName(name) {
+		return nil, fmt.Errorf("invalid Omarchy theme name %q", name)
+	}
+	target := filepath.Join(omarchy.UserThemesDir(), name)
+	if err := w.generateOmarchyTheme(state, settings, target, name); err != nil {
+		return nil, err
+	}
+	return &ApplyResult{Success: true, IsOmarchy: true, ThemePath: target}, nil
+}
+
 // InstallOmarchyTheme generates a new named Omarchy theme and activates it.
 // Existing themes are never overwritten by web imports.
 func (w *Writer) InstallOmarchyTheme(state *ThemeState, settings Settings, name string) error {

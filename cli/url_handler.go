@@ -213,6 +213,7 @@ func buildURLImportState(imp *pending.Import) (*theme.ThemeState, error) {
 
 	state := theme.NewThemeState()
 	state.WallpaperPath = imp.Wallpaper
+	state.WallpaperBlur = bp.Palette.WallpaperBlur && imp.Wallpaper != ""
 	for key, value := range bp.Palette.ExtendedColors {
 		state.ExtendedColors[key] = value
 	}

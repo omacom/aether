@@ -15,6 +15,8 @@ export interface PendingAdjustment {
 }
 
 export interface Snapshot {
+    wallpaperPath: string;
+    wallpaperBlur: boolean;
     palette: string[];
     basePalette: string[];
     extendedColors: Record<string, string>;
@@ -48,6 +50,8 @@ export function getCanRedo(): boolean {
 export function copySnapshot(snapshot: Snapshot): Snapshot {
     const pending = snapshot.pendingAdjustment;
     return {
+        wallpaperPath: snapshot.wallpaperPath,
+        wallpaperBlur: snapshot.wallpaperBlur,
         palette: [...snapshot.palette],
         basePalette: [...snapshot.basePalette],
         extendedColors: {...snapshot.extendedColors},

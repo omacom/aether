@@ -32,6 +32,9 @@ export function invalidateThemeRequests(cancelAdjustment = true): number {
 let palette = $state<string[]>([...DEFAULT_PALETTE]);
 let basePalette = $state<string[]>([...DEFAULT_PALETTE]);
 let wallpaperPath = $state<string>('');
+let wallpaperBlur = $state(false);
+let wallpaperRevision = $state(0);
+let blurPreview = $state<{source: string; path: string} | null>(null);
 let lightMode = $state<boolean>(false);
 let lockedColors = $state<Record<number, boolean>>({});
 let selectedColors = $state<Record<number, boolean>>({}); // empty = all selected
@@ -106,6 +109,36 @@ export function getBasePalette(): string[] {
 }
 export function getWallpaperPath(): string {
     return wallpaperPath;
+}
+export function getWallpaperBlur(): boolean {
+    return wallpaperBlur;
+}
+export function getWallpaperRevision(): number {
+    return wallpaperRevision;
+}
+export function getBlurredWallpaperPath(): string {
+    return wallpaperBlur && blurPreview?.source === wallpaperPath
+        ? blurPreview.path
+        : '';
+}
+export function setBlurredWallpaper(
+    source: string,
+    path: string,
+    revision: number
+): void {
+    if (
+        wallpaperBlur &&
+        source === wallpaperPath &&
+        revision === wallpaperRevision
+    )
+        blurPreview = {source, path};
+}
+export function setWallpaperBlur(enabled: boolean, skipHistory = false): void {
+    if (wallpaperBlur === enabled) return;
+    endColorEditSessions();
+    if (!skipHistory) pushState(getHistorySnapshot());
+    wallpaperBlur = enabled;
+    wallpaperRevision++;
 }
 export function getLightMode(): boolean {
     return lightMode;
@@ -193,6 +226,8 @@ export function getAppOverrides(): Record<string, Record<string, string>> {
 
 export function getHistorySnapshot(): Snapshot {
     return copySnapshot({
+        wallpaperPath,
+        wallpaperBlur,
         palette,
         basePalette,
         extendedColors,
@@ -210,6 +245,10 @@ export function restoreHistorySnapshot(snapshot: Snapshot): void {
     invalidateThemeRequests();
     endColorEditSessions();
     const restored = copySnapshot(snapshot);
+    wallpaperPath = restored.wallpaperPath;
+    wallpaperBlur = restored.wallpaperBlur;
+    blurPreview = null;
+    wallpaperRevision++;
     palette = restored.palette;
     basePalette = restored.basePalette;
     extendedColors = restored.extendedColors;
@@ -344,6 +383,7 @@ const applyPendingAdjustment = debounce(
 export function getThemeSnapshot(): {
     palette: string[];
     wallpaperPath: string;
+    wallpaperBlur: boolean;
     lightMode: boolean;
     extendedColors: Record<string, string>;
     nativeColors: Record<string, string>;
@@ -354,6 +394,7 @@ export function getThemeSnapshot(): {
     return {
         palette: [...palette],
         wallpaperPath,
+        wallpaperBlur,
         lightMode,
         extendedColors: {...extendedColors},
         nativeColors: {...nativeColors},
@@ -374,6 +415,7 @@ export function getThemeSignature(snapshot = getThemeSnapshot()): string {
     return JSON.stringify([
         snapshot.palette,
         snapshot.wallpaperPath,
+        snapshot.wallpaperBlur,
         snapshot.lightMode,
         snapshot.extendedColors,
         snapshot.nativeColors,
@@ -597,6 +639,9 @@ export function clearExtendedColor(key: string): void {
 }
 
 export function setWallpaperPath(path: string): void {
+    wallpaperRevision++;
+    wallpaperBlur = false;
+    blurPreview = null;
     invalidateThemeRequests(false);
     wallpaperPath = path;
 }
@@ -645,7 +690,7 @@ export function swapMainWithAdditional(path: string): void {
     if (idx === -1) return;
     invalidateThemeRequests(false);
     const oldMain = wallpaperPath;
-    wallpaperPath = path;
+    setWallpaperPath(path);
     const next = [...additionalImages];
     if (oldMain) {
         next[idx] = oldMain;
@@ -691,6 +736,9 @@ export function reset(): void {
     palette = [...DEFAULT_PALETTE];
     basePalette = [...DEFAULT_PALETTE];
     wallpaperPath = '';
+    wallpaperBlur = false;
+    wallpaperRevision++;
+    blurPreview = null;
     lightMode = false;
     lockedColors = {};
     selectedColors = {};

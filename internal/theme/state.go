@@ -8,19 +8,25 @@ import (
 
 // ThemeState holds all mutable state for the current theme.
 type ThemeState struct {
-	Palette          [16]string                   `json:"palette"`
-	BasePalette      [16]string                   `json:"basePalette"`
-	WallpaperPath    string                       `json:"wallpaperPath"`
-	LightMode        bool                         `json:"lightMode"`
-	LockedColors     map[int]bool                 `json:"lockedColors"`
-	Adjustments      color.Adjustments            `json:"adjustments"`
-	ColorRoles       template.ColorRoles          `json:"colorRoles"`
-	ExtendedColors   map[string]string            `json:"extendedColors"`
-	NativeColors     map[string]string            `json:"nativeColors"`
-	ExtractionMode   string                       `json:"extractionMode"`
-	AdditionalImages []string                     `json:"additionalImages"`
-	AppOverrides     map[string]map[string]string `json:"appOverrides"`
-	IconTheme        icontheme.Selection          `json:"iconTheme"`
+	Palette       [16]string `json:"palette"`
+	BasePalette   [16]string `json:"basePalette"`
+	WallpaperPath string     `json:"wallpaperPath"`
+	WallpaperBlur bool       `json:"wallpaperBlur"`
+	// OriginalWallpaperPath is the unblurred source image when
+	// WallpaperPath is a derived variant (e.g. the heavy-blur JPEG). Both
+	// are copied into the theme's backgrounds so the desktop cycler can
+	// switch between them. Empty when WallpaperPath is the source itself.
+	OriginalWallpaperPath string                       `json:"originalWallpaperPath"`
+	LightMode             bool                         `json:"lightMode"`
+	LockedColors          map[int]bool                 `json:"lockedColors"`
+	Adjustments           color.Adjustments            `json:"adjustments"`
+	ColorRoles            template.ColorRoles          `json:"colorRoles"`
+	ExtendedColors        map[string]string            `json:"extendedColors"`
+	NativeColors          map[string]string            `json:"nativeColors"`
+	ExtractionMode        string                       `json:"extractionMode"`
+	AdditionalImages      []string                     `json:"additionalImages"`
+	AppOverrides          map[string]map[string]string `json:"appOverrides"`
+	IconTheme             icontheme.Selection          `json:"iconTheme"`
 }
 
 // DefaultPalette is the Catppuccin-inspired default 16-color palette.
@@ -89,6 +95,7 @@ func (s *ThemeState) SetColor(index int, hex string) {
 type StateSnapshot struct {
 	Palette          [16]string                   `json:"palette"`
 	WallpaperPath    string                       `json:"wallpaperPath"`
+	WallpaperBlur    bool                         `json:"wallpaperBlur"`
 	LightMode        bool                         `json:"lightMode"`
 	LockedColors     map[int]bool                 `json:"lockedColors"`
 	ColorRoles       template.ColorRoles          `json:"colorRoles"`
@@ -131,6 +138,7 @@ func (s *ThemeState) Snapshot() StateSnapshot {
 	return StateSnapshot{
 		Palette:          s.Palette,
 		WallpaperPath:    s.WallpaperPath,
+		WallpaperBlur:    s.WallpaperBlur,
 		LightMode:        s.LightMode,
 		LockedColors:     locked,
 		ColorRoles:       s.ColorRoles,

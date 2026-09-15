@@ -46,6 +46,7 @@ func applyImportedTheme(templatesFS embed.FS, bp *blueprint.Blueprint, palette [
 	writer := theme.NewWriter(templatesFS, "templates")
 	state := theme.NewThemeState()
 	state.WallpaperPath = wallpaperPath
+	state.WallpaperBlur = bp.Palette.WallpaperBlur
 	state.LightMode = forceLight || bp.Palette.LightMode
 	for k, v := range bp.Palette.ExtendedColors {
 		state.ExtendedColors[k] = v

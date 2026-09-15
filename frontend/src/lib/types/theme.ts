@@ -62,6 +62,7 @@ export function normalizeIconThemeSelection(
 export interface BlueprintPaletteData {
     colors: string[];
     wallpaper?: string;
+    wallpaperBlur?: boolean;
     wallpaperUrl?: string;
     lightMode?: boolean;
     mode?: 'light' | 'dark' | '';

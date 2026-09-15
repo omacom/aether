@@ -179,6 +179,9 @@ func (a *App) ExtractColors(path string, lightMode bool, mode string) ([16]strin
 	}
 	a.state.SetPalette(palette)
 	a.state.NativeColors = map[string]string{}
+	if a.state.WallpaperPath != path {
+		a.state.WallpaperBlur = false
+	}
 	a.state.WallpaperPath = path
 	a.state.LightMode = lightMode
 	a.state.ExtractionMode = mode
@@ -246,6 +249,7 @@ func (a *App) SetExtractionMode(mode string) {
 type SyncStateRequest struct {
 	Palette          []string                     `json:"palette"`
 	WallpaperPath    string                       `json:"wallpaperPath"`
+	WallpaperBlur    bool                         `json:"wallpaperBlur"`
 	LightMode        bool                         `json:"lightMode"`
 	ExtendedColors   map[string]string            `json:"extendedColors"`
 	NativeColors     map[string]string            `json:"nativeColors"`
@@ -270,6 +274,7 @@ func (a *App) SyncState(req SyncStateRequest) error {
 		a.state.SetAdjustedPalette(p)
 	}
 	a.state.WallpaperPath = req.WallpaperPath
+	a.state.WallpaperBlur = req.WallpaperBlur
 	a.state.LightMode = req.LightMode
 	if req.ExtendedColors != nil {
 		a.state.ExtendedColors = req.ExtendedColors
@@ -356,6 +361,7 @@ func (a *App) ComputeVariables(paletteSlice []string, extendedColors map[string]
 type ApplyThemeRequest struct {
 	Palette          []string                     `json:"palette"`
 	WallpaperPath    string                       `json:"wallpaperPath"`
+	WallpaperBlur    bool                         `json:"wallpaperBlur"`
 	LightMode        bool                         `json:"lightMode"`
 	AdditionalImages []string                     `json:"additionalImages"`
 	ExtendedColors   map[string]string            `json:"extendedColors"`
@@ -377,6 +383,7 @@ func (a *App) ApplyTheme(req ApplyThemeRequest) (*theme.ApplyResult, error) {
 	state := &theme.ThemeState{
 		Palette:          palette,
 		WallpaperPath:    req.WallpaperPath,
+		WallpaperBlur:    req.WallpaperBlur,
 		LightMode:        req.LightMode,
 		ColorRoles:       roles,
 		ExtendedColors:   req.ExtendedColors,
@@ -396,6 +403,7 @@ type SaveAndApplyThemeRequest struct {
 	UpdateExisting   bool                         `json:"updateExisting"`
 	Palette          []string                     `json:"palette"`
 	WallpaperPath    string                       `json:"wallpaperPath"`
+	WallpaperBlur    bool                         `json:"wallpaperBlur"`
 	LightMode        bool                         `json:"lightMode"`
 	AdditionalImages []string                     `json:"additionalImages"`
 	ExtendedColors   map[string]string            `json:"extendedColors"`
@@ -421,6 +429,7 @@ func (a *App) SaveAndApplyTheme(req SaveAndApplyThemeRequest) (*theme.ApplyResul
 	state := &theme.ThemeState{
 		Palette:          palette,
 		WallpaperPath:    req.WallpaperPath,
+		WallpaperBlur:    req.WallpaperBlur,
 		LightMode:        req.LightMode,
 		ColorRoles:       roles,
 		ExtendedColors:   req.ExtendedColors,
@@ -436,7 +445,7 @@ func (a *App) SaveAndApplyTheme(req SaveAndApplyThemeRequest) (*theme.ApplyResul
 	isOmarchy := theme.IsOmarchyInstalled()
 	targetDir := filepath.Join(platform.SavedThemesDir(), name)
 	if isOmarchy {
-		targetDir = filepath.Join(platform.OmarchyThemesDir(), name)
+		targetDir = filepath.Join(omarchy.UserThemesDir(), name)
 		if !req.UpdateExisting && omarchy.ThemeExists(name) {
 			return nil, fmt.Errorf("Omarchy theme %q already exists", name)
 		}
@@ -448,30 +457,44 @@ func (a *App) SaveAndApplyTheme(req SaveAndApplyThemeRequest) (*theme.ApplyResul
 	} else if !os.IsNotExist(err) {
 		return nil, fmt.Errorf("check theme folder: %w", err)
 	}
-	var generateErr error
 	if isOmarchy {
-		generateErr = a.writer.GenerateOmarchyV4Only(state, req.Settings, targetDir)
-	} else {
-		generateErr = a.writer.GenerateOnly(state, req.Settings, targetDir)
+		return a.writer.SaveAndApplyOmarchyTheme(state, req.Settings, name)
 	}
-	if generateErr != nil {
-		return nil, fmt.Errorf("save theme: %w", generateErr)
+	if err := a.writer.GenerateOnly(state, req.Settings, targetDir); err != nil {
+		return nil, fmt.Errorf("save theme: %w", err)
 	}
-	if !isOmarchy {
-		return a.writer.ApplyTheme(state, req.Settings)
+	return a.writer.ApplyTheme(state, req.Settings)
+}
+
+// ThemeFolderExists checks the output adapter's destination for a saved theme.
+func (a *App) ThemeFolderExists(name string) bool {
+	name = strings.ToLower(strings.TrimSpace(name))
+	if !theme.ValidOmarchyThemeName(name) {
+		return false
 	}
-	wallpaper := ""
-	if state.WallpaperPath != "" {
-		wallpaper = filepath.Join(targetDir, "backgrounds", filepath.Base(state.WallpaperPath))
+	root := platform.SavedThemesDir()
+	if omarchy.IsInstalled() {
+		root = omarchy.UserThemesDir()
 	}
-	if err := omarchy.ActivateTheme(name, wallpaper); err != nil {
-		return nil, fmt.Errorf("activate theme: %w", err)
+	info, err := os.Stat(filepath.Join(root, name))
+	return err == nil && info.IsDir()
+}
+
+// BlurWallpaper prepares a cached preview of the derived wallpaper.
+func (a *App) BlurWallpaper(path string) (string, error) {
+	return wallpaper.CreateBlurredVariant(path, platform.BlurDir())
+}
+
+// ApplyWallpaperOnly preserves the active theme and changes its background.
+func (a *App) ApplyWallpaperOnly(path string) error {
+	info, err := os.Stat(path)
+	if err != nil || !info.Mode().IsRegular() {
+		return fmt.Errorf("wallpaper must be a readable regular file")
 	}
-	return &theme.ApplyResult{
-		Success:   true,
-		IsOmarchy: true,
-		ThemePath: targetDir,
-	}, nil
+	if err := wallpaper.ValidateImageFile(path); err != nil {
+		return err
+	}
+	return omarchy.SetBackground(path)
 }
 
 // ClearTheme removes the Aether theme and reverts to the default.
@@ -502,6 +525,7 @@ func (a *App) ListBlueprints() ([]map[string]interface{}, error) {
 			"palette": map[string]interface{}{
 				"colors":           bp.Palette.Colors,
 				"wallpaper":        bp.Palette.Wallpaper,
+				"wallpaperBlur":    bp.Palette.WallpaperBlur,
 				"lightMode":        bp.Palette.LightMode,
 				"mode":             bp.Palette.Mode,
 				"lockedColors":     bp.Palette.LockedColors,
@@ -523,6 +547,7 @@ type SaveBlueprintRequest struct {
 	Name             string                       `json:"name"`
 	Palette          []string                     `json:"palette"`
 	WallpaperPath    string                       `json:"wallpaperPath"`
+	WallpaperBlur    bool                         `json:"wallpaperBlur"`
 	LightMode        bool                         `json:"lightMode"`
 	AdditionalImages []string                     `json:"additionalImages"`
 	LockedColors     []int                        `json:"lockedColors"`
@@ -538,6 +563,7 @@ func (a *App) SaveBlueprint(req SaveBlueprintRequest) error {
 		Palette: blueprint.PaletteData{
 			Colors:           req.Palette,
 			Wallpaper:        req.WallpaperPath,
+			WallpaperBlur:    req.WallpaperBlur,
 			LightMode:        req.LightMode,
 			AdditionalImages: req.AdditionalImages,
 			LockedColors:     req.LockedColors,
@@ -606,6 +632,7 @@ func (a *App) LoadBlueprint(name string) error {
 
 	a.state.SetPalette(palette)
 	a.state.WallpaperPath = a.resolveWallpaper(bp.Palette)
+	a.state.WallpaperBlur = bp.Palette.WallpaperBlur
 	a.state.LightMode = bp.Palette.LightMode
 	if bp.Palette.AdditionalImages != nil {
 		a.state.AdditionalImages = bp.Palette.AdditionalImages
@@ -650,6 +677,7 @@ func (a *App) ApplyBlueprint(name string) (*theme.ApplyResult, error) {
 
 	a.state.SetPalette(palette)
 	a.state.WallpaperPath = a.resolveWallpaper(bp.Palette)
+	a.state.WallpaperBlur = bp.Palette.WallpaperBlur
 	a.state.LightMode = bp.Palette.LightMode
 	if bp.Palette.AdditionalImages != nil {
 		a.state.AdditionalImages = bp.Palette.AdditionalImages
@@ -1109,6 +1137,7 @@ type ExportThemeRequest struct {
 	IncludedApps     []string                     `json:"includedApps"`
 	Palette          []string                     `json:"palette"`
 	WallpaperPath    string                       `json:"wallpaperPath"`
+	WallpaperBlur    bool                         `json:"wallpaperBlur"`
 	LightMode        bool                         `json:"lightMode"`
 	AdditionalImages []string                     `json:"additionalImages"`
 	ExtendedColors   map[string]string            `json:"extendedColors"`
@@ -1169,6 +1198,7 @@ func (a *App) ExportTheme(req ExportThemeRequest) (string, error) {
 	state := &theme.ThemeState{
 		Palette:          palette,
 		WallpaperPath:    req.WallpaperPath,
+		WallpaperBlur:    req.WallpaperBlur,
 		LightMode:        req.LightMode,
 		ColorRoles:       roles,
 		ExtendedColors:   req.ExtendedColors,
@@ -1231,6 +1261,7 @@ type ImportResult struct {
 	Name           string              `json:"name"`
 	Path           string              `json:"path"`
 	WallpaperPath  string              `json:"wallpaperPath"`
+	WallpaperBlur  bool                `json:"wallpaperBlur"`
 	LightMode      bool                `json:"lightMode"`
 	IconTheme      icontheme.Selection `json:"iconTheme"`
 }
@@ -1317,6 +1348,7 @@ func (a *App) importFile(path, fileType string) (*ImportResult, error) {
 	a.state.NativeColors = bp.Palette.NativeColors
 	a.state.SetPalette(palette)
 	a.state.WallpaperPath = a.resolveWallpaper(bp.Palette)
+	a.state.WallpaperBlur = bp.Palette.WallpaperBlur
 	a.state.LightMode = bp.Palette.LightMode
 	iconTheme, err := bp.IconThemeSelection()
 	if err != nil {
@@ -1332,6 +1364,7 @@ func (a *App) importFile(path, fileType string) (*ImportResult, error) {
 		Name:           bp.Name,
 		Path:           savedPath,
 		WallpaperPath:  a.state.WallpaperPath,
+		WallpaperBlur:  a.state.WallpaperBlur,
 		LightMode:      a.state.LightMode,
 		IconTheme:      a.state.IconTheme,
 	}, nil
@@ -1482,6 +1515,7 @@ func (a *App) HandleIPC(req ipc.Request) ipc.Response {
 		result, err := a.ApplyTheme(ApplyThemeRequest{
 			Palette:          a.state.Palette[:],
 			WallpaperPath:    a.state.WallpaperPath,
+			WallpaperBlur:    a.state.WallpaperBlur,
 			LightMode:        a.state.LightMode,
 			AdditionalImages: a.state.AdditionalImages,
 			ExtendedColors:   a.state.ExtendedColors,
@@ -1537,6 +1571,7 @@ func (a *App) HandleIPC(req ipc.Request) ipc.Response {
 			return ipc.Response{OK: false, Error: "set-wallpaper requires a path"}
 		}
 		a.state.WallpaperPath = req.Path
+		a.state.WallpaperBlur = false
 		a.emitIPCStateChanged()
 		return ipc.Response{OK: true, Wallpaper: req.Path}
 
@@ -1580,6 +1615,7 @@ func (a *App) emitIPCStateChanged() {
 		"lightMode":        a.state.LightMode,
 		"mode":             a.state.ExtractionMode,
 		"wallpaper":        a.state.WallpaperPath,
+		"wallpaperBlur":    a.state.WallpaperBlur,
 		"appOverrides":     a.state.AppOverrides,
 		"additionalImages": a.state.AdditionalImages,
 		"adjustments":      a.state.Adjustments,

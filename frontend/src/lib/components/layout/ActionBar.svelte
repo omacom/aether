@@ -6,6 +6,8 @@
         setExtendedColors,
         getPalette,
         getWallpaperPath,
+        getWallpaperBlur,
+        setWallpaperBlur,
         setWallpaperPath,
         getLightMode,
         setLightMode,
@@ -199,6 +201,7 @@
                 includedApps,
                 palette: getPalette(),
                 wallpaperPath: getWallpaperPath(),
+                wallpaperBlur: getWallpaperBlur(),
                 lightMode: getLightMode(),
                 additionalImages: getAdditionalImages(),
                 extendedColors: getExtendedColors(),
@@ -241,6 +244,7 @@
                 if (result.wallpaperPath) {
                     setWallpaperPath(result.wallpaperPath);
                 }
+                setWallpaperBlur(!!result.wallpaperBlur, true);
                 if (result.lightMode !== undefined) {
                     setLightMode(result.lightMode);
                 }

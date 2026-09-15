@@ -5,10 +5,10 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"aether/internal/omarchy"
 	"aether/internal/platform"
+	"aether/internal/wallpaper"
 )
 
 // IsOmarchyInstalled reports whether the public Omarchy CLI is available.
@@ -46,19 +46,9 @@ func HandleLightModeMarker(themeDir string, lightMode bool) error {
 	return err
 }
 
-// imageExtensions are still-image formats that Go's image.Decode handles natively.
-var imageExtensions = map[string]bool{
-	".jpg":  true,
-	".jpeg": true,
-	".png":  true,
-	".gif":  true,
-	".bmp":  true,
-	".webp": true,
-}
-
 // IsImageFile returns true for still-image formats that can be decoded directly.
 func IsImageFile(path string) bool {
-	return imageExtensions[strings.ToLower(filepath.Ext(path))]
+	return wallpaper.IsImageFile(path)
 }
 
 // ClearTheme removes Aether's standalone override and restores the last native

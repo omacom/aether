@@ -23,6 +23,7 @@ A visual theming application for [Omarchy](https://omarchy.org). Extract colors 
 ### Wallpaper Tools
 - Search and download wallpapers from wallhaven.cc directly in the app
 - Export favorite wallpapers as a ZIP archive with source metadata
+- Apply a blurred wallpaper variant while extraction uses the original image
 - Full wallpaper editor with blur, exposure, sharpen, vignette, grain, and color toning
 - 12 one-click image presets: Cinematic, Vintage, Film, Dramatic, and more
 

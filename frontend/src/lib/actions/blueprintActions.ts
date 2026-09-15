@@ -7,6 +7,7 @@ import {
     setIconTheme,
     setLightMode,
     setWallpaperPath,
+    setWallpaperBlur,
     setAppOverrides,
     setAdditionalImages,
     setLastExtractedPath,
@@ -33,6 +34,7 @@ export function loadBlueprintIntoEditor(bp: Blueprint): void {
         bp.palette.mode ? bp.palette.mode === 'light' : !!bp.palette.lightMode
     );
     setWallpaperPath(bp.palette.wallpaper ?? '');
+    setWallpaperBlur(!!bp.palette.wallpaperBlur, true);
     setAppOverrides(bp.appOverrides ?? {});
     setAdditionalImages(bp.palette.additionalImages ?? []);
     setLastExtractedPath(bp.palette.wallpaper ?? '');

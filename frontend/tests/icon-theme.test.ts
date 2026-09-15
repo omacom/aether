@@ -126,7 +126,7 @@ test('an Omarchy theme import replaces the previous icon selection', async () =>
     const {target} = render(OmarchyThemes, {});
     await settle();
     [...target.querySelectorAll('button')]
-        .find(button => button.textContent?.trim() === 'Edit')!
+        .find(button => button.textContent?.trim() === 'Import')!
         .click();
     expect(theme.getIconTheme()).toEqual({
         mode: 'explicit',

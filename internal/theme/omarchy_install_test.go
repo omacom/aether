@@ -14,10 +14,12 @@ func TestInstallOmarchyThemeCreatesAndActivatesNewTheme(t *testing.T) {
 	binDir := t.TempDir()
 	omarchyDir := t.TempDir()
 	activatedPath := filepath.Join(t.TempDir(), "activated")
+	bgSetPath := filepath.Join(t.TempDir(), "bgset")
 
 	t.Setenv("HOME", home)
 	t.Setenv("OMARCHY_PATH", omarchyDir)
 	t.Setenv("AETHER_TEST_ACTIVATED", activatedPath)
+	t.Setenv("AETHER_TEST_BGSET", bgSetPath)
 	t.Setenv("PATH", binDir)
 	if err := os.MkdirAll(filepath.Join(omarchyDir, "shell"), 0o755); err != nil {
 		t.Fatal(err)
@@ -25,13 +27,22 @@ func TestInstallOmarchyThemeCreatesAndActivatesNewTheme(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(omarchyDir, "shell", "shell.qml"), nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	script := "#!/bin/sh\nprintf '%s' \"$3\" > \"$AETHER_TEST_ACTIVATED\"\n"
+	script := "#!/bin/sh\nif [ \"$1 $2 $3\" = \"theme bg set\" ]; then\n  printf '%s' \"$4\" > \"$AETHER_TEST_BGSET\"\nelif [ \"$1 $2\" = \"theme set\" ]; then\n  printf '%s' \"$3\" > \"$AETHER_TEST_ACTIVATED\"\nfi\n"
 	if err := os.WriteFile(filepath.Join(binDir, "omarchy"), []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
 
+	// A wallpaper so the theme has a background to apply.
+	srcDir := t.TempDir()
+	wallpaper := filepath.Join(srcDir, "photo.png")
+	if err := os.WriteFile(wallpaper, []byte("fake image bytes"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	state := NewThemeState()
+	state.WallpaperPath = wallpaper
+
 	writer := NewWriter(omarchyV4TestTemplates, "testdata/v4")
-	if err := writer.InstallOmarchyTheme(NewThemeState(), Settings{}, "web-theme"); err != nil {
+	if err := writer.InstallOmarchyTheme(state, Settings{}, "web-theme"); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(activatedPath)
@@ -45,7 +56,18 @@ func TestInstallOmarchyThemeCreatesAndActivatesNewTheme(t *testing.T) {
 		t.Fatalf("installed theme missing: %v", err)
 	}
 
-	err = writer.InstallOmarchyTheme(NewThemeState(), Settings{}, "web-theme")
+	// The theme's own wallpaper copy must have been applied explicitly —
+	// omarchy-theme-set alone cycles backgrounds and may pick a stock image.
+	applied, err := os.ReadFile(bgSetPath)
+	if err != nil {
+		t.Fatalf("wallpaper was not applied: %v", err)
+	}
+	want := filepath.Join(omarchy.UserThemesDir(), "web-theme", "backgrounds", "photo.png")
+	if string(applied) != want {
+		t.Errorf("applied wallpaper = %q; want %q", applied, want)
+	}
+
+	err = writer.InstallOmarchyTheme(state, Settings{}, "web-theme")
 	if err == nil || !strings.Contains(err.Error(), "already exists") {
 		t.Fatalf("second install error = %v; want already-exists error", err)
 	}

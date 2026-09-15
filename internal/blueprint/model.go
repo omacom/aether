@@ -60,6 +60,7 @@ func (b *Blueprint) UnmarshalJSON(data []byte) error {
 type PaletteData struct {
 	Colors           []string          `json:"colors"`
 	Wallpaper        string            `json:"wallpaper,omitempty"`
+	WallpaperBlur    bool              `json:"wallpaperBlur,omitempty"`
 	WallpaperURL     string            `json:"wallpaperUrl,omitempty"`
 	LightMode        bool              `json:"lightMode,omitempty"`
 	Mode             string            `json:"mode,omitempty"` // "light"/"dark"/"" — preserves the three-valued mode LightMode collapses

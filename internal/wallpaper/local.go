@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"aether/internal/platform"
-	"aether/internal/theme"
 )
 
 // WallpaperInfo describes a local wallpaper image file.
@@ -44,7 +43,7 @@ func ScanDirectory(dir string) ([]WallpaperInfo, error) {
 			return nil
 		}
 
-		if !theme.IsImageFile(path) {
+		if !IsImageFile(path) {
 			return nil
 		}
 

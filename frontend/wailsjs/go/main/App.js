@@ -18,8 +18,16 @@ export function ApplyTheme(arg1) {
     return window['go']['main']['App']['ApplyTheme'](arg1);
 }
 
+export function ApplyWallpaperOnly(arg1) {
+    return window['go']['main']['App']['ApplyWallpaperOnly'](arg1);
+}
+
 export function BlueprintExists(arg1) {
     return window['go']['main']['App']['BlueprintExists'](arg1);
+}
+
+export function BlurWallpaper(arg1) {
+    return window['go']['main']['App']['BlurWallpaper'](arg1);
 }
 
 export function CancelBatchProcessing() {
@@ -276,6 +284,10 @@ export function StartUpgrade() {
 
 export function SyncState(arg1) {
     return window['go']['main']['App']['SyncState'](arg1);
+}
+
+export function ThemeFolderExists(arg1) {
+    return window['go']['main']['App']['ThemeFolderExists'](arg1);
 }
 
 export function ToggleFavorite(arg1, arg2, arg3) {

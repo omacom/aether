@@ -9,6 +9,7 @@ A blueprint stores:
 - **16-color palette** (hex values)
 - **Extended colors** (accent, cursor, selection)
 - **Wallpaper path** (local file or wallhaven URL)
+- **Wallpaper blur choice**, with the original source path
 - **Color adjustments** (all slider values)
 - **App overrides** (per-app color customizations)
 - **Settings** (which apps to include)
@@ -52,6 +53,7 @@ Blueprints are JSON files at:
   "palette": {
     "colors": ["#1a1b26", "#f7768e", "..."],
     "wallpaper": "/path/to/wallpaper.jpg",
+    "wallpaperBlur": false,
     "wallpaperUrl": "https://wallhaven.cc/...",
     "lightMode": false,
     "extendedColors": {
@@ -71,6 +73,16 @@ Blueprints are JSON files at:
   }
 }
 ```
+
+## Import an Omarchy theme
+
+Use `Import` on an Omarchy theme to load its colors, icon choice, and wallpapers into the editor.
+Aether creates its own managed output when you save the result.
+The source theme remains available in the theme library.
+
+The theme-folder dialog checks the selected name before it saves.
+An existing folder requires `Update and Apply` confirmation.
+Aether refuses to replace a theme folder that it does not manage.
 
 ## Tips
 

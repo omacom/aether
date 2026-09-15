@@ -7,6 +7,11 @@
         setExtendedColor,
         setAppOverride,
         getAdditionalImages,
+        getBlurredWallpaperPath,
+        setBlurredWallpaper,
+        getWallpaperBlur,
+        setWallpaperBlur,
+        getWallpaperRevision,
     } from '$lib/stores/theme.svelte';
     import {extractColors} from '$lib/actions/themeActions';
     import {
@@ -29,9 +34,15 @@
         $props();
 
     let wallpaperPath = $derived(getWallpaperPath());
-    let wallpaperImage = $derived(getCachedFullImage(wallpaperPath) || '');
+    let blurredPath = $derived(getBlurredWallpaperPath());
+    // The blurred variant is what gets applied, so it is what the hero shows.
+    // Extraction still uses wallpaperPath (the unblurred original).
+    let displayPath = $derived(blurredPath || wallpaperPath);
+    let wallpaperImage = $derived(getCachedFullImage(displayPath) || '');
     let wallpaperName = $derived(wallpaperPath.split('/').pop() || '');
-    let loading = $derived(isPending(wallpaperPath));
+    let loading = $derived(isPending(displayPath));
+    let blurred = $derived(getWallpaperBlur());
+    let isBlurring = $state(false);
     let previewOpen = $state(false);
     let eyedropperActive = $derived(getEyedropperActive());
     let containerHeight = $derived(expanded ? 'h-[70vh]' : 'h-96');
@@ -55,7 +66,7 @@
     let loupeHex = $state('#000000');
 
     $effect(() => {
-        const path = getWallpaperPath();
+        const path = displayPath;
         if (path && !getCachedFullImage(path)) {
             loadFullImage(path);
         }
@@ -244,6 +255,46 @@
             showToast('Failed to change wallpaper');
         }
     }
+
+    function handleToggleBlur() {
+        if (getWallpaperPath()) setWallpaperBlur(!getWallpaperBlur());
+    }
+
+    $effect(() => {
+        const source = getWallpaperPath();
+        const enabled = getWallpaperBlur();
+        const revision = getWallpaperRevision();
+        let current = true;
+        if (!source || !enabled) {
+            isBlurring = false;
+            return;
+        }
+        isBlurring = true;
+        const isCurrent = () =>
+            current &&
+            revision === getWallpaperRevision() &&
+            getWallpaperBlur();
+        void (async () => {
+            try {
+                const {BlurWallpaper} = await import(
+                    '../../../../wailsjs/go/main/App'
+                );
+                if (!isCurrent()) return;
+                const path = await BlurWallpaper(source);
+                if (isCurrent()) setBlurredWallpaper(source, path, revision);
+            } catch {
+                if (isCurrent())
+                    showToast(
+                        'Could not prepare the blurred wallpaper. Try again.'
+                    );
+            } finally {
+                if (current) isBlurring = false;
+            }
+        })();
+        return () => {
+            current = false;
+        };
+    });
 </script>
 
 <div class="group relative">
@@ -344,6 +395,35 @@
                         </svg>
                     </button>
                 {/if}
+                <button
+                    class="flex h-7 w-7 items-center justify-center transition-colors disabled:cursor-default disabled:opacity-50
+                        {blurred
+                        ? 'bg-white/20 text-white'
+                        : 'text-white/75 hover:bg-white/15 hover:text-white'}"
+                    onclick={handleToggleBlur}
+                    title={blurred
+                        ? 'Use the original image without blur'
+                        : 'Apply a blurred copy. Extract colors from the original image.'}
+                    aria-busy={isBlurring}
+                    aria-label={blurred
+                        ? 'Remove blur'
+                        : 'Heavy blur wallpaper'}
+                    aria-pressed={blurred}
+                >
+                    <svg
+                        class="h-4 w-4 {isBlurring ? 'animate-spin' : ''}"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    >
+                        <path
+                            d="M12 2.7s6.5 7 6.5 11.3a6.5 6.5 0 1 1-13 0C5.5 9.7 12 2.7 12 2.7z"
+                        ></path>
+                    </svg>
+                </button>
                 <button
                     class="flex h-7 w-7 items-center justify-center text-white/75 transition-colors hover:bg-white/15 hover:text-white"
                     onclick={handleChange}

@@ -34,12 +34,13 @@ func runListBlueprints(args []string) int {
 
 	if jsonOut {
 		type entry struct {
-			Name      string              `json:"name"`
-			Colors    []string            `json:"colors"`
-			LightMode bool                `json:"lightMode"`
-			Wallpaper string              `json:"wallpaper,omitempty"`
-			Timestamp int64               `json:"timestamp"`
-			IconTheme icontheme.Selection `json:"iconTheme"`
+			Name          string              `json:"name"`
+			Colors        []string            `json:"colors"`
+			LightMode     bool                `json:"lightMode"`
+			Wallpaper     string              `json:"wallpaper,omitempty"`
+			WallpaperBlur bool                `json:"wallpaperBlur,omitempty"`
+			Timestamp     int64               `json:"timestamp"`
+			IconTheme     icontheme.Selection `json:"iconTheme"`
 		}
 		out := make([]entry, len(blueprints))
 		for i, bp := range blueprints {
@@ -48,12 +49,13 @@ func runListBlueprints(args []string) int {
 				return printErrorJSON(fmt.Sprintf("Blueprint %q has invalid iconTheme: %v", bp.Name, err))
 			}
 			out[i] = entry{
-				Name:      bp.Name,
-				Colors:    bp.Palette.Colors,
-				LightMode: bp.Palette.LightMode,
-				Wallpaper: bp.Palette.Wallpaper,
-				Timestamp: bp.Timestamp,
-				IconTheme: iconTheme,
+				Name:          bp.Name,
+				Colors:        bp.Palette.Colors,
+				LightMode:     bp.Palette.LightMode,
+				Wallpaper:     bp.Palette.Wallpaper,
+				WallpaperBlur: bp.Palette.WallpaperBlur,
+				Timestamp:     bp.Timestamp,
+				IconTheme:     iconTheme,
 			}
 		}
 		return printJSON(map[string]interface{}{
@@ -141,6 +143,7 @@ func runApplyBlueprint(args []string, templatesFS embed.FS) int {
 	state := &theme.ThemeState{
 		Palette:          palette,
 		WallpaperPath:    wallpaperPath,
+		WallpaperBlur:    bp.Palette.WallpaperBlur,
 		LightMode:        lightMode,
 		ColorRoles:       colorRoles,
 		ExtendedColors:   bp.Palette.ExtendedColors,
