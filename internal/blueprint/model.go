@@ -1,6 +1,10 @@
 package blueprint
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"aether/internal/icontheme"
+)
 
 // Blueprint represents a saved theme configuration.
 type Blueprint struct {
@@ -9,10 +13,35 @@ type Blueprint struct {
 	Adjustments  map[string]float64           `json:"adjustments,omitempty"`
 	AppOverrides map[string]map[string]string `json:"appOverrides,omitempty"`
 	Settings     Settings                     `json:"settings,omitempty"`
+	IconTheme    *icontheme.Selection         `json:"iconTheme,omitempty"`
 	Timestamp    int64                        `json:"timestamp"`
 	// Metadata (not persisted in the JSON, populated on load)
 	Path     string `json:"-"`
 	Filename string `json:"-"`
+}
+
+// IconThemeSelection returns the normalized blueprint choice. A missing field
+// is the backward-compatible Automatic selection.
+func (b *Blueprint) IconThemeSelection() (icontheme.Selection, error) {
+	if b == nil || b.IconTheme == nil {
+		return icontheme.Automatic(), nil
+	}
+	return icontheme.NormalizeSelection(*b.IconTheme)
+}
+
+// SetIconThemeSelection validates and stores the canonical blueprint encoding:
+// Automatic is omitted, while Explicit is written as theme content.
+func (b *Blueprint) SetIconThemeSelection(selection icontheme.Selection) error {
+	normalized, err := icontheme.NormalizeSelection(selection)
+	if err != nil {
+		return err
+	}
+	if normalized.Mode == icontheme.SelectionAutomatic {
+		b.IconTheme = nil
+		return nil
+	}
+	b.IconTheme = &normalized
+	return nil
 }
 
 // UnmarshalJSON removes state for integrations no longer supported by Aether.
@@ -36,6 +65,7 @@ type PaletteData struct {
 	Mode             string            `json:"mode,omitempty"` // "light"/"dark"/"" — preserves the three-valued mode LightMode collapses
 	LockedColors     []int             `json:"lockedColors,omitempty"`
 	ExtendedColors   map[string]string `json:"extendedColors,omitempty"`
+	NativeColors     map[string]string `json:"nativeColors,omitempty"`
 	AdditionalImages []string          `json:"additionalImages,omitempty"`
 	WallpaperSource  string            `json:"wallpaperSource,omitempty"`
 }

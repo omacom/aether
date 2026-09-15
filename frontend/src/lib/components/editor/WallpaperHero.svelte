@@ -2,18 +2,13 @@
     import {
         getWallpaperPath,
         getIsExtracting,
-        setIsExtracting,
-        setPaletteFromExtraction,
         setWallpaperPath,
         setColor,
         setExtendedColor,
         setAppOverride,
-        getLightMode,
-        getExtractionMode,
-        setAdjustments,
         getAdditionalImages,
     } from '$lib/stores/theme.svelte';
-    import {DEFAULT_ADJUSTMENTS} from '$lib/types/theme';
+    import {extractColors} from '$lib/actions/themeActions';
     import {
         showToast,
         getEyedropperActive,
@@ -223,60 +218,14 @@
         }
     }
 
-    async function handleExtractColors() {
-        const path = getWallpaperPath();
-        if (!path) return;
-        setIsExtracting(true);
-        try {
-            const {ExtractColors} = await import(
-                '../../../../wailsjs/go/main/App'
-            );
-            const colors = await ExtractColors(
-                path,
-                getLightMode(),
-                getExtractionMode()
-            );
-            setAdjustments({...DEFAULT_ADJUSTMENTS});
-            setPaletteFromExtraction(path, colors);
-            showToast('Colors extracted');
-        } catch {
-            showToast('Couldn’t extract colors from that image');
-        } finally {
-            setIsExtracting(false);
-        }
+    function handleExtractColors() {
+        void extractColors();
     }
 
-    async function handleExtractAll() {
-        const paths = [getWallpaperPath(), ...getAdditionalImages()].filter(
-            p => !!p
-        );
-        if (paths.length === 0) return;
-        setIsExtracting(true);
-        try {
-            const {ExtractColorsFromImages} = await import(
-                '../../../../wailsjs/go/main/App'
-            );
-            const result = await ExtractColorsFromImages(
-                paths,
-                getLightMode(),
-                getExtractionMode()
-            );
-            setAdjustments({...DEFAULT_ADJUSTMENTS});
-            // Treat the primary wallpaper as the extraction source for the
-            // override-clear heuristic. Blends switch context too, so this
-            // matches the single-image behaviour.
-            setPaletteFromExtraction(paths[0], result.palette);
-            const used = paths.length - result.skipped;
-            const suffix =
-                result.skipped > 0 ? ` (${result.skipped} skipped)` : '';
-            showToast(
-                `Blended palette from ${used} image${used === 1 ? '' : 's'}${suffix}`
-            );
-        } catch {
-            showToast('Failed to blend colors');
-        } finally {
-            setIsExtracting(false);
-        }
+    function handleExtractAll() {
+        void extractColors({
+            allImages: true,
+        });
     }
 
     async function handleChange() {

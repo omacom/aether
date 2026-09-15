@@ -11,9 +11,10 @@ import (
 	"archive/zip"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
-	"log"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -73,9 +74,8 @@ func New(dl Downloader) *Exporter {
 	return &Exporter{dl: dl}
 }
 
-// Start validates the request, reserves a destination file name and kicks off
-// the export in the background. It returns the path the archive will be
-// written to; progress arrives via favorites-export-* events.
+// Start validates the request and starts an export job.
+// It returns the destination path. Events report progress and completion.
 func (e *Exporter) Start(appCtx context.Context, items []Item, destDir string) (string, error) {
 	if len(items) == 0 {
 		return "", fmt.Errorf("no favorites to export")
@@ -153,11 +153,9 @@ func (e *Exporter) run(emitCtx, ctx context.Context, items []Item, zipPath strin
 
 	result, err := writeArchive(emitCtx, ctx, results, partPath, zipPath)
 	switch {
-	case err == context.Canceled:
-		_ = os.Remove(partPath)
+	case errors.Is(err, context.Canceled):
 		emit(emitCtx, "favorites-export-cancelled", nil)
 	case err != nil:
-		_ = os.Remove(partPath)
 		emit(emitCtx, "favorites-export-failed", map[string]interface{}{"error": err.Error()})
 	default:
 		emit(emitCtx, "favorites-export-completed", result)
@@ -224,8 +222,12 @@ func (e *Exporter) resolve(ctx context.Context, item Item) resolved {
 		return resolved{item: item, local: local}
 	}
 
-	if !platform.FileExists(item.Path) {
+	info, err := os.Stat(item.Path)
+	if err != nil {
 		return resolved{item: item, skip: "file not found"}
+	}
+	if !info.Mode().IsRegular() {
+		return resolved{item: item, skip: "source is not a regular file"}
 	}
 	return resolved{item: item, local: item.Path}
 }
@@ -240,23 +242,26 @@ type manifestEntry struct {
 // writeArchive streams the resolved files into a zip, writing to partPath and
 // renaming to zipPath only once the archive is complete.
 func writeArchive(emitCtx, ctx context.Context, results []resolved, partPath, zipPath string) (Result, error) {
-	out, err := os.Create(partPath)
+	out, err := os.OpenFile(partPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {
 		return Result{}, fmt.Errorf("create archive: %w", err)
 	}
 	// Closed explicitly below; the deferred close covers the error paths and a
 	// second Close on an already-closed file is harmless here.
-	defer out.Close()
+	defer func() {
+		_ = out.Close()
+		_ = os.Remove(partPath)
+	}()
 
 	zw := zip.NewWriter(out)
-	used := make(map[string]bool, len(results))
+	defer zw.Close()
+	used := map[string]bool{manifestName: true}
 	manifest := make([]manifestEntry, 0, len(results))
 	result := Result{ZipPath: zipPath, Total: len(results)}
 
 	for i, r := range results {
-		if ctx.Err() != nil {
-			_ = zw.Close()
-			return Result{}, context.Canceled
+		if err := ctx.Err(); err != nil {
+			return Result{}, err
 		}
 
 		if r.skip != "" {
@@ -267,10 +272,8 @@ func writeArchive(emitCtx, ctx context.Context, results []resolved, partPath, zi
 		name := uniqueEntryName(entryLabel(r.item), used)
 		emitProgress(emitCtx, "archive", i+1, len(results), name)
 
-		if err := addFile(zw, name, r.local); err != nil {
-			log.Printf("[favexport] %s: %v", r.item.Path, err)
-			result.Skipped = append(result.Skipped, Skip{Path: r.item.Path, Reason: err.Error()})
-			continue
+		if err := addFile(ctx, zw, name, r.local); err != nil {
+			return Result{}, fmt.Errorf("archive %s: %w", name, err)
 		}
 
 		result.Exported++
@@ -286,6 +289,9 @@ func writeArchive(emitCtx, ctx context.Context, results []resolved, partPath, zi
 		return Result{}, fmt.Errorf("no favorites could be exported")
 	}
 
+	if err := ctx.Err(); err != nil {
+		return Result{}, err
+	}
 	if err := addManifest(zw, manifest); err != nil {
 		_ = zw.Close()
 		return Result{}, err
@@ -296,6 +302,14 @@ func writeArchive(emitCtx, ctx context.Context, results []resolved, partPath, zi
 	if err := out.Close(); err != nil {
 		return Result{}, fmt.Errorf("finalize archive: %w", err)
 	}
+	if err := ctx.Err(); err != nil {
+		return Result{}, err
+	}
+	if _, err := os.Lstat(zipPath); err == nil {
+		return Result{}, fmt.Errorf("export destination already exists: %s", zipPath)
+	} else if !os.IsNotExist(err) {
+		return Result{}, fmt.Errorf("inspect export destination: %w", err)
+	}
 	if err := os.Rename(partPath, zipPath); err != nil {
 		return Result{}, fmt.Errorf("finalize archive: %w", err)
 	}
@@ -305,28 +319,45 @@ func writeArchive(emitCtx, ctx context.Context, results []resolved, partPath, zi
 
 // addFile copies one wallpaper into the archive. Images are stored, not
 // deflated — they are already compressed, so deflate only burns CPU.
-func addFile(zw *zip.Writer, name, srcPath string) error {
+func addFile(ctx context.Context, zw *zip.Writer, name, srcPath string) error {
 	src, err := os.Open(srcPath)
 	if err != nil {
-		return fmt.Errorf("read failed")
+		return fmt.Errorf("read source: %w", err)
 	}
 	defer src.Close()
 
 	header := &zip.FileHeader{Name: name, Method: zip.Store}
 	// Without an explicit mtime every entry reports 1980-01-01, which archive
 	// tools surface as a corrupt-looking date.
-	if info, err := src.Stat(); err == nil {
-		header.Modified = info.ModTime()
+	info, err := src.Stat()
+	if err != nil {
+		return fmt.Errorf("inspect source: %w", err)
 	}
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("source is not a regular file")
+	}
+	header.Modified = info.ModTime()
 
 	w, err := zw.CreateHeader(header)
 	if err != nil {
-		return fmt.Errorf("archive entry failed")
+		return fmt.Errorf("create archive entry: %w", err)
 	}
-	if _, err := io.Copy(w, src); err != nil {
-		return fmt.Errorf("copy failed")
+	if _, err := io.Copy(w, &cancelableReader{ctx: ctx, source: src}); err != nil {
+		return fmt.Errorf("copy source: %w", err)
 	}
 	return nil
+}
+
+type cancelableReader struct {
+	ctx    context.Context
+	source io.Reader
+}
+
+func (r *cancelableReader) Read(buf []byte) (int, error) {
+	if err := r.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return r.source.Read(buf)
 }
 
 // addManifest writes the metadata sidecar. Unlike the images, JSON compresses.
@@ -357,9 +388,15 @@ func isRemote(path string) bool {
 
 // entryLabel is the preferred file name for an item inside the archive.
 func entryLabel(item Item) string {
+	source := item.Path
+	if isRemote(source) {
+		if parsed, err := url.Parse(source); err == nil {
+			source = parsed.Path
+		}
+	}
 	name := sanitizeName(item.Name)
 	if name == "" {
-		name = sanitizeName(filepath.Base(item.Path))
+		name = sanitizeName(filepath.Base(source))
 	}
 	if name == "" {
 		name = "wallpaper"
@@ -368,7 +405,7 @@ func entryLabel(item Item) string {
 	// extension; borrow the one from the URL so the file stays openable.
 	// sanitizeName trims dots, so the separator is re-added by hand.
 	if filepath.Ext(name) == "" {
-		if ext := sanitizeName(filepath.Ext(item.Path)); ext != "" {
+		if ext := sanitizeName(filepath.Ext(source)); ext != "" {
 			name += "." + ext
 		}
 	}
@@ -414,8 +451,7 @@ func archiveBaseName() string {
 	return "aether-favorites-" + time.Now().Format("2006-01-02")
 }
 
-// uniquePath reserves an unused file name in dir, suffixing -2, -3, … so an
-// export never silently overwrites an earlier one.
+// uniquePath selects an unused name. Archive publication checks the destination again.
 func uniquePath(dir, base, ext string) (string, error) {
 	for i := 1; i < 1000; i++ {
 		name := base + ext

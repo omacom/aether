@@ -5,15 +5,17 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"aether/internal/omarchy"
 )
 
 func TestInstallOmarchyThemeCreatesAndActivatesNewTheme(t *testing.T) {
-	configDir := t.TempDir()
+	home := t.TempDir()
 	binDir := t.TempDir()
 	omarchyDir := t.TempDir()
 	activatedPath := filepath.Join(t.TempDir(), "activated")
 
-	t.Setenv("XDG_CONFIG_HOME", configDir)
+	t.Setenv("HOME", home)
 	t.Setenv("OMARCHY_PATH", omarchyDir)
 	t.Setenv("AETHER_TEST_ACTIVATED", activatedPath)
 	t.Setenv("PATH", binDir)
@@ -23,8 +25,8 @@ func TestInstallOmarchyThemeCreatesAndActivatesNewTheme(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(omarchyDir, "shell", "shell.qml"), nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	script := "#!/bin/sh\nprintf '%s' \"$1\" > \"$AETHER_TEST_ACTIVATED\"\n"
-	if err := os.WriteFile(filepath.Join(binDir, "omarchy-theme-set"), []byte(script), 0o755); err != nil {
+	script := "#!/bin/sh\nprintf '%s' \"$3\" > \"$AETHER_TEST_ACTIVATED\"\n"
+	if err := os.WriteFile(filepath.Join(binDir, "omarchy"), []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -39,7 +41,7 @@ func TestInstallOmarchyThemeCreatesAndActivatesNewTheme(t *testing.T) {
 	if got := string(data); got != "web-theme" {
 		t.Errorf("activated theme = %q; want web-theme", got)
 	}
-	if _, err := os.Stat(filepath.Join(configDir, "omarchy", "themes", "web-theme")); err != nil {
+	if _, err := os.Stat(filepath.Join(home, ".config", "omarchy", "themes", "web-theme")); err != nil {
 		t.Fatalf("installed theme missing: %v", err)
 	}
 
@@ -59,5 +61,45 @@ func TestValidOmarchyThemeName(t *testing.T) {
 		if ValidOmarchyThemeName(name) {
 			t.Errorf("ValidOmarchyThemeName(%q) = true; want false", name)
 		}
+	}
+}
+
+func TestInstallOmarchyThemeRemovesBundleAfterActivationFailure(t *testing.T) {
+	home := setupWriterTestEnv(t)
+	logPath := filepath.Join(home, "commands")
+	t.Setenv("AETHER_COMMAND_LOG", logPath)
+	script := `#!/bin/sh
+printf '%s\n' "$*" >> "$AETHER_COMMAND_LOG"
+if [ "$1 $2" = "theme set" ]; then
+    printf 'activation failed\n' >&2
+    exit 7
+fi
+`
+	if err := os.WriteFile(filepath.Join(os.Getenv("PATH"), "omarchy"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	oldBackground := filepath.Join(home, "old.png")
+	writeWriterTestFile(t, oldBackground, "old wallpaper")
+	writeWriterTestFile(t, filepath.Join(omarchy.CurrentStateDir(), "theme.name"), "foreign\n")
+	if err := os.Symlink(oldBackground, filepath.Join(omarchy.CurrentStateDir(), "background")); err != nil {
+		t.Fatal(err)
+	}
+	state := NewThemeState()
+	state.WallpaperPath = filepath.Join(home, "incoming.png")
+	writeWriterTestFile(t, state.WallpaperPath, "new wallpaper")
+	writer := NewWriter(omarchyV4TestTemplates, "testdata/v4")
+	err := writer.InstallOmarchyTheme(state, Settings{}, "web-theme")
+	if err == nil || !strings.Contains(err.Error(), "activation failed") {
+		t.Fatalf("InstallOmarchyTheme() error = %v, want activation failure", err)
+	}
+	target := filepath.Join(omarchy.UserThemesDir(), "web-theme")
+	if _, err := os.Stat(target); !os.IsNotExist(err) {
+		t.Fatalf("failed install left a theme that blocks retry: %v", err)
+	}
+	assertWriterTestFile(t, logPath, "theme bg set "+filepath.Join(target, "backgrounds", "incoming.png")+"\ntheme set web-theme\ntheme bg set "+oldBackground+"\n")
+	assertWriterTestFile(t, oldBackground, "old wallpaper")
+	entries, err := os.ReadDir(omarchy.UserThemesDir())
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("failed install left transaction files: %v, %v", entries, err)
 	}
 }

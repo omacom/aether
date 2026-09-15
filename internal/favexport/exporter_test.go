@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -306,5 +307,68 @@ func TestArchiveNameNeverOverwritesAnExistingExport(t *testing.T) {
 func TestSanitizeNameStripsPathTraversal(t *testing.T) {
 	if got := entryLabel(Item{Path: "/tmp/x.jpg", Name: "../../etc/passwd"}); got != "etcpasswd.jpg" {
 		t.Errorf("entryLabel = %q, want etcpasswd.jpg", got)
+	}
+}
+
+type cancelAfterCheck struct {
+	context.Context
+	cancel context.CancelFunc
+	checks int
+}
+
+func (c *cancelAfterCheck) Err() error {
+	c.checks++
+	err := c.Context.Err()
+	if c.checks == 1 {
+		c.cancel()
+	}
+	return err
+}
+
+func TestCancelDuringFinalArchiveItemPreventsPublication(t *testing.T) {
+	dir := t.TempDir()
+	source := writeFixture(t, dir, "wallpaper.jpg", "image")
+	final := filepath.Join(dir, "favorites.zip")
+	base, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ctx := &cancelAfterCheck{Context: base, cancel: cancel}
+	_, err := writeArchive(context.Background(), ctx, []resolved{{item: Item{Path: source}, local: source}}, final+".part", final)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("error = %v, want cancellation", err)
+	}
+	assertNoLeftovers(t, final)
+}
+
+func TestArchivePreservesExistingFiles(t *testing.T) {
+	for _, suffix := range []string{"", ".part"} {
+		t.Run(suffix, func(t *testing.T) {
+			dir := t.TempDir()
+			source := writeFixture(t, dir, "wallpaper.jpg", "image")
+			final := filepath.Join(dir, "favorites.zip")
+			protected := writeFixture(t, dir, "favorites.zip"+suffix, "existing content")
+			_, err := writeArchive(context.Background(), context.Background(), []resolved{{item: Item{Path: source}, local: source}}, final+".part", final)
+			if err == nil {
+				t.Fatal("archive replaces an existing file")
+			}
+			data, err := os.ReadFile(protected)
+			if err != nil || string(data) != "existing content" {
+				t.Fatalf("existing file changed: %q, %v", data, err)
+			}
+		})
+	}
+}
+
+func TestExportReservesManifestName(t *testing.T) {
+	source := writeFixture(t, t.TempDir(), "wall.jpg", "image")
+	path := runExport(t, New(nil), []Item{{Path: source, Name: manifestName}}, t.TempDir())
+	if got := zipEntries(t, path); len(got) != 2 || got[0] != "favorites-2.json" || got[1] != manifestName {
+		t.Fatalf("archive entries = %v", got)
+	}
+}
+
+func TestRemoteEntryLabelExcludesQueryAndFragment(t *testing.T) {
+	got := entryLabel(Item{Path: "https://example.com/wall.png?download=1#preview", Name: "wall"})
+	if got != "wall.png" {
+		t.Fatalf("entry name = %q", got)
 	}
 }

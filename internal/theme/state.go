@@ -2,6 +2,7 @@ package theme
 
 import (
 	"aether/internal/color"
+	"aether/internal/icontheme"
 	"aether/internal/template"
 )
 
@@ -15,9 +16,11 @@ type ThemeState struct {
 	Adjustments      color.Adjustments            `json:"adjustments"`
 	ColorRoles       template.ColorRoles          `json:"colorRoles"`
 	ExtendedColors   map[string]string            `json:"extendedColors"`
+	NativeColors     map[string]string            `json:"nativeColors"`
 	ExtractionMode   string                       `json:"extractionMode"`
 	AdditionalImages []string                     `json:"additionalImages"`
 	AppOverrides     map[string]map[string]string `json:"appOverrides"`
+	IconTheme        icontheme.Selection          `json:"iconTheme"`
 }
 
 // DefaultPalette is the Catppuccin-inspired default 16-color palette.
@@ -48,9 +51,11 @@ func NewThemeState() *ThemeState {
 		LockedColors:     make(map[int]bool),
 		Adjustments:      color.DefaultAdjustments(),
 		ExtendedColors:   make(map[string]string),
+		NativeColors:     make(map[string]string),
 		ExtractionMode:   "auto",
 		AdditionalImages: []string{},
 		AppOverrides:     make(map[string]map[string]string),
+		IconTheme:        icontheme.Automatic(),
 	}
 	s.ColorRoles = s.buildColorRoles()
 	return s
@@ -88,9 +93,11 @@ type StateSnapshot struct {
 	LockedColors     map[int]bool                 `json:"lockedColors"`
 	ColorRoles       template.ColorRoles          `json:"colorRoles"`
 	ExtendedColors   map[string]string            `json:"extendedColors"`
+	NativeColors     map[string]string            `json:"nativeColors"`
 	ExtractionMode   string                       `json:"extractionMode"`
 	AdditionalImages []string                     `json:"additionalImages"`
 	AppOverrides     map[string]map[string]string `json:"appOverrides"`
+	IconTheme        icontheme.Selection          `json:"iconTheme"`
 }
 
 // Snapshot returns a copy of the current state suitable for Wails binding.
@@ -103,6 +110,10 @@ func (s *ThemeState) Snapshot() StateSnapshot {
 	ext := make(map[string]string, len(s.ExtendedColors))
 	for k, v := range s.ExtendedColors {
 		ext[k] = v
+	}
+	native := make(map[string]string, len(s.NativeColors))
+	for k, v := range s.NativeColors {
+		native[k] = v
 	}
 
 	overrides := make(map[string]map[string]string, len(s.AppOverrides))
@@ -124,9 +135,11 @@ func (s *ThemeState) Snapshot() StateSnapshot {
 		LockedColors:     locked,
 		ColorRoles:       s.ColorRoles,
 		ExtendedColors:   ext,
+		NativeColors:     native,
 		ExtractionMode:   s.ExtractionMode,
 		AdditionalImages: images,
 		AppOverrides:     overrides,
+		IconTheme:        s.IconTheme,
 	}
 }
 

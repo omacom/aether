@@ -72,13 +72,14 @@ export function updateSettings(partial: Partial<Settings>): void {
 }
 
 export function isAppIncluded(app: string): boolean {
+    if (app === 'icons') return settings.includedApps?.icons !== false;
     return !!settings.includedApps?.[app];
 }
 
 export function setAppIncluded(app: string, enabled: boolean): void {
     const current = {...(settings.includedApps ?? {})};
-    if (enabled) {
-        current[app] = true;
+    if (enabled || app === 'icons') {
+        current[app] = enabled;
     } else {
         delete current[app];
     }

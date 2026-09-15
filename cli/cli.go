@@ -133,6 +133,7 @@ Theme generation:
     --light-mode                            Generate light variant
     --no-apply                              Render templates without activating
     --output <path>                         Output dir (defaults to ~/.config/aether/theme)
+    --icon-theme automatic|<ID>              Use color-matched Yaru or an explicit installed theme ID
     --no-zed                                Skip Zed extension (default on)
     --no-vscode                             Skip VSCode integration (default on)
     --no-neovim                             Skip Neovim template (default on)
@@ -153,7 +154,7 @@ Import commands:
   aether --import-colors-toml <url|file>    Import colors.toml color scheme (URL or file)
     --wallpaper <url|path>                  Set wallpaper from URL or local path
     --light-mode                            Force light mode
-  aether --handle-url <aether://...>        Handle an aether:// web link (always confirms)
+  aether --handle-url <aether://...>        Handle a web link (confirms unless silent=true)
                                               aether://apply?external_theme=URL
                                               aether://apply?colors=URL
                                               aether://apply?wallpaper=URL

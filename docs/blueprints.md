@@ -18,16 +18,19 @@ A blueprint stores:
 ## Saving a Blueprint
 
 1. Create your theme (wallpaper + colors)
-2. Click **Save Blueprint** in the sidebar
+2. Click **Save Current** in the Blueprints tab
 3. Enter a name
 4. Blueprint appears in the list
 
 ## Loading a Blueprint
 
-1. Click a blueprint in the sidebar
-2. Wallpaper loads (downloads if from wallhaven)
-3. Colors restore to saved values
-4. All adjustments and settings apply
+1. Open the **Blueprints** tab and load a saved theme, or press **Ctrl+P** and search its name.
+2. The palette, extended/native colors, wallpaper path, overrides, color locks, and light/dark mode load into the editor.
+3. Review the result, then apply it when ready. Loading a blueprint turns off Live Apply so browsing saved themes does not change your desktop.
+
+The command palette shows color previews beside blueprint results. Use the arrow keys and Enter to load, or Escape to close and return focus to the previous control. Commands remain available if the blueprint library cannot be loaded.
+
+Saved palettes contain the final, already-adjusted colors, not the original extraction baseline. The editor treats those colors as a fresh baseline and resets sliders and curves on load, so later adjustments do not apply the saved adjustments twice. Saved adjustment values remain in the blueprint file as metadata.
 
 ## Storage Location
 
