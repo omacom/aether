@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- **Go** 1.23+
+- **Go** 1.25+
 - **webkit2gtk** (GUI runtime)
 - **Node.js** 18+ (build only)
 
@@ -39,7 +39,7 @@ Source builds install them automatically with `make install`, or separately with
 
 ### Requirements
 
-- **Go** 1.23+
+- **Go** 1.25+
 - **Wails CLI** (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`)
 - **Node.js** 18+
 - **Xcode Command Line Tools**: `xcode-select --install`

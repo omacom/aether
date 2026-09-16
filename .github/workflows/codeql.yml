@@ -34,7 +34,7 @@ jobs:
         if: matrix.language == 'go'
         uses: actions/setup-go@v6
         with:
-          go-version: '1.23'
+          go-version: '1.25'
 
       - name: Set up Node.js
         if: matrix.language == 'go'

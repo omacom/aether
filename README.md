@@ -116,7 +116,7 @@ wails dev
 wails build
 ```
 
-**Prerequisites:** Go 1.23+, Node.js 22.22.2+ or 24.15+ LTS, [Wails v2](https://wails.io), webkit2gtk, gtk-layer-shell, gstreamer, gst-plugins-good
+**Prerequisites:** Go 1.25+, Node.js 22.22.2+ or 24.15+ LTS, [Wails v2](https://wails.io), webkit2gtk, gtk-layer-shell, gstreamer, gst-plugins-good
 
 ### Verification
 
