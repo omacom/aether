@@ -86,7 +86,7 @@ cd aether && make build
 
 ### Desktop Icon Themes
 
-Use the compact **Icons** control directly below **Light mode** in the editor sidebar. Its switch enables or disables the existing Icons target, while the selection opens the installed-theme chooser. **Automatic** preserves Aether's color-matched Yaru output. An explicit choice writes the installed theme's directory ID; if that theme is later uninstalled, Aether keeps the saved ID and marks it as missing instead of silently replacing it. Disabling Icons omits `icons.theme` without erasing the choice.
+Use the compact **Icons** control directly above **Accessibility** in the editor sidebar. Its switch enables or disables the existing Icons target, while the selection opens the installed-theme chooser. **Automatic** preserves Aether's color-matched Yaru output. An explicit choice writes the installed theme's directory ID; if that theme is later uninstalled, Aether keeps the saved ID and marks it as missing instead of silently replacing it. Disabling Icons omits `icons.theme` without erasing the choice.
 
 The picker searches the standard user and system XDG icon roots and the legacy `~/.icons` root. **Refresh** rescans after you install a theme. Aether does not download or install icon themes.
 

@@ -41,10 +41,6 @@
                 ></span>
             </button>
         </label>
-
-        <div class="border-border mt-2 border-t pt-2">
-            <IconThemePicker />
-        </div>
     </section>
 
     <SectionLabel label="Generate" />
@@ -64,6 +60,9 @@
     <SectionLabel label="Adjust" />
     <section class="border-border border-b p-3">
         <ColorAdjustments />
+    </section>
+    <section class="border-border border-b p-3">
+        <IconThemePicker />
     </section>
     <section class="border-border border-b p-3">
         <AccessibilityPanel />
