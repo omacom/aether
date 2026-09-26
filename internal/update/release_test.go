@@ -2,6 +2,7 @@ package update
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -31,6 +32,34 @@ func TestCompareVersions(t *testing.T) {
 				t.Errorf("compareVersions(%q, %q) = %d; want %d", tt.a, tt.b, got, tt.want)
 			}
 		})
+	}
+}
+
+type failingTransport struct{ called bool }
+
+func (transport *failingTransport) RoundTrip(*http.Request) (*http.Response, error) {
+	transport.called = true
+	return nil, errors.New("unexpected HTTP request")
+}
+
+func TestManagedCheckSkipsHTTP(t *testing.T) {
+	previousCommand := packageUpdateCommand
+	packageUpdateCommand = "omarchy-update"
+	t.Cleanup(func() { packageUpdateCommand = previousCommand })
+	transport := &failingTransport{}
+	previous := http.DefaultTransport
+	http.DefaultTransport = transport
+	t.Cleanup(func() { http.DefaultTransport = previous })
+
+	release, err := Check(context.Background(), " v4.30.0 ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if transport.called {
+		t.Fatal("managed check made an HTTP request")
+	}
+	if release.CurrentVersion != "4.30.0" || release.UpdateCommand != "omarchy-update" || release.UpdateAvailable || release.LatestVersion != "" {
+		t.Errorf("managed release = %+v", release)
 	}
 }
 
