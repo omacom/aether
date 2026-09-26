@@ -9,6 +9,10 @@ import (
 )
 
 func runUpgrade(args []string) int {
+	if err := update.ManagedUpgradeError(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
 	if len(args) > 0 {
 		fmt.Fprintln(os.Stderr, "Usage: aether upgrade")
 		return 1

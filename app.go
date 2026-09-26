@@ -80,6 +80,7 @@ func (a *App) GetReleaseStatus(currentVersion string) (map[string]interface{}, e
 		"latestVersion":   release.LatestVersion,
 		"releaseURL":      release.ReleaseURL,
 		"updateAvailable": release.UpdateAvailable,
+		"updateCommand":   release.UpdateCommand,
 	}, nil
 }
 

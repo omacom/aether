@@ -16,6 +16,9 @@ import (
 // Upgrade installs the latest GitHub release. It is intended for a terminal,
 // where sudo prompts can be answered by the user.
 func Upgrade(ctx context.Context, release Release, stdout, stderr io.Writer) error {
+	if err := ManagedUpgradeError(); err != nil {
+		return err
+	}
 	if !release.UpdateAvailable {
 		fmt.Fprintf(stdout, "Aether %s is already up to date.\n", release.CurrentVersion)
 		return nil
@@ -33,6 +36,9 @@ func Upgrade(ctx context.Context, release Release, stdout, stderr io.Writer) err
 // OpenUpgradeTerminal starts the current executable's upgrade command in an
 // available terminal emulator so authentication prompts remain interactive.
 func OpenUpgradeTerminal(executable string) error {
+	if err := ManagedUpgradeError(); err != nil {
+		return err
+	}
 	if runtime.GOOS != "linux" {
 		return fmt.Errorf("automatic upgrades are currently supported on Linux only")
 	}

@@ -66,6 +66,8 @@ sudo apt-get install -f
 
 ### Build from Source
 
+Distributions that manage Aether updates can build with `-ldflags "-X aether/internal/update.packageUpdateCommand=omarchy-update"` to direct users to their package updater and disable built-in upgrades.
+
 ```bash
 # Arch
 sudo pacman -S go webkit2gtk

@@ -7,9 +7,10 @@
         latestVersion: string;
         releaseURL: string;
         updateAvailable: boolean;
+        updateCommand: string;
     };
 
-    type Status = 'checking' | 'current' | 'available' | 'error';
+    type Status = 'checking' | 'current' | 'available' | 'managed' | 'error';
 
     let {isMac = false}: {isMac?: boolean} = $props();
 
@@ -20,6 +21,8 @@
             ? 'Checking for Aether updates'
             : status === 'available'
               ? `Aether ${release?.latestVersion} is available. Click to upgrade`
+              : status === 'managed'
+                ? `Updates are managed by your distribution. Run: ${release?.updateCommand}`
               : status === 'current'
                 ? `Aether ${release?.currentVersion} is up to date. Click to check again`
                 : 'Could not check for updates. Click to try again'
@@ -29,6 +32,8 @@
             ? 'bg-warning'
             : status === 'current'
               ? 'bg-success'
+              : status === 'managed'
+                ? 'bg-accent'
               : status === 'error'
                 ? 'bg-destructive'
                 : 'bg-accent animate-pulse'
@@ -44,13 +49,21 @@
             release = (await GetReleaseStatus(
                 __APP_VERSION__
             )) as ReleaseStatus;
-            status = release.updateAvailable ? 'available' : 'current';
+            status = release.updateCommand
+                ? 'managed'
+                : release.updateAvailable
+                  ? 'available'
+                  : 'current';
         } catch {
             status = 'error';
         }
     }
 
     async function handleClick(): Promise<void> {
+        if (status === 'managed') {
+            showToast(title, 6000);
+            return;
+        }
         if (status !== 'available') {
             await refresh();
             return;
