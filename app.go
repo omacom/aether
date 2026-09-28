@@ -790,7 +790,7 @@ func (a *App) ExportFavorites(req ExportFavoritesRequest) (string, error) {
 		return "", fmt.Errorf("no favorites to export")
 	}
 
-	dir, err := wailsrt.OpenDirectoryDialog(a.ctx, wailsrt.OpenDialogOptions{
+	dir, err := a.openDirectoryDialog(wailsrt.OpenDialogOptions{
 		Title:                "Choose Export Directory",
 		CanCreateDirectories: true,
 	})
@@ -882,7 +882,7 @@ func (a *App) ChooseWallpaperFolder() (string, error) {
 		}
 	}
 
-	dir, err := wailsrt.OpenDirectoryDialog(a.ctx, wailsrt.OpenDialogOptions{
+	dir, err := a.openDirectoryDialog(wailsrt.OpenDialogOptions{
 		Title:                "Choose Wallpaper Folder",
 		DefaultDirectory:     defaultDir,
 		CanCreateDirectories: true,
@@ -1113,7 +1113,7 @@ func (a *App) SaveDataURLToFile(dataURL string, originalPath string) (string, er
 // OpenFileDialog opens a native file dialog for selecting an image.
 // Returns the selected file path or empty string if cancelled.
 func (a *App) OpenFileDialog() (string, error) {
-	path, err := wailsrt.OpenFileDialog(a.ctx, wailsrt.OpenDialogOptions{
+	path, err := a.openFileDialog(wailsrt.OpenDialogOptions{
 		Title: "Select Wallpaper",
 		Filters: []wailsrt.FileFilter{
 			{
@@ -1180,7 +1180,7 @@ func (a *App) ExportTheme(req ExportThemeRequest) (string, error) {
 		return "", fmt.Errorf("theme name must contain letters or digits")
 	}
 
-	dir, err := wailsrt.OpenDirectoryDialog(a.ctx, wailsrt.OpenDialogOptions{
+	dir, err := a.openDirectoryDialog(wailsrt.OpenDialogOptions{
 		Title: "Choose Export Directory",
 	})
 	if err != nil || dir == "" {
@@ -1310,7 +1310,7 @@ func (a *App) ImportFileDialog(fileType string) (*ImportResult, error) {
 		return nil, fmt.Errorf("unknown file type: %s", fileType)
 	}
 
-	path, err := wailsrt.OpenFileDialog(a.ctx, wailsrt.OpenDialogOptions{
+	path, err := a.openFileDialog(wailsrt.OpenDialogOptions{
 		Title:   title,
 		Filters: filters,
 	})
