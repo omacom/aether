@@ -29,7 +29,7 @@ func TestManagedUpgradeBeforeDevVersion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if code != 1 || !strings.Contains(string(output), "Updates are managed by your distribution. Run: omarchy-update") || strings.Contains(string(output), "development build") {
+	if code != 1 || !strings.Contains(string(output), "To update it, run: "+update.UpdateCommand()) || strings.Contains(string(output), "development build") {
 		t.Fatalf("code = %d, stderr = %q", code, output)
 	}
 }

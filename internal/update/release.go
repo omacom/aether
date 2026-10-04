@@ -13,18 +13,6 @@ import (
 
 const latestReleaseURL = "https://api.github.com/repos/omacom/aether/releases/latest"
 
-// Set at build time for distribution-managed packages.
-var packageUpdateCommand string
-
-func UpdateCommand() string { return packageUpdateCommand }
-
-func ManagedUpgradeError() error {
-	if packageUpdateCommand == "" {
-		return nil
-	}
-	return fmt.Errorf("Updates are managed by your distribution. Run: %s", packageUpdateCommand)
-}
-
 // Release describes the newest published Aether release and its relation to
 // the version currently running.
 type Release struct {
@@ -51,8 +39,8 @@ type githubRelease struct {
 // currentVersion. The check intentionally does not cache so the caller can
 // explicitly refresh the status.
 func Check(ctx context.Context, currentVersion string) (Release, error) {
-	if packageUpdateCommand != "" {
-		return Release{CurrentVersion: normalizeVersion(currentVersion), UpdateCommand: packageUpdateCommand}, nil
+	if command := UpdateCommand(); command != "" {
+		return Release{CurrentVersion: normalizeVersion(currentVersion), UpdateCommand: command}, nil
 	}
 	client := &http.Client{Timeout: 8 * time.Second}
 	return check(ctx, currentVersion, latestReleaseURL, client)

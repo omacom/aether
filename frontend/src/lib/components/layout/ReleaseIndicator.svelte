@@ -21,8 +21,6 @@
             ? 'Checking for Aether updates'
             : status === 'available'
               ? `Aether ${release?.latestVersion} is available. Click to upgrade`
-              : status === 'managed'
-                ? `Updates are managed by your distribution. Run: ${release?.updateCommand}`
               : status === 'current'
                 ? `Aether ${release?.currentVersion} is up to date. Click to check again`
                 : 'Could not check for updates. Click to try again'
@@ -32,8 +30,6 @@
             ? 'bg-warning'
             : status === 'current'
               ? 'bg-success'
-              : status === 'managed'
-                ? 'bg-accent'
               : status === 'error'
                 ? 'bg-destructive'
                 : 'bg-accent animate-pulse'
@@ -60,10 +56,6 @@
     }
 
     async function handleClick(): Promise<void> {
-        if (status === 'managed') {
-            showToast(title, 6000);
-            return;
-        }
         if (status !== 'available') {
             await refresh();
             return;
@@ -88,38 +80,42 @@
     });
 </script>
 
-<button
-    type="button"
-    class="text-fg-dimmed hover:bg-bg-hover relative flex h-7 w-7 items-center justify-center transition-colors"
-    class:mb-0.5={isMac}
-    onclick={handleClick}
-    aria-label={title}
-    {title}
->
-    {#if status === 'available'}
-        <span
-            class="bg-warning absolute h-3.5 w-3.5 animate-ping opacity-45"
-            style="border-radius: 9999px !important"
-            aria-hidden="true"
-        ></span>
-    {/if}
-    <span
-        class="{signalClass} relative flex h-2.5 w-2.5 items-center justify-center"
-        style="border-radius: 9999px !important"
-        aria-hidden="true"
+<!-- A package manager owns managed installs, so the indicator has nothing to
+     offer there. -->
+{#if status !== 'managed'}
+    <button
+        type="button"
+        class="text-fg-dimmed hover:bg-bg-hover relative flex h-7 w-7 items-center justify-center transition-colors"
+        class:mb-0.5={isMac}
+        onclick={handleClick}
+        aria-label={title}
+        {title}
     >
         {#if status === 'available'}
-            <svg
-                class="h-2 w-2 text-[#111116]"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="3"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-            >
-                <path d="M12 19V5M6 11l6-6 6 6"></path>
-            </svg>
+            <span
+                class="bg-warning absolute h-3.5 w-3.5 animate-ping opacity-45"
+                style="border-radius: 9999px !important"
+                aria-hidden="true"
+            ></span>
         {/if}
-    </span>
-</button>
+        <span
+            class="{signalClass} relative flex h-2.5 w-2.5 items-center justify-center"
+            style="border-radius: 9999px !important"
+            aria-hidden="true"
+        >
+            {#if status === 'available'}
+                <svg
+                    class="h-2 w-2 text-[#111116]"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <path d="M12 19V5M6 11l6-6 6 6"></path>
+                </svg>
+            {/if}
+        </span>
+    </button>
+{/if}

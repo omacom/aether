@@ -66,8 +66,6 @@ sudo apt-get install -f
 
 ### Build from Source
 
-Distributions that manage Aether updates can build with `-ldflags "-X aether/internal/update.packageUpdateCommand=omarchy-update"` to direct users to their package updater and disable built-in upgrades.
-
 ```bash
 # Arch
 sudo pacman -S go webkit2gtk
@@ -77,6 +75,16 @@ sudo apt install golang libgtk-3-dev libwebkit2gtk-4.1-dev
 
 git clone https://github.com/omacom/aether.git
 cd aether && make build
+```
+
+### Package-managed installs
+
+When pacman owns the `aether` binary, Aether does not check for releases or upgrade itself. `aether upgrade` prints the update command instead: `omarchy-update`, `yay -Syu`, `paru -Syu` or `sudo pacman -Syu`.
+
+To set this behavior in other packages, give the update command at build time:
+
+```bash
+wails build -tags webkit2_41 -ldflags "-X 'aether/internal/update.packageUpdateCommand=sudo dnf upgrade aether'"
 ```
 
 ### Basic Usage

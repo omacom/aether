@@ -1,7 +1,6 @@
 import {beforeEach, expect, test, vi} from 'vitest';
 import ReleaseIndicator from '../src/lib/components/layout/ReleaseIndicator.svelte';
 import {GetReleaseStatus, StartUpgrade} from '../wailsjs/go/main/App';
-import {getToastMessage} from '../src/lib/stores/ui.svelte';
 import {render, settle} from './setup';
 
 vi.mock('../wailsjs/go/main/App', () => ({
@@ -20,16 +19,23 @@ beforeEach(() => {
     vi.mocked(StartUpgrade).mockReset();
 });
 
-test('managed status gives neutral guidance without refresh or upgrade on click', async () => {
+test('managed installs hide the indicator and never start an upgrade', async () => {
     const {target} = render(ReleaseIndicator, {});
     await settle();
-    const indicator = target.querySelector('button')!;
-    expect(indicator.title).toContain('Run: omarchy-update');
-    expect(indicator.title).not.toContain('up to date');
-    expect(indicator.querySelector('.bg-accent')).not.toBeNull();
-    indicator.click();
-    await settle();
-    expect(getToastMessage()).toContain('Run: omarchy-update');
+    expect(target.querySelector('button')).toBeNull();
     expect(StartUpgrade).not.toHaveBeenCalled();
     expect(GetReleaseStatus).toHaveBeenCalledTimes(1);
+});
+
+test('standalone installs keep the indicator', async () => {
+    vi.mocked(GetReleaseStatus).mockResolvedValue({
+        currentVersion: '4.30.0',
+        latestVersion: '4.30.0',
+        releaseURL: '',
+        updateAvailable: false,
+        updateCommand: '',
+    });
+    const {target} = render(ReleaseIndicator, {});
+    await settle();
+    expect(target.querySelector('button')?.title).toContain('up to date');
 });
