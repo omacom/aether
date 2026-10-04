@@ -34,6 +34,8 @@ func Run(args []string, templatesFS embed.FS) int {
 		return runImportColorsToml(args[1:], templatesFS)
 	case "--handle-url":
 		return runHandleURL(args[1:], templatesFS)
+	case "--wallpaper-portal":
+		return runWallpaperPortal(args[1:])
 
 	// --- Color utilities ---
 	case "--color-convert":
@@ -160,6 +162,7 @@ Import commands:
                                               aether://apply?wallpaper=URL
                                               aether://apply?mode=light|dark
                                               aether://apply?as_omarchy_theme=NAME
+  aether --wallpaper-portal                 Serve "Set as Background" for file managers (started by D-Bus)
 
 Color utilities:
   aether --color-info <hex>                 Show all color representations

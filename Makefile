@@ -19,6 +19,9 @@ else
 	-update-desktop-database $(HOME)/.local/share/applications 2>/dev/null
 	-gtk-update-icon-cache -f $(HOME)/.local/share/icons/hicolor 2>/dev/null
 	-xdg-mime default li.oever.aether.url-handler.desktop x-scheme-handler/aether 2>/dev/null
+	mkdir -p $(HOME)/.local/share/xdg-desktop-portal/portals $(HOME)/.local/share/dbus-1/services
+	cp contrib/portal/aether.portal $(HOME)/.local/share/xdg-desktop-portal/portals/
+	cp contrib/portal/org.freedesktop.impl.portal.desktop.aether.service $(HOME)/.local/share/dbus-1/services/
 	@if command -v omarchy >/dev/null 2>&1; then $(MAKE) install-omarchy-plugins; fi
 endif
 

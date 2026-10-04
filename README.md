@@ -147,6 +147,7 @@ From `frontend/`, run `npm ci`, `npm run check`, `npm test`, and `npm run build`
 | [GitHub Source](docs/github-source.md) | Browse repository wallpapers |
 | [Favorites](docs/favorites.md) | Save wallpapers and export a collection |
 | [Blueprints](docs/blueprints.md) | Save and restore themes |
+| [Set as Background](docs/wallpaper-portal.md) | Theme from a file manager's context menu |
 | [Custom Templates](docs/custom-templates.md) | Add support for your apps |
 | [Custom Apps](docs/custom-apps.md) | Per-app template system |
 | [File System](docs/filesystem.md) | Where Aether stores files |
