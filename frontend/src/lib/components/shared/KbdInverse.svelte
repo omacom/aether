@@ -1,9 +1,11 @@
 <script lang="ts">
+    // Shortcut hint that sits on a filled accent button. It inherits the
+    // button text color, so it stays legible on any accent.
     let {children}: {children: import('svelte').Snippet} = $props();
 </script>
 
 <kbd
-    class="border-bg-primary/30 bg-bg-primary/15 inline-flex items-center border px-1 font-mono text-[9px] leading-[1.4] opacity-90"
+    class="inline-flex items-center border border-current px-[5px] py-px font-mono text-[10px] font-medium leading-[1.3] opacity-55"
     aria-hidden="true"
 >
     {@render children()}

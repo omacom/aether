@@ -68,6 +68,16 @@
     let savedReposRef = $state<HTMLDivElement | null>(null);
 
     let nameFilter = $state('');
+    let scrollEl = $state<HTMLDivElement | null>(null);
+
+    // Start every folder at the top, with no filter from the previous one.
+    // A fast response can replace the list before the browser shrinks the
+    // scroll area, so the old offset stays unless it is reset here.
+    $effect(() => {
+        getURL();
+        nameFilter = '';
+        if (scrollEl) scrollEl.scrollTop = 0;
+    });
 
     let results = $derived(getResults());
     let isLoading = $derived(getIsLoading());
@@ -108,9 +118,9 @@
         if (e.key === 'Enter') handleSubmit();
     }
 
-    function handleNavigate(dirName: string) {
+    function handleNavigate(dir: ImageInfo) {
         closePreview();
-        storeNavigateToDir(dirName);
+        storeNavigateToDir(dir.name, dir.htmlURL);
         urlInput = getURL();
     }
 
@@ -203,37 +213,42 @@
 
 <div class="flex h-full flex-col">
     <ViewHeader>
-        <span class="text-fg-primary shrink-0 text-[11px] font-medium"
-            >GitHub URL</span
+        <h2 class="text-fg-primary shrink-0 text-[13.5px] font-semibold">
+            GitHub
+        </h2>
+        <span class="text-fg-dimmed mr-2 hidden shrink-0 text-[12px] xl:inline"
+            >Wallpapers from public repositories</span
         >
         <button
-            class="border-border text-fg-dimmed hover:text-fg-primary flex h-[22px] w-[22px] items-center justify-center border text-[11px] transition-colors disabled:opacity-30"
+            class="border-border text-fg-secondary hover:border-border-focus hover:text-fg-primary flex h-8 w-8 shrink-0 items-center justify-center border transition-colors disabled:opacity-35"
             onclick={handleGoUp}
             disabled={!canGoUp}
             title="Go to parent directory"
             aria-label="Go to parent directory"
             ><svg
-                class="h-3 w-3"
+                class="h-3.5 w-3.5"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
                 stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
                 aria-hidden="true"><path d="m6 12 6-6 6 6M12 6v14" /></svg
             ></button
         >
         <!-- Saved repos dropdown -->
         <div bind:this={savedReposRef} class="relative">
             <button
-                class="border-border flex h-[22px] w-[22px] items-center justify-center border text-[11px] transition-colors {currentIsSaved
+                class="border-border hover:border-border-focus flex h-8 w-8 items-center justify-center border transition-colors {currentIsSaved
                     ? 'text-accent'
-                    : 'text-fg-dimmed hover:text-fg-primary'}"
+                    : 'text-fg-secondary hover:text-fg-primary'}"
                 onclick={() => (savedReposOpen = !savedReposOpen)}
                 title="Saved repos"
                 aria-label="Saved repositories"
                 aria-expanded={savedReposOpen}
             >
                 <svg
-                    class="h-3 w-3"
+                    class="h-3.5 w-3.5"
                     viewBox="0 0 24 24"
                     fill={currentIsSaved ? 'currentColor' : 'none'}
                     stroke="currentColor"
@@ -248,17 +263,17 @@
             </button>
             {#if savedReposOpen}
                 <div
-                    class="bg-bg-secondary border-border absolute left-0 z-50 mt-0.5 min-w-[200px] border shadow-lg"
+                    class="bg-bg-secondary border-border shadow-(--shadow-panel) absolute left-0 top-full z-50 mt-1 min-w-[240px] border py-1"
                 >
                     <div
-                        class="border-border flex items-center justify-between border-b px-3 py-1.5"
+                        class="flex items-center justify-between px-3 pb-1 pt-1.5"
                     >
                         <span
-                            class="text-fg-dimmed text-[10px] font-medium tracking-wide"
-                            >SAVED REPOS</span
+                            class="text-fg-dimmed text-[10px] font-semibold uppercase tracking-[0.14em]"
+                            >Saved repos</span
                         >
                         <button
-                            class="text-fg-dimmed hover:text-fg-primary text-[10px] transition-colors"
+                            class="text-accent hover:text-accent-hover text-[11px] transition-colors"
                             onclick={toggleSaveRepo}
                             title={currentIsSaved
                                 ? 'Remove current from saved'
@@ -268,13 +283,13 @@
                         </button>
                     </div>
                     {#if savedRepos.length === 0}
-                        <div class="text-fg-dimmed px-3 py-3 text-[10px]">
+                        <div class="text-fg-dimmed px-3 py-2.5 text-[11.5px]">
                             No saved repos yet
                         </div>
                     {:else}
                         {#each savedRepos as repo}
                             <div
-                                class="hover:bg-bg-hover flex w-full items-center gap-2 px-3 py-1.5 text-left text-[11px] transition-colors"
+                                class="text-fg-secondary hover:bg-bg-hover hover:text-fg-primary flex h-[30px] w-full cursor-pointer items-center gap-2 px-3 text-left text-[12px] transition-colors"
                                 role="button"
                                 tabindex="0"
                                 onclick={() => loadSavedRepo(repo.url)}
@@ -288,26 +303,25 @@
                                     }
                                 }}
                             >
-                                <svg
-                                    class="text-fg-dimmed h-3 w-3 shrink-0"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="2"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                >
-                                    <polygon
-                                        points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
-                                    />
-                                </svg>
-                                <span class="text-fg-primary truncate"
+                                <span class="min-w-0 flex-1 truncate"
                                     >{repo.name}</span
                                 >
                                 <button
-                                    class="text-fg-dimmed ml-auto shrink-0 px-1 text-[10px] transition-colors hover:text-red-400"
+                                    class="text-fg-dimmed hover:text-destructive flex h-5 w-5 shrink-0 items-center justify-center transition-colors"
                                     onclick={e => removeSavedRepo(e, repo.url)}
-                                    title="Remove">×</button
+                                    aria-label="Remove {repo.name}"
+                                    title="Remove"
+                                    ><svg
+                                        class="h-3 w-3"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2.4"
+                                        stroke-linecap="round"
+                                        aria-hidden="true"
+                                        ><path d="M18 6L6 18M6 6l12 12"
+                                        ></path></svg
+                                    ></button
                                 >
                             </div>
                         {/each}
@@ -320,15 +334,15 @@
             aria-label="GitHub repository URL"
             bind:value={urlInput}
             placeholder="https://github.com/owner/repo"
-            class="bg-bg-primary text-fg-primary border-border focus:border-border-focus placeholder:text-fg-dimmed min-w-0 flex-1 border px-2 py-0.5 text-[11px] outline-none transition-colors"
+            class="bg-bg-primary text-fg-primary border-border focus:border-accent h-8 min-w-[200px] flex-[2] border px-2.5 text-[12px] outline-none transition-colors"
             onkeydown={handleKeydown}
         />
         <button
-            class="bg-accent hover:bg-accent-hover text-accent-fg px-3 py-0.5 text-[11px] font-medium transition-colors disabled:opacity-50"
+            class="bg-accent hover:bg-accent-hover text-accent-fg h-8 shrink-0 px-4 text-[12px] font-semibold transition-colors disabled:opacity-50"
             onclick={handleSubmit}
             disabled={isLoading || !urlInput.trim()}
         >
-            {isLoading ? 'Loading...' : 'Fetch'}
+            {isLoading ? 'Loading…' : 'Fetch'}
         </button>
         {#if results.length > 0}
             <input
@@ -336,23 +350,23 @@
                 bind:value={nameFilter}
                 placeholder="Filter by name…"
                 aria-label="Filter repository files"
-                class="bg-bg-primary text-fg-primary border-border focus:border-border-focus placeholder:text-fg-dimmed min-w-[160px] flex-1 border px-2 py-0.5 text-[11px] outline-none transition-colors"
+                class="bg-bg-primary text-fg-primary border-border focus:border-accent h-8 min-w-[140px] flex-1 border px-2.5 text-[12px] outline-none transition-colors"
             />
         {/if}
-        <div class="ml-auto flex items-center gap-2">
-            <CardSizeToggle />
+        <div class="ml-auto flex shrink-0 items-center gap-3">
             {#if results.length > 0}
-                <span class="text-fg-dimmed text-[10px]"
+                <span class="text-fg-dimmed text-[11.5px] tabular-nums"
                     >{fileResults.length} / {results.length}{dirResults.length >
                     0
                         ? `, ${dirResults.length} dir${dirResults.length === 1 ? '' : 's'}`
                         : ''}</span
                 >
             {/if}
+            <CardSizeToggle />
         </div>
     </ViewHeader>
 
-    <div class="flex-1 overflow-y-auto p-3">
+    <div bind:this={scrollEl} class="flex-1 overflow-y-auto p-4">
         {#if isLoading}
             <LoadingState message="Fetching from GitHub…" />
         {:else if error}
@@ -369,7 +383,7 @@
             >
                 {#snippet icon()}
                     <svg
-                        class="h-12 w-12"
+                        class="h-[26px] w-[26px]"
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
@@ -401,16 +415,16 @@
                 {#each filteredResults as item, i (item.path)}
                     {#if item.type === 'dir'}
                         <button
-                            class="bg-bg-surface border-border hover:border-border-focus group relative cursor-pointer border transition-colors duration-100"
-                            onclick={() => handleNavigate(item.name)}
+                            class="bg-bg-secondary border-border hover:border-border-focus group flex cursor-pointer flex-col border text-left transition-colors duration-100"
+                            onclick={() => handleNavigate(item)}
                             type="button"
                             aria-label="Open directory {item.name}"
                         >
                             <div
-                                class="bg-bg-primary flex aspect-video items-center justify-center"
+                                class="bg-bg-primary text-fg-dimmed group-hover:text-fg-secondary flex aspect-video w-full items-center justify-center transition-colors"
                             >
                                 <svg
-                                    class="text-fg-dimmed h-10 w-10"
+                                    class="h-9 w-9"
                                     viewBox="0 0 24 24"
                                     fill="none"
                                     stroke="currentColor"
@@ -424,9 +438,15 @@
                                 </svg>
                             </div>
                             <div
-                                class="text-fg-dimmed flex items-center px-2 py-1 text-[10px]"
+                                class="flex h-8 w-full items-center gap-2 px-2.5 text-[11px]"
                             >
-                                <span class="truncate">{item.name}</span>
+                                <span
+                                    class="text-fg-secondary min-w-0 flex-1 truncate font-mono"
+                                    >{item.name}/</span
+                                >
+                                <span class="text-fg-dimmed shrink-0"
+                                    >Folder</span
+                                >
                             </div>
                         </button>
                     {:else}

@@ -25,7 +25,10 @@
     import EmptyState from '$lib/components/shared/EmptyState.svelte';
     import LoadingState from '$lib/components/shared/LoadingState.svelte';
     import ViewHeader from '$lib/components/shared/ViewHeader.svelte';
+    import CardSizeToggle from '$lib/components/shared/CardSizeToggle.svelte';
+    import {getCardSize, CARD_MIN_WIDTH} from '$lib/stores/cardsize.svelte';
     import {applyWallpaperOnly} from '$lib/actions/themeActions';
+    import {openURL} from '$lib/utils/browser';
     import {getIsApplying} from '$lib/stores/theme.svelte';
     import {
         getFavorites,
@@ -172,8 +175,11 @@
             showToast('Already in additional images');
             return;
         }
-        addAdditionalImage(localPath);
-        showToast('Added to additional images');
+        showToast(
+            addAdditionalImage(localPath)
+                ? 'Added to additional images'
+                : 'Skipped: the theme already has a wallpaper with that filename'
+        );
     }
 
     async function resolvePreviewSrc(fav: Favorite): Promise<string> {
@@ -213,65 +219,82 @@
     }
 </script>
 
+{#snippet chip(
+    active: boolean,
+    label: string,
+    color: string,
+    onclick: () => void
+)}
+    <button
+        class="flex h-6 items-center gap-1.5 border px-[9px] text-[11.5px] transition-colors {active
+            ? ''
+            : 'text-fg-dimmed border-border hover:text-fg-secondary'}"
+        style={active && color
+            ? `background: ${color}24; border-color: ${color}; color: ${color};`
+            : ''}
+        class:text-accent={active && !color}
+        class:border-accent={active && !color}
+        class:bg-accent-muted={active && !color}
+        aria-pressed={active}
+        {onclick}
+    >
+        {#if color}
+            <span class="h-2 w-2 shrink-0" style:background-color={color}
+            ></span>
+        {/if}
+        {label}
+    </button>
+{/snippet}
+
 <div class="flex h-full flex-col">
     <ViewHeader>
-        <span
-            class="text-fg-dimmed text-[10px] font-medium uppercase tracking-wider"
-            >Favorites</span
+        <h2 class="text-fg-primary shrink-0 text-[13.5px] font-semibold">
+            Favorites
+        </h2>
+        <span class="text-fg-dimmed mr-2 shrink-0 text-[12px] tabular-nums"
+            >{filterTag
+                ? `${filtered.length} of ${favorites.length}`
+                : favorites.length}
+            {favorites.length === 1 ? 'wallpaper' : 'wallpapers'}</span
         >
-
-        <span class="bg-border mx-1 h-4 w-px"></span>
 
         {#if allLabels.length > 0}
-            <button
-                class="px-2 py-0.5 text-[10px] transition-colors duration-100
-          {!filterTag
-                    ? 'text-accent bg-accent-muted'
-                    : 'text-fg-dimmed hover:text-fg-secondary hover:bg-bg-hover'}"
-                onclick={() => (filterTag = '')}>All</button
-            >
-            {#each allLabels as label}
-                <button
-                    class="flex items-center gap-1 px-1.5 py-0.5 text-[10px] transition-all"
-                    style={filterTag === label.id
-                        ? `background: ${label.color}20; border: 1px solid ${label.color}40; color: ${label.color};`
-                        : ''}
-                    class:text-fg-dimmed={filterTag !== label.id}
-                    class:hover:text-fg-secondary={filterTag !== label.id}
-                    onclick={() =>
-                        (filterTag = filterTag === label.id ? '' : label.id)}
-                >
-                    <span
-                        class="h-2 w-2 shrink-0"
-                        style:background-color={label.color}
-                    ></span>
-                    {label.name}
-                </button>
-            {/each}
+            <span class="bg-border h-4 w-px"></span>
+            <div class="flex flex-wrap items-center gap-1">
+                {@render chip(!filterTag, 'All', '', () => (filterTag = ''))}
+                {#each allLabels as label}
+                    {@render chip(
+                        filterTag === label.id,
+                        label.name,
+                        label.color,
+                        () =>
+                            (filterTag = filterTag === label.id ? '' : label.id)
+                    )}
+                {/each}
+            </div>
         {/if}
 
-        <button
-            class="bg-accent text-accent-fg hover:bg-accent-hover ml-auto px-2 py-0.5 text-[10px] font-medium transition-colors duration-100 disabled:opacity-50"
-            disabled={filtered.length === 0 || getExportBusy()}
-            onclick={() => startExport(filtered.map(f => f.path))}
-            title="Export the listed favorites as a .zip archive"
-            >Export .zip ({filtered.length})</button
-        >
-
-        <span class="text-fg-dimmed text-[10px]"
-            >{filtered.length}{filterTag ? `/${favorites.length}` : ''}</span
-        >
+        <div class="ml-auto flex shrink-0 items-center gap-2">
+            <CardSizeToggle />
+            <button
+                class="border-border text-fg-secondary hover:bg-bg-hover hover:text-fg-primary h-8 border px-3 text-[12px] font-medium transition-colors disabled:pointer-events-none disabled:opacity-45"
+                disabled={filtered.length === 0 || getExportBusy()}
+                onclick={() => startExport(filtered.map(f => f.path))}
+                title="Export the listed favorites as a .zip archive"
+                >Export .zip · {filtered.length}</button
+            >
+        </div>
     </ViewHeader>
 
-    <div class="flex-1 overflow-y-auto p-3">
+    <div class="flex-1 overflow-y-auto p-4">
         {#if loadError}
             <div
-                class="border-border bg-bg-surface text-fg-primary mb-3 flex items-center justify-between gap-3 border p-3 text-xs"
+                class="border-destructive/40 bg-destructive/8 text-fg-primary mb-4 flex items-center justify-between gap-3 border px-3.5 py-2.5 text-[12px]"
                 role="alert"
             >
                 <span>{loadError}</span>
                 <button
-                    class="text-accent shrink-0 px-2 py-1"
+                    class="text-accent hover:text-accent-hover shrink-0 px-2 py-1 text-[12px] font-medium transition-colors"
                     onclick={loadFavorites}
                     disabled={isLoading}>Retry</button
                 >
@@ -289,7 +312,7 @@
                 >
                     {#snippet icon()}
                         <svg
-                            class="h-12 w-12"
+                            class="h-[26px] w-[26px]"
                             viewBox="0 0 24 24"
                             fill="none"
                             stroke="currentColor"
@@ -314,7 +337,7 @@
                 >
                     {#snippet icon()}
                         <svg
-                            class="h-12 w-12"
+                            class="h-[26px] w-[26px]"
                             viewBox="0 0 24 24"
                             fill="none"
                             stroke="currentColor"
@@ -331,12 +354,16 @@
             {/if}
         {:else}
             <div
-                class="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2"
+                class="grid gap-3"
+                style:grid-template-columns="repeat(auto-fill, minmax({CARD_MIN_WIDTH[
+                    getCardSize()
+                ]}px, 1fr))"
             >
                 {#each filtered as fav, i (fav.path)}
                     <WallpaperTile
                         path={fav.path}
                         name={fav.data?.name || fav.data?.id || 'Wallpaper'}
+                        detail={fav.data?.resolution || ''}
                         isAdded={getAdditionalImages().includes(fav.path)}
                         isFavorited={true}
                         applying={getIsApplying()}
@@ -345,6 +372,13 @@
                         onpreview={() => handlePreview(i)}
                         onaddextra={() => handleAddExtra(fav)}
                         onfavorite={() => handleRemove(fav)}
+                        onvisit={fav.type === 'wallhaven' && fav.data?.id
+                            ? () =>
+                                  openURL(
+                                      `https://wallhaven.cc/w/${fav.data?.id}`
+                                  )
+                            : undefined}
+                        visitTitle="Open on wallhaven.cc"
                     >
                         {#snippet thumb()}
                             {#if getCachedThumbnail(fav.path)}
@@ -354,8 +388,9 @@
                                     class="h-full w-full object-cover"
                                 />
                             {:else}
-                                <span class="text-fg-dimmed text-[9px]"
-                                    >...</span
+                                <span
+                                    class="text-fg-dimmed font-mono text-[10px]"
+                                    >Loading…</span
                                 >
                             {/if}
                         {/snippet}

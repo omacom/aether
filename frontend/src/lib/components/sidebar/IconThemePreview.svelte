@@ -83,6 +83,8 @@
         </span>
     {/each}
     {#if loaded && samples.length === 0}
-        <span class="text-fg-dimmed ml-1 text-[9px]">Preview unavailable</span>
+        <span class="text-fg-dimmed ml-1 text-[10.5px]"
+            >Preview unavailable</span
+        >
     {/if}
 </span>

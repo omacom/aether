@@ -37,7 +37,7 @@
 {#if open}
     <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
     <div
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-8"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(5,5,9,0.86)] p-12"
         onclick={e => {
             if (e.target === e.currentTarget) onclose();
         }}
@@ -45,12 +45,12 @@
     >
         <!-- Close button -->
         <button
-            class="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center text-white/70 transition-colors hover:text-white"
+            class="border-white/14 absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center border bg-[rgba(12,12,16,0.5)] text-white/80 backdrop-blur-[8px] transition-colors hover:bg-[rgba(12,12,16,0.78)] hover:text-white"
             onclick={onclose}
             aria-label="Close preview"
         >
             <svg
-                class="h-5 w-5"
+                class="h-4 w-4"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -66,12 +66,12 @@
         <!-- Previous arrow -->
         {#if hasPrev}
             <button
-                class="absolute left-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center bg-black/40 text-white/70 transition-colors hover:bg-black/60 hover:text-white"
+                class="border-white/14 absolute left-4 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center border bg-[rgba(12,12,16,0.5)] text-white/80 backdrop-blur-[8px] transition-colors hover:bg-[rgba(12,12,16,0.78)] hover:text-white"
                 onclick={onprev}
                 aria-label="Previous image"
             >
                 <svg
-                    class="h-6 w-6"
+                    class="h-5 w-5"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -87,12 +87,12 @@
         <!-- Next arrow -->
         {#if hasNext}
             <button
-                class="absolute right-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center bg-black/40 text-white/70 transition-colors hover:bg-black/60 hover:text-white"
+                class="border-white/14 absolute right-4 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center border bg-[rgba(12,12,16,0.5)] text-white/80 backdrop-blur-[8px] transition-colors hover:bg-[rgba(12,12,16,0.78)] hover:text-white"
                 onclick={onnext}
                 aria-label="Next image"
             >
                 <svg
-                    class="h-6 w-6"
+                    class="h-5 w-5"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -108,7 +108,7 @@
         <img
             {src}
             {alt}
-            class="max-h-full max-w-full object-contain shadow-2xl"
+            class="max-h-full max-w-full object-contain shadow-[0_24px_64px_rgba(0,0,0,0.55)]"
         />
     </div>
 {/if}

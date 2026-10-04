@@ -68,7 +68,7 @@
     ></div>
     <div
         bind:this={menuEl}
-        class="bg-bg-secondary border-border fixed z-50 min-w-[180px] border py-1 shadow-[0_8px_24px_rgba(0,0,0,0.4)]"
+        class="bg-bg-secondary border-border shadow-(--shadow-panel) fixed z-50 min-w-[200px] border py-1"
         style:left="{pos.left}px"
         style:top="{pos.top}px"
         role="menu"
@@ -80,7 +80,7 @@
                 <button
                     type="button"
                     role="menuitem"
-                    class="flex w-full items-center justify-between gap-3 px-3 py-1.5 text-left text-[11px] transition-colors {item.danger
+                    class="flex h-[30px] w-full items-center justify-between gap-3 px-3 text-left text-[12px] transition-colors {item.danger
                         ? 'text-destructive/80 hover:text-destructive hover:bg-destructive/10'
                         : 'text-fg-secondary hover:text-fg-primary hover:bg-bg-hover'}"
                     onclick={() => {
@@ -90,7 +90,7 @@
                 >
                     <span>{item.label}</span>
                     {#if item.kbd}
-                        <span class="text-fg-dimmed font-mono text-[9px]"
+                        <span class="text-fg-dimmed font-mono text-[10.5px]"
                             >{item.kbd}</span
                         >
                     {/if}

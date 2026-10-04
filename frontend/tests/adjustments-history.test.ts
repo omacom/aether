@@ -203,7 +203,7 @@ test('Reset All restores semantic colors and curves as well as the palette, and 
     theme.setPaletteCurvePoints([[0.3, 0.6]]);
     const before = theme.getHistorySnapshot();
     const {target} = render(ColorAdjustments, {});
-    button(target, 'Reset All').click();
+    button(target, 'Reset').click();
     expect(theme.getPalette()).toEqual(base);
     expect(theme.getExtendedColors()).toEqual(ext);
     expect(theme.getPaletteCurvePoints()).toEqual([]);

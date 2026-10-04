@@ -204,6 +204,10 @@ func prepareThemeDir(targetDir string, state *ThemeState) (string, error) {
 		}
 		name := filepath.Base(src)
 		if previous, ok := seen[name]; ok {
+			// A repeated path is the same file, so stage it once.
+			if previous == src {
+				continue
+			}
 			return "", fmt.Errorf("background basename collision %q: %q and %q", name, previous, src)
 		}
 		seen[name] = src

@@ -34,15 +34,13 @@
                             return Math.max(0, Math.min(255, n));
                         };
                         var ov = isLightBg ? '0,0,0' : '255,255,255';
-                        // Mirrors OVERLAY_TOKENS in App.svelte. Light-bg
-                        // alphas are bumped so cards stay visually separable
-                        // from bg-primary; dark-bg alphas unchanged.
+                        // Mirrors OVERLAY_TOKENS in App.svelte.
                         var overlayTokens = [
-                            ['--color-bg-surface', 0.06, 0.04],
-                            ['--color-bg-elevated', 0.09, 0.07],
-                            ['--color-bg-hover', 0.07, 0.05],
-                            ['--color-border', 0.16, 0.08],
-                            ['--color-border-focus', 0.3, 0.18],
+                            ['--color-bg-surface', 0.03, 0.035],
+                            ['--color-bg-elevated', 0.065, 0.075],
+                            ['--color-bg-hover', 0.05, 0.055],
+                            ['--color-border', 0.11, 0.075],
+                            ['--color-border-focus', 0.28, 0.2],
                         ];
                         root.style.setProperty(
                             '--color-bg-primary',
@@ -85,11 +83,11 @@
                             var b = parseInt(hex.slice(4, 6), 16);
                             root.style.setProperty(
                                 '--color-fg-secondary',
-                                'rgba(' + r + ',' + g + ',' + b + ',0.75)'
+                                'rgba(' + r + ',' + g + ',' + b + ',0.74)'
                             );
                             root.style.setProperty(
                                 '--color-fg-dimmed',
-                                'rgba(' + r + ',' + g + ',' + b + ',0.5)'
+                                'rgba(' + r + ',' + g + ',' + b + ',0.52)'
                             );
                         }
                         document.body.style.color = colors.foreground;

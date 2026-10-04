@@ -156,3 +156,45 @@ func TestMetadataCacheExpiryAndEviction(t *testing.T) {
 		t.Fatal("clear preserves an entry")
 	}
 }
+
+func TestListImagesEscapesReservedFolderNames(t *testing.T) {
+	for _, test := range []struct{ url, wire string }{
+		{"https://github.com/owner/repo/tree/main/My%20Folder", "/repos/owner/repo/contents/My%20Folder?ref=main"},
+		{"https://github.com/owner/repo/tree/main/C%23/%231", "/repos/owner/repo/contents/C%23/%231?ref=main"},
+		{"https://github.com/owner/repo/tree/main/100%25/what%3F", "/repos/owner/repo/contents/100%25/what%3F?ref=main"},
+		{"https://github.com/owner/repo/tree/main/a%26b/C%2B%2B", "/repos/owner/repo/contents/a&b/C++?ref=main"},
+		{"https://github.com/owner/repo/%C3%A6%C3%B8%C3%A5", "/repos/owner/repo/contents/%C3%A6%C3%B8%C3%A5"},
+	} {
+		client := NewClient()
+		client.http.Transport = roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			if got := req.URL.RequestURI(); got != test.wire {
+				t.Errorf("%s requests %s, want %s", test.url, got, test.wire)
+			}
+			return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("[]"))}, nil
+		})
+		if _, err := client.ListImages(test.url); err != nil {
+			t.Errorf("%s: %v", test.url, err)
+		}
+	}
+}
+
+func TestListImagesKeepsOnlyValidFolderPageURLs(t *testing.T) {
+	client := NewClient()
+	client.http.Transport = roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		body := `[{"name":"tree","path":"tree","type":"dir","html_url":"https://github.com/owner/repo/tree/main/tree"},{"name":"away","path":"away","type":"dir","html_url":"https://example.com/owner/repo/tree/main/away"},{"name":"one.png","path":"one.png","type":"file","download_url":"https://raw.githubusercontent.com/owner/repo/main/one.png","html_url":"https://github.com/owner/repo/blob/main/one.png"}]`
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(body))}, nil
+	})
+	result, err := client.ListImages("https://github.com/owner/repo")
+	if err != nil || len(result.Items) != 3 {
+		t.Fatalf("result = %+v, error = %v", result, err)
+	}
+	if got := result.Items[0].HTMLURL; got != "https://github.com/owner/repo/tree/main/tree" {
+		t.Errorf("folder page URL = %q", got)
+	}
+	if got := result.Items[1].HTMLURL; got != "" {
+		t.Errorf("foreign folder page URL = %q", got)
+	}
+	if got := result.Items[2].HTMLURL; got != "" {
+		t.Errorf("file page URL = %q", got)
+	}
+}

@@ -2,21 +2,14 @@
     import type {main} from '../../../../wailsjs/go/models';
     import {
         getIsApplying,
-        setPalette,
-        setExtendedColors,
         getPalette,
         getWallpaperPath,
         getWallpaperBlur,
-        setWallpaperBlur,
-        setWallpaperPath,
         getLightMode,
-        setLightMode,
         getAdditionalImages,
         getExtendedColors,
         getNativeColors,
         getIconTheme,
-        setIconTheme,
-        setNativeColors,
         getAppOverrides,
         isDirty,
         reset as resetTheme,
@@ -32,6 +25,8 @@
         getLivePending,
         getTargetsVisible,
         toggleTargetsVisible,
+        getSidebarVisible,
+        toggleSidebar,
     } from '$lib/stores/ui.svelte';
     import {getApiKey, getTotalResults} from '$lib/stores/wallhaven.svelte';
     import {
@@ -42,10 +37,14 @@
         undoAction,
         redoAction,
     } from '$lib/actions/themeActions';
+    import {importThemeFile} from '$lib/actions/importActions';
     import SaveDialog from '$lib/components/blueprints/SaveDialog.svelte';
     import ConfirmDialog from '$lib/components/shared/ConfirmDialog.svelte';
     import KbdInverse from '$lib/components/shared/KbdInverse.svelte';
     import Modal from '$lib/components/shared/Modal.svelte';
+    import DialogHeader from '$lib/components/shared/DialogHeader.svelte';
+    import DialogFooter from '$lib/components/shared/DialogFooter.svelte';
+    import Switch from '$lib/components/shared/Switch.svelte';
     import {
         getOmarchyAvailable,
         initOmarchyCapabilities,
@@ -53,6 +52,7 @@
 
     let showImportMenu = $state(false);
     let showApplyMenu = $state(false);
+    let showMoreMenu = $state(false);
     let showExportDialog = $state(false);
     let showSaveDialog = $state(false);
     let confirmKind = $state<'revert' | 'reset' | null>(null);
@@ -141,6 +141,22 @@
     }
 
     let exportApps = $state<Record<string, boolean>>(createDefaultExportApps());
+    let exportAppCount = $derived(
+        exportAppGroups.reduce((sum, group) => sum + group.apps.length, 0)
+    );
+    let exportSelectedCount = $derived(
+        Object.values(exportApps).filter(Boolean).length
+    );
+
+    function setAllExportApps(enabled: boolean) {
+        for (const key of Object.keys(exportApps)) exportApps[key] = enabled;
+    }
+
+    function closeMenus() {
+        showImportMenu = false;
+        showApplyMenu = false;
+        showMoreMenu = false;
+    }
 
     let undoEnabled = $derived(getCanUndo());
     let redoEnabled = $derived(getCanRedo());
@@ -149,6 +165,8 @@
     let applying = $derived(getIsApplying());
     let dirty = $derived(isDirty());
     let targetsVisible = $derived(getTargetsVisible());
+    let sidebarVisible = $derived(getSidebarVisible());
+    let menuOpen = $derived(showImportMenu || showApplyMenu || showMoreMenu);
     let overrideCount = $derived(
         Object.values(
             isOmarchy ? getNativeAppOverrides() : getAppOverrides()
@@ -229,413 +247,529 @@
         }
     }
 
-    async function handleImport(fileType: string) {
-        showImportMenu = false;
+    const importOptions = [
+        {type: 'base16', label: 'Base16', ext: '.yaml'},
+        {type: 'toml', label: 'Colors', ext: '.toml'},
+        {type: 'blueprint', label: 'Blueprint', ext: '.json'},
+    ] as const;
+
+    async function rescanLocal() {
         try {
-            const {ImportFileDialog} = await import(
+            const {ScanLocalWallpapers} = await import(
                 '../../../../wailsjs/go/main/App'
             );
-            const result = await ImportFileDialog(fileType);
-            if (result?.colors?.length >= 16) {
-                setPalette(result.colors);
-                setExtendedColors(result.extendedColors ?? {});
-                setNativeColors(result.nativeColors ?? {});
-                setIconTheme(result.iconTheme, true);
-                if (result.wallpaperPath) {
-                    setWallpaperPath(result.wallpaperPath);
-                }
-                setWallpaperBlur(!!result.wallpaperBlur, true);
-                if (result.lightMode !== undefined) {
-                    setLightMode(result.lightMode);
-                }
-                showToast(`Imported: ${result.name || fileType}`);
-            } else {
-                showToast('Import returned no colors');
-            }
-        } catch (e: any) {
-            console.error('Import error:', e);
-            if (e?.message?.includes('cancelled')) return;
-            showToast('Import failed: ' + (e?.message || JSON.stringify(e)));
+            await ScanLocalWallpapers();
+            showToast('Wallpapers rescanned');
+            // Force LocalBrowser to remount so it re-reads the file list
+            setActiveTab('editor');
+            setTimeout(() => setActiveTab('local'), 0);
+        } catch {
+            showToast('Failed to rescan');
         }
     }
 </script>
 
-{#snippet goToEditor()}
-    {#if wallpaperSelected}
-        <button
-            class="bg-accent text-accent-fg hover:bg-accent-hover px-4 py-1.5 text-[11px] font-medium transition-colors duration-100"
-            onclick={() => setActiveTab('editor')}>Go to Editor</button
+<svelte:window
+    onkeydown={e => {
+        if (e.key === 'Escape' && menuOpen) closeMenus();
+    }}
+/>
+
+{#snippet divider()}
+    <span class="bg-border mx-1 h-[18px] w-px shrink-0" aria-hidden="true"
+    ></span>
+{/snippet}
+
+{#snippet menuPanel(
+    align: 'left' | 'right',
+    widthClass: string,
+    items: import('svelte').Snippet
+)}
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <div
+        class="fixed inset-0 z-30"
+        onclick={closeMenus}
+        role="presentation"
+    ></div>
+    <div
+        class="bg-bg-secondary border-border shadow-(--shadow-panel) absolute bottom-[calc(100%+8px)] z-40 border py-1 {widthClass}"
+        class:left-0={align === 'left'}
+        class:right-0={align === 'right'}
+        role="menu"
+    >
+        {@render items()}
+    </div>
+{/snippet}
+
+{#snippet menuItem(label: string, hint: string, run: () => void)}
+    <button
+        type="button"
+        class="text-fg-secondary hover:bg-bg-hover hover:text-fg-primary flex h-[30px] w-full items-center justify-between gap-4 px-3 text-left text-[12px] transition-colors"
+        role="menuitem"
+        onclick={() => {
+            closeMenus();
+            run();
+        }}
+    >
+        <span>{label}</span>
+        <span class="text-fg-dimmed font-mono text-[10.5px] font-medium"
+            >{hint}</span
         >
-    {/if}
+    </button>
+{/snippet}
+
+{#snippet checkbox(label: string, checked: boolean, toggle: () => void)}
+    <button
+        type="button"
+        role="checkbox"
+        aria-checked={checked}
+        class="text-fg-secondary hover:text-fg-primary flex h-[26px] items-center gap-2 text-left text-[12px] transition-colors"
+        onclick={toggle}
+    >
+        <span
+            class="text-accent-fg flex h-3.5 w-3.5 shrink-0 items-center justify-center border transition-colors
+                {checked ? 'bg-accent border-accent' : 'border-border-focus'}"
+        >
+            {#if checked}
+                <svg
+                    class="h-2.5 w-2.5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg
+                >
+            {/if}
+        </span>
+        <span class="truncate">{label}</span>
+    </button>
+{/snippet}
+
+{#snippet chevronUp(sizeClass: string)}
+    <svg
+        class={sizeClass}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"><path d="m6 15 6-6 6 6"></path></svg
+    >
 {/snippet}
 
 <footer
-    class="bg-bg-secondary border-border flex h-10 shrink-0 items-center gap-3 border-t px-3"
+    class="bg-bg-secondary border-border relative z-[5] flex h-12 shrink-0 items-center gap-1 border-t px-2.5"
 >
-    <div class="text-fg-dimmed flex shrink-0 items-center gap-2 text-[10px]">
-        <span title="Aether version">v{__APP_VERSION__}</span>
-        {#if overrideCount > 0}
-            <span class="text-accent" title="Active per-app template overrides">
-                {overrideCount} override{overrideCount === 1 ? '' : 's'}
-            </span>
-        {/if}
-        {#if activeTab === 'editor' && !isOmarchy}
-            <button
-                class="hover:text-fg-secondary transition-colors {targetsVisible
-                    ? 'text-fg-secondary'
-                    : ''}"
-                onclick={toggleTargetsVisible}
-                title={targetsVisible
-                    ? 'Hide the Targets strip'
-                    : 'Show the Targets strip'}
-                aria-pressed={targetsVisible}
+    {#if activeTab === 'editor'}
+        <button
+            type="button"
+            class="text-fg-dimmed hover:text-fg-primary hover:bg-bg-hover flex h-[30px] w-[30px] items-center justify-center transition-colors"
+            onclick={toggleSidebar}
+            title={sidebarVisible
+                ? 'Hide sidebar (Ctrl+B)'
+                : 'Show sidebar (Ctrl+B)'}
+            aria-label="Toggle sidebar"
+            aria-pressed={sidebarVisible}
+        >
+            <svg
+                class="h-[15px] w-[15px]"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
             >
-                Targets
-            </button>
-        {/if}
-    </div>
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <line x1="9" y1="3" x2="9" y2="21" />
+            </svg>
+        </button>
+        {@render divider()}
 
-    <div class="flex min-w-0 flex-1 items-center justify-between gap-1">
-        {#if activeTab === 'editor'}
-            <div class="flex items-center gap-1">
-                <button
-                    class="text-fg-dimmed hover:text-fg-secondary hover:bg-bg-hover px-2 py-1 text-[11px] transition-colors duration-100"
-                    onclick={() => {
-                        showExportDialog = true;
-                    }}>Export</button
+        <div class="relative">
+            <button
+                type="button"
+                class="text-fg-secondary hover:bg-bg-hover hover:text-fg-primary flex h-[30px] items-center gap-[5px] px-2.5 text-[12px] transition-colors"
+                onclick={() => {
+                    const open = !showImportMenu;
+                    closeMenus();
+                    showImportMenu = open;
+                }}
+                aria-haspopup="menu"
+                aria-expanded={showImportMenu}
+                >Import{@render chevronUp('h-[11px] w-[11px]')}</button
+            >
+            {#if showImportMenu}
+                {#snippet importItems()}
+                    {#each importOptions as option}
+                        {@render menuItem(option.label, option.ext, () =>
+                            importThemeFile(option.type)
+                        )}
+                    {/each}
+                {/snippet}
+                {@render menuPanel('left', 'min-w-[200px]', importItems)}
+            {/if}
+        </div>
+        <button
+            type="button"
+            class="text-fg-secondary hover:bg-bg-hover hover:text-fg-primary h-[30px] px-2.5 text-[12px] transition-colors"
+            onclick={() => {
+                closeMenus();
+                showExportDialog = true;
+            }}>Export</button
+        >
+        <button
+            type="button"
+            class="text-fg-secondary hover:bg-bg-hover hover:text-fg-primary h-[30px] px-2.5 text-[12px] transition-colors"
+            onclick={() => {
+                closeMenus();
+                showSaveDialog = true;
+            }}>Save</button
+        >
+        {@render divider()}
+        <button
+            type="button"
+            class="text-fg-secondary hover:bg-bg-hover hover:text-fg-primary disabled:text-fg-dimmed flex h-[30px] w-[30px] items-center justify-center transition-colors disabled:cursor-default disabled:bg-transparent disabled:opacity-45"
+            onclick={undoAction}
+            disabled={!undoEnabled}
+            aria-label="Undo"
+            title="Undo (Ctrl+Z)"
+        >
+            <svg
+                class="h-[15px] w-[15px]"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+                ><path d="M9 14 4 9l5-5 M4 9h10.5a5.5 5.5 0 0 1 0 11H11"
+                ></path></svg
+            >
+        </button>
+        <button
+            type="button"
+            class="text-fg-secondary hover:bg-bg-hover hover:text-fg-primary disabled:text-fg-dimmed flex h-[30px] w-[30px] items-center justify-center transition-colors disabled:cursor-default disabled:bg-transparent disabled:opacity-45"
+            onclick={redoAction}
+            disabled={!redoEnabled}
+            aria-label="Redo"
+            title="Redo (Ctrl+Shift+Z)"
+        >
+            <svg
+                class="h-[15px] w-[15px]"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+                ><path d="m15 14 5-5-5-5 M20 9H9.5a5.5 5.5 0 0 0 0 11H13"
+                ></path></svg
+            >
+        </button>
+
+        <div
+            class="text-fg-dimmed flex min-w-0 flex-1 items-center justify-center gap-3.5 overflow-hidden whitespace-nowrap text-[11.5px]"
+        >
+            {#if dirty}
+                <span class="text-fg-secondary flex items-center gap-1.5">
+                    <span class="bg-warning h-1.5 w-1.5" aria-hidden="true"
+                    ></span>
+                    Unsaved changes
+                </span>
+            {/if}
+            {#if overrideCount > 0}
+                <span
+                    class="text-accent"
+                    title="Active per-app template overrides"
                 >
-
-                <button
-                    class="text-fg-dimmed hover:text-fg-secondary hover:bg-bg-hover px-2 py-1 text-[11px] transition-colors duration-100"
-                    onclick={() => (showSaveDialog = true)}>Save</button
-                >
-
-                <div class="relative">
-                    <button
-                        class="text-fg-dimmed hover:text-fg-secondary hover:bg-bg-hover px-2 py-1 text-[11px] transition-colors duration-100"
-                        onclick={() => (showImportMenu = !showImportMenu)}
-                        >Import</button
-                    >
-
-                    {#if showImportMenu}
-                        <!-- svelte-ignore a11y_no_static_element_interactions -->
-                        <!-- svelte-ignore a11y_click_events_have_key_events -->
-                        <div
-                            class="fixed inset-0 z-30"
-                            onclick={() => (showImportMenu = false)}
-                            role="presentation"
-                        ></div>
-                        <div
-                            class="bg-bg-secondary border-border absolute bottom-full left-0 z-40 mb-1 min-w-[140px] border shadow-lg"
-                        >
-                            <button
-                                class="text-fg-secondary hover:text-fg-primary hover:bg-bg-hover w-full px-3 py-1.5 text-left text-[11px] transition-colors"
-                                onclick={() => handleImport('base16')}
-                                >Base16 (.yaml)</button
-                            >
-                            <button
-                                class="text-fg-secondary hover:text-fg-primary hover:bg-bg-hover w-full px-3 py-1.5 text-left text-[11px] transition-colors"
-                                onclick={() => handleImport('toml')}
-                                >Colors (.toml)</button
-                            >
-                            <button
-                                class="text-fg-secondary hover:text-fg-primary hover:bg-bg-hover w-full px-3 py-1.5 text-left text-[11px] transition-colors"
-                                onclick={() => handleImport('blueprint')}
-                                >Blueprint (.json)</button
-                            >
-                        </div>
-                    {/if}
-                </div>
-
-                <div class="bg-border mx-1 h-4 w-px"></div>
-
-                <button
-                    class="text-fg-dimmed hover:text-fg-secondary hover:bg-bg-hover px-2 py-1 text-[11px] transition-colors duration-100 disabled:cursor-default disabled:opacity-25"
-                    onclick={undoAction}
-                    disabled={!undoEnabled}
-                    title="Undo (Ctrl+Z)">Undo</button
-                >
-                <button
-                    class="text-fg-dimmed hover:text-fg-secondary hover:bg-bg-hover px-2 py-1 text-[11px] transition-colors duration-100 disabled:cursor-default disabled:opacity-25"
-                    onclick={redoAction}
-                    disabled={!redoEnabled}
-                    title="Redo (Ctrl+Shift+Z)">Redo</button
-                >
-            </div>
-
-            <div class="flex items-center gap-1">
-                <button
-                    class="text-destructive/60 hover:text-destructive hover:bg-bg-hover px-2 py-1 text-[11px] transition-colors duration-100"
-                    onclick={() => (confirmKind = 'revert')}
-                    title="Revert system to its default theme">Revert</button
-                >
-                <button
-                    class="text-destructive/60 hover:text-destructive hover:bg-bg-hover px-2 py-1 text-[11px] transition-colors duration-100"
-                    onclick={() => (confirmKind = 'reset')}
-                    title="Reset the editor's in-memory state">Reset</button
-                >
-
-                <div class="bg-border mx-1 h-4 w-px"></div>
-
+                    {overrideCount} override{overrideCount === 1 ? '' : 's'}
+                </span>
+            {/if}
+            {#if !isOmarchy}
                 <button
                     type="button"
-                    onclick={() => setLiveApply(!liveApply)}
-                    class="flex items-center gap-1.5 border px-2 py-0.5 text-[11px] transition-colors duration-100 {liveApply
-                        ? 'bg-accent-muted border-accent text-accent'
-                        : 'border-border text-fg-dimmed hover:text-fg-secondary hover:border-border-focus'}"
-                    role="switch"
-                    aria-checked={liveApply}
-                    title={!liveApply
-                        ? 'Auto-apply theme on every edit (debounced)'
-                        : livePending
-                          ? 'Live preview — syncing changes…'
-                          : 'Live preview on — every edit auto-applies (Ctrl+Z to revert)'}
+                    class="hover:text-fg-primary transition-colors {targetsVisible
+                        ? 'text-fg-secondary'
+                        : ''}"
+                    onclick={toggleTargetsVisible}
+                    title={targetsVisible
+                        ? 'Hide the Targets strip'
+                        : 'Show the Targets strip'}
+                    aria-pressed={targetsVisible}
                 >
-                    <span class="relative inline-flex h-1.5 w-1.5">
-                        {#if liveApply && livePending}
-                            <span
-                                class="bg-accent absolute inline-flex h-full w-full animate-ping opacity-70"
-                            ></span>
-                        {/if}
-                        <span
-                            class="relative inline-flex h-1.5 w-1.5 {liveApply
-                                ? 'bg-accent'
-                                : 'bg-fg-dimmed/40'}"
-                        ></span>
-                    </span>
-                    {liveApply && livePending ? 'Syncing' : 'Live'}
+                    Targets
                 </button>
+            {/if}
+            <span title="Aether version">v{__APP_VERSION__}</span>
+        </div>
 
-                <div class="relative inline-flex">
-                    <button
-                        class="bg-accent text-accent-fg hover:bg-accent-hover relative inline-flex items-center gap-2 px-4 py-1.5 text-[11px] font-medium transition-colors duration-100 disabled:opacity-50"
-                        onclick={handleApply}
-                        disabled={applying}
-                        title={dirty
-                            ? 'Apply updates to the saved theme folder (Ctrl+Enter applies only)'
-                            : 'Apply theme (Ctrl+Enter applies only)'}
-                    >
-                        <span>{applying ? 'Applying...' : 'Apply Theme'}</span>
-                        {#if !applying}
-                            <KbdInverse>Ctrl+↵</KbdInverse>
-                        {/if}
-                        {#if dirty && !applying}
-                            <span
-                                class="bg-warning absolute -right-1 -top-1 h-2 w-2 ring-2 ring-[var(--color-bg-secondary)]"
-                                aria-label="Unsaved changes"
-                            ></span>
-                        {/if}
-                    </button>
-                    <button
-                        type="button"
-                        class="bg-accent text-accent-fg hover:bg-accent-hover border-accent-fg/20 border-l px-2 transition-colors disabled:opacity-50"
-                        onclick={() => (showApplyMenu = !showApplyMenu)}
-                        disabled={applying}
-                        aria-label="More apply options"
-                        title="More apply options"
-                    >
-                        <svg
-                            class="h-3 w-3"
-                            viewBox="0 0 12 12"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="1.5"
-                            aria-hidden="true"
+        <div class="relative">
+            <button
+                type="button"
+                class="text-fg-secondary hover:bg-bg-hover hover:text-fg-primary flex h-[30px] w-[30px] items-center justify-center transition-colors"
+                onclick={() => {
+                    const open = !showMoreMenu;
+                    closeMenus();
+                    showMoreMenu = open;
+                }}
+                aria-label="More actions"
+                aria-haspopup="menu"
+                aria-expanded={showMoreMenu}
+                title="More actions"
+            >
+                <svg
+                    class="h-4 w-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                    aria-hidden="true"
+                    ><path d="M5 12h.01M12 12h.01M19 12h.01"></path></svg
+                >
+            </button>
+            {#if showMoreMenu}
+                {#snippet moreItems()}
+                    {#each [{kind: 'revert', label: 'Revert system theme…', hint: 'Roll the desktop back to its default theme'}, {kind: 'reset', label: 'Reset editor…', hint: 'Clear palette, wallpaper and overrides'}] as const as item}
+                        <button
+                            type="button"
+                            class="hover:bg-bg-hover flex w-full flex-col gap-px px-3 py-2 text-left transition-colors"
+                            role="menuitem"
+                            onclick={() => {
+                                closeMenus();
+                                confirmKind = item.kind;
+                            }}
                         >
-                            <path d="m3 4.5 3 3 3-3"></path>
-                        </svg>
-                    </button>
-                    {#if showApplyMenu}
-                        <!-- svelte-ignore a11y_no_static_element_interactions -->
-                        <!-- svelte-ignore a11y_click_events_have_key_events -->
-                        <div
-                            class="fixed inset-0 z-30"
-                            onclick={() => (showApplyMenu = false)}
-                            role="presentation"
-                        ></div>
-                        <div
-                            class="bg-bg-secondary border-border absolute bottom-full right-0 z-40 mb-1 min-w-[180px] border shadow-lg"
-                        >
-                            <button
-                                class="text-fg-secondary hover:text-fg-primary hover:bg-bg-hover w-full px-3 py-1.5 text-left text-[11px] transition-colors"
-                                onclick={() => {
-                                    showApplyMenu = false;
-                                    saveThemeAsNew();
-                                }}>Save as new folder...</button
+                            <span class="text-destructive text-[12px]"
+                                >{item.label}</span
                             >
-                            <button
-                                class="text-fg-secondary hover:text-fg-primary hover:bg-bg-hover w-full px-3 py-1.5 text-left text-[11px] transition-colors"
-                                onclick={() => {
-                                    showApplyMenu = false;
-                                    applyTheme();
-                                }}>Apply only</button
+                            <span class="text-fg-dimmed text-[11px]"
+                                >{item.hint}</span
                             >
-                        </div>
-                    {/if}
-                </div>
-            </div>
-        {:else if activeTab === 'wallhaven'}
-            <div class="flex items-center gap-2">
+                        </button>
+                    {/each}
+                {/snippet}
+                {@render menuPanel('right', 'w-[260px]', moreItems)}
+            {/if}
+        </div>
+        {@render divider()}
+
+        <Switch
+            checked={liveApply}
+            onchange={setLiveApply}
+            size="sm"
+            class="hover:bg-bg-hover h-[30px] pl-2 pr-2.5 text-[12px] transition-colors {liveApply
+                ? 'text-fg-primary'
+                : 'text-fg-dimmed'}"
+            title={!liveApply
+                ? 'Auto-apply theme on every edit (debounced)'
+                : livePending
+                  ? 'Live preview: the latest changes are syncing'
+                  : 'Live preview on. Every edit applies automatically. Press Ctrl+Z to revert.'}
+        >
+            <span class="flex items-center gap-1.5">
+                {liveApply && livePending ? 'Syncing' : 'Live'}
+                {#if liveApply && livePending}
+                    <span
+                        class="bg-accent h-1.5 w-1.5 animate-pulse"
+                        aria-hidden="true"
+                    ></span>
+                {/if}
+            </span>
+        </Switch>
+
+        <div class="relative ml-1 flex">
+            <button
+                type="button"
+                class="bg-accent text-accent-fg hover:bg-accent-hover flex h-8 items-center gap-2.5 px-3.5 text-[12px] font-semibold transition-colors disabled:opacity-50"
+                onclick={handleApply}
+                disabled={applying}
+                title={dirty
+                    ? 'Apply updates to the saved theme folder (Ctrl+Enter applies only)'
+                    : 'Apply theme (Ctrl+Enter applies only)'}
+            >
+                <span>{applying ? 'Applying…' : 'Apply theme'}</span>
+                {#if !applying}
+                    <KbdInverse>Ctrl ↵</KbdInverse>
+                {/if}
+            </button>
+            <button
+                type="button"
+                class="bg-accent text-accent-fg hover:bg-accent-hover flex h-8 w-7 items-center justify-center shadow-[inset_1px_0_0_rgba(0,0,0,0.18)] transition-colors disabled:opacity-50"
+                onclick={() => {
+                    const open = !showApplyMenu;
+                    closeMenus();
+                    showApplyMenu = open;
+                }}
+                disabled={applying}
+                aria-label="More apply options"
+                aria-haspopup="menu"
+                aria-expanded={showApplyMenu}
+                title="More apply options"
+            >
+                {@render chevronUp('h-3 w-3')}
+            </button>
+            {#if dirty && !applying}
+                <span
+                    class="bg-warning absolute -right-[3px] -top-[3px] h-2 w-2 shadow-[0_0_0_2px_var(--color-bg-secondary)]"
+                    aria-label="Unsaved changes"
+                ></span>
+            {/if}
+            {#if showApplyMenu}
+                {#snippet applyItems()}
+                    {@render menuItem(
+                        'Save as new folder…',
+                        'Ctrl J',
+                        saveThemeAsNew
+                    )}
+                    {@render menuItem('Apply only', 'Ctrl ↵', applyTheme)}
+                {/snippet}
+                {@render menuPanel('right', 'min-w-[220px]', applyItems)}
+            {/if}
+        </div>
+    {:else}
+        <div
+            class="text-fg-dimmed flex min-w-0 flex-1 items-center gap-3.5 pl-1 text-[11.5px]"
+        >
+            {#if activeTab === 'wallhaven'}
                 {#if apiKeySet}
-                    <span class="text-success text-[11px]">API key set</span>
+                    <span class="text-success">API key set</span>
                 {:else}
-                    <span class="text-fg-dimmed text-[11px]"
-                        >No API key (set in filters)</span
-                    >
+                    <span>No API key. Add one under the search filters.</span>
                 {/if}
                 {#if totalResults > 0}
-                    <div class="bg-border mx-1 h-4 w-px"></div>
-                    <span class="text-fg-dimmed text-[11px]"
-                        >{totalResults.toLocaleString()} results</span
-                    >
+                    <span>{totalResults.toLocaleString()} results</span>
                 {/if}
-            </div>
-            <div class="flex items-center gap-1">
-                {@render goToEditor()}
-            </div>
-        {:else if activeTab === 'local'}
-            <div class="flex items-center gap-1">
+            {:else if activeTab === 'github'}
+                <span>Public repositories</span>
+            {:else if activeTab === 'local'}
                 <button
-                    class="text-fg-dimmed hover:text-fg-secondary hover:bg-bg-hover px-2 py-1 text-[11px] transition-colors duration-100"
-                    onclick={async () => {
-                        try {
-                            const {ScanLocalWallpapers} = await import(
-                                '../../../../wailsjs/go/main/App'
-                            );
-                            await ScanLocalWallpapers();
-                            showToast('Wallpapers rescanned');
-                            // Force LocalBrowser to remount so it re-reads the file list
-                            setActiveTab('editor');
-                            setTimeout(() => setActiveTab('local'), 0);
-                        } catch {
-                            showToast('Failed to rescan');
-                        }
-                    }}>Rescan</button
+                    type="button"
+                    class="text-fg-secondary hover:text-fg-primary transition-colors"
+                    onclick={rescanLocal}>Rescan</button
                 >
-            </div>
-            <div class="flex items-center gap-1">
-                {@render goToEditor()}
-            </div>
-        {:else if activeTab === 'favorites'}
-            <div class="flex items-center gap-1">
-                <span class="text-fg-dimmed text-[11px]"
-                    >Favorited wallpapers</span
-                >
-            </div>
-            <div class="flex items-center gap-1">
-                {@render goToEditor()}
-            </div>
-        {:else if activeTab === 'blueprints'}
-            <div class="flex items-center gap-1">
-                <button
-                    class="text-fg-dimmed hover:text-fg-secondary hover:bg-bg-hover px-2 py-1 text-[11px] transition-colors duration-100"
-                    onclick={() => (showSaveDialog = true)}>Save Current</button
-                >
-                <button
-                    class="text-fg-dimmed hover:text-fg-secondary hover:bg-bg-hover px-2 py-1 text-[11px] transition-colors duration-100"
-                    onclick={() => handleImport('blueprint')}
-                    >Import Blueprint</button
-                >
-            </div>
-            <div class="flex items-center gap-1">
-                {@render goToEditor()}
-            </div>
-        {:else if activeTab === 'system'}
-            <div class="flex items-center gap-1">
-                <span class="text-fg-dimmed text-[11px]">Native themes</span>
-            </div>
-            <div class="flex items-center gap-1">
-                {@render goToEditor()}
-            </div>
-        {:else if activeTab === 'settings'}
-            <div class="flex items-center gap-1">
-                <span class="text-fg-dimmed text-[11px]">App settings</span>
-            </div>
-            <div class="flex items-center gap-1">
-                {@render goToEditor()}
-            </div>
-        {:else if activeTab === 'about'}
-            <div class="flex items-center gap-1">
-                <span class="text-fg-dimmed text-[11px]">About</span>
-            </div>
-            <div class="flex items-center gap-1">
-                {@render goToEditor()}
-            </div>
-        {/if}
-    </div>
+            {:else if activeTab === 'favorites'}
+                <span>Favorited wallpapers</span>
+            {:else if activeTab === 'blueprints'}
+                <span>Saved themes</span>
+            {:else if activeTab === 'system'}
+                <span>Native themes</span>
+            {:else if activeTab === 'settings'}
+                <span>App settings</span>
+            {:else if activeTab === 'about'}
+                <span>v{__APP_VERSION__}</span>
+            {/if}
+        </div>
+        <button
+            type="button"
+            class="bg-accent text-accent-fg hover:bg-accent-hover h-8 px-3.5 text-[12px] font-semibold transition-colors"
+            onclick={() => setActiveTab('editor')}>Go to editor</button
+        >
+    {/if}
 </footer>
 
 <Modal
     open={showExportDialog}
     onclose={() => (showExportDialog = false)}
-    panelClass="w-80 max-h-[80vh] overflow-y-auto"
+    onenter={handleExport}
+    bare
+    label="Export theme"
+    panelClass="flex w-[460px] max-h-[85vh] flex-col"
 >
-    <h3 class="text-fg-primary mb-3 text-[12px] font-medium">Export Theme</h3>
-    <input
-        bind:this={exportNameInput}
-        type="text"
-        class="bg-bg-surface border-border text-fg-primary focus:border-border-focus mb-3 w-full border px-2 py-1.5 text-[11px] outline-none"
-        placeholder="Theme name..."
-        bind:value={exportName}
-        onkeydown={e => {
-            if (e.key === 'Enter') handleExport();
-        }}
-        aria-label="Theme name"
+    <DialogHeader
+        title="Export theme"
+        onclose={() => (showExportDialog = false)}
     />
-    {#if isOmarchy}
-        <p class="text-fg-dimmed mb-3 text-[11px] leading-relaxed">
-            Exports a native colors.toml theme. Omarchy generates and reloads
-            application themes when it is applied.
-        </p>
-    {:else}
-        <div class="mb-3 flex flex-col gap-2.5">
-            {#each exportAppGroups as group}
-                <div>
-                    <span
-                        class="text-fg-dimmed text-[10px] uppercase tracking-wide"
-                        >{group.label}</span
-                    >
-                    <div class="mt-1 grid grid-cols-2 gap-x-3 gap-y-1">
-                        {#each group.apps as app}
-                            <label
-                                class="text-fg-secondary flex cursor-pointer items-center gap-1.5 text-[11px]"
-                            >
-                                <input
-                                    type="checkbox"
-                                    bind:checked={exportApps[app.key]}
-                                    class="accent-accent"
-                                />
-                                {app.name}
-                            </label>
-                        {/each}
-                    </div>
-                </div>
-            {/each}
-        </div>
-    {/if}
-    {#if isOmarchy}
-        <label
-            class="text-fg-secondary mb-3 flex cursor-pointer items-center gap-1.5 text-[11px]"
-        >
+    <div
+        class="flex min-h-0 flex-col gap-[18px] overflow-y-auto px-5 py-[18px]"
+    >
+        <label class="flex flex-col gap-1.5">
+            <span class="text-fg-secondary text-[12px] font-medium"
+                >Theme name</span
+            >
             <input
-                type="checkbox"
-                bind:checked={installToOmarchy}
-                class="accent-accent"
+                bind:this={exportNameInput}
+                type="text"
+                class="bg-bg-primary border-border text-fg-primary focus:border-accent h-[34px] border px-2.5 text-[13px] outline-none transition-colors"
+                placeholder="e.g. Midnight Aurora"
+                bind:value={exportName}
             />
-            Install as Omarchy theme
         </label>
-    {/if}
-    <div class="flex justify-end gap-2">
+        {#if isOmarchy}
+            <p class="text-fg-dimmed text-[12px] leading-relaxed">
+                Exports a native colors.toml theme. Omarchy generates and
+                reloads application themes when it is applied.
+            </p>
+            {@render checkbox(
+                'Install as Omarchy theme',
+                installToOmarchy,
+                () => (installToOmarchy = !installToOmarchy)
+            )}
+        {:else}
+            <div class="flex flex-col gap-3.5">
+                <div class="flex items-baseline justify-between">
+                    <span class="text-fg-secondary text-[12px] font-medium"
+                        >Include apps</span
+                    >
+                    <span class="text-fg-dimmed text-[11.5px]">
+                        {exportSelectedCount} of {exportAppCount} selected ·
+                        <button
+                            type="button"
+                            class="text-accent hover:text-accent-hover"
+                            onclick={() => setAllExportApps(true)}>All</button
+                        >
+                        ·
+                        <button
+                            type="button"
+                            class="text-accent hover:text-accent-hover"
+                            onclick={() => setAllExportApps(false)}>None</button
+                        >
+                    </span>
+                </div>
+                {#each exportAppGroups as group}
+                    <div>
+                        <div
+                            class="text-fg-dimmed mb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                        >
+                            {group.label}
+                        </div>
+                        <div class="grid grid-cols-3 gap-x-2.5 gap-y-0.5">
+                            {#each group.apps as app}
+                                {@render checkbox(
+                                    app.name,
+                                    exportApps[app.key],
+                                    () =>
+                                        (exportApps[app.key] =
+                                            !exportApps[app.key])
+                                )}
+                            {/each}
+                        </div>
+                    </div>
+                {/each}
+            </div>
+        {/if}
+    </div>
+    <DialogFooter>
         <button
-            class="text-fg-dimmed hover:text-fg-secondary px-3 py-1.5 text-[11px] transition-colors"
+            type="button"
+            class="text-fg-secondary hover:bg-bg-hover hover:text-fg-primary h-8 px-3.5 text-[12px] transition-colors"
             onclick={() => (showExportDialog = false)}>Cancel</button
         >
         <button
-            class="bg-accent text-accent-fg hover:bg-accent-hover px-3 py-1.5 text-[11px] font-medium transition-colors disabled:opacity-50"
+            type="button"
+            class="bg-accent text-accent-fg hover:bg-accent-hover h-8 px-4 text-[12px] font-semibold transition-colors disabled:opacity-50"
             onclick={handleExport}
             disabled={!exportName.trim()}>Export</button
         >
-    </div>
+    </DialogFooter>
 </Modal>
 
 <SaveDialog

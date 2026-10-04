@@ -21,31 +21,35 @@
 
 {#if state.active}
     <!--
-      Sits directly above the ActionBar footer (h-10). App chrome, not an image
+      Sits directly above the ActionBar footer (h-12). App chrome, not an image
       overlay, so it uses theme tokens and stays legible in light mode.
     -->
     <div
-        class="bg-bg-secondary border-border fixed bottom-10 left-0 right-0 z-[90] border-t"
+        class="bg-bg-secondary border-border fixed bottom-12 left-0 right-0 z-[90] border-t"
     >
-        <div class="flex items-center gap-3 px-3 py-1.5">
-            <span class="text-fg-secondary shrink-0 text-[11px]">
+        <div class="flex h-10 items-center gap-3 px-4">
+            <span class="text-fg-secondary shrink-0 text-[12px]">
                 {label}
-                {#if state.total > 0}{state.index}/{state.total}{/if}
+                {#if state.total > 0}<span class="font-mono tabular-nums"
+                        >{state.index}/{state.total}</span
+                    >{/if}
             </span>
             {#if state.name}
-                <span class="text-fg-dimmed min-w-0 flex-1 truncate text-[11px]"
+                <span
+                    class="text-fg-dimmed min-w-0 flex-1 truncate font-mono text-[11px]"
                     >{state.name}</span
                 >
             {:else}
                 <span class="min-w-0 flex-1"></span>
             {/if}
             <button
-                class="text-destructive hover:bg-bg-hover shrink-0 px-2 py-1 text-[11px] transition-colors duration-100"
+                type="button"
+                class="text-destructive hover:bg-bg-hover h-7 shrink-0 px-2.5 text-[12px] transition-colors duration-100"
                 onclick={cancelExport}>Cancel</button
             >
         </div>
         <div
-            class="bg-bg-surface h-1 w-full"
+            class="bg-bg-elevated h-0.5 w-full"
             role="progressbar"
             aria-label="Favorites export progress"
             aria-valuenow={percent}
@@ -60,23 +64,25 @@
     </div>
 {:else if result}
     <div
-        class="bg-bg-secondary border-border fixed bottom-10 left-0 right-0 z-[90] border-t px-3 py-2 text-xs"
+        class="bg-bg-secondary border-border fixed bottom-12 left-0 right-0 z-[90] border-t px-4 py-2 text-[12px]"
     >
-        <div class="flex items-center gap-3">
+        <div class="flex min-h-7 items-center gap-2">
             <p class="text-fg-primary min-w-0 flex-1" role="status">
                 Exported {result.exported} of {result.total} favorites
             </p>
             <button
-                class="text-accent shrink-0 px-2 py-1"
+                type="button"
+                class="text-accent hover:text-accent-hover hover:bg-bg-hover h-7 shrink-0 px-2.5 transition-colors"
                 onclick={openExportFolder}>Open folder</button
             >
             <button
-                class="text-fg-secondary shrink-0 px-2 py-1"
+                type="button"
+                class="text-fg-secondary hover:text-fg-primary hover:bg-bg-hover h-7 shrink-0 px-2.5 transition-colors"
                 onclick={dismissExportResult}>Dismiss</button
             >
         </div>
         {#if result.skipped?.length}
-            <details class="text-fg-secondary mt-1">
+            <details class="text-fg-secondary mt-1 text-[11.5px]">
                 <summary class="cursor-pointer py-1"
                     >{result.skipped.length} skipped files</summary
                 >

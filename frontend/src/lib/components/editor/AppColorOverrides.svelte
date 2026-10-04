@@ -15,12 +15,10 @@
     } from '$lib/stores/ui.svelte';
     import {isLightColor, copyColor} from '$lib/utils/color';
     import ContextMenu from '$lib/components/shared/ContextMenu.svelte';
-    import ExpandableSection from '$lib/components/shared/ExpandableSection.svelte';
     import {appLabel} from '$lib/constants/apps';
     import {getNativeAppOverrides} from '$lib/actions/themeActions';
     import {getOmarchyAvailable} from '$lib/stores/omarchy.svelte';
 
-    let expanded = $state(false);
     let selectedApp = $state('');
     let templateColors = $state<Record<string, string[]>>({});
     let computedVars = $state<Record<string, string>>({});
@@ -99,14 +97,16 @@
         }
     }
 
+    // Request the template list once. An empty result must not start the
+    // request again on every state change.
+    let templatesRequested = false;
     $effect(() => {
-        if (expanded) {
-            if (Object.keys(templateColors).length === 0) {
-                loadTemplateColors();
-            }
-            if (paletteKey !== lastPaletteKey) {
-                loadComputedVars();
-            }
+        if (!templatesRequested) {
+            templatesRequested = true;
+            loadTemplateColors();
+        }
+        if (paletteKey !== lastPaletteKey) {
+            loadComputedVars();
         }
     });
 
@@ -174,95 +174,104 @@
     });
 </script>
 
-<div>
-    <ExpandableSection
-        title="Template Overrides"
-        bind:expanded
-        suffix={totalOverrideCount > 0 ? ` (${totalOverrideCount})` : ''}
-    >
-        <div class="space-y-2.5">
-            <!-- App chip picker -->
-            <div class="flex flex-wrap items-center gap-1">
-                {#each apps as app}
-                    {@const count = overrides[app]
-                        ? Object.keys(overrides[app]).length
-                        : 0}
-                    {@const active = selectedApp === app}
+<section class="bg-bg-secondary border-border border">
+    <div class="border-border flex items-center gap-2 border-b px-3.5 py-3">
+        <h3 class="text-fg-primary text-[13px] font-semibold">
+            Template overrides
+        </h3>
+        {#if totalOverrideCount > 0}
+            <span
+                class="bg-accent-muted text-accent px-[5px] py-px font-mono text-[10px] font-semibold"
+                title="Active overrides across all apps"
+                >{totalOverrideCount}</span
+            >
+        {/if}
+        <span class="flex-1"></span>
+        {#if appOverrideCount > 0}
+            <button
+                class="text-destructive text-[11.5px] hover:underline"
+                onclick={() => clearAppOverridesForApp(selectedApp)}
+                title="Reset all overrides for {appLabel(selectedApp)}"
+            >
+                Reset {appLabel(selectedApp)}
+            </button>
+        {/if}
+    </div>
+
+    <div class="flex flex-col gap-3 px-3.5 pb-3.5 pt-3">
+        <!-- App chip picker -->
+        <div class="flex flex-wrap gap-1">
+            {#each apps as app}
+                {@const count = overrides[app]
+                    ? Object.keys(overrides[app]).length
+                    : 0}
+                {@const active = selectedApp === app}
+                <button
+                    type="button"
+                    class="flex h-6 items-center gap-[5px] border px-[9px] text-[11.5px] transition-colors {active
+                        ? 'bg-accent-muted border-accent text-accent'
+                        : count > 0
+                          ? 'border-accent/45 text-fg-secondary hover:border-border-focus'
+                          : 'border-border text-fg-secondary hover:border-border-focus'}"
+                    onclick={() => (selectedApp = app)}
+                    aria-pressed={active}
+                >
+                    {appLabel(app)}
+                    {#if count > 0}
+                        <span
+                            class="text-accent font-mono text-[9.5px] font-semibold"
+                            >{count}</span
+                        >
+                    {/if}
+                </button>
+            {/each}
+        </div>
+
+        <!-- Color swatches for this app's template variables -->
+        {#if appColors.length > 0}
+            <div
+                class="grid gap-[5px] [grid-template-columns:repeat(auto-fill,minmax(68px,1fr))]"
+            >
+                {#each appColors as role}
+                    {@const display = getDisplayColor(role)}
+                    {@const isOverridden = !!appOverrides[role]}
+                    {@const light = isLightColor(display)}
                     <button
-                        type="button"
-                        class="border px-2 py-0.5 text-[10px] transition-colors {active
-                            ? 'bg-accent-muted border-accent text-accent'
-                            : count > 0
-                              ? 'border-accent/40 text-fg-secondary hover:border-accent'
-                              : 'border-border text-fg-dimmed hover:text-fg-secondary hover:border-border-focus'}"
-                        onclick={() => (selectedApp = app)}
-                        aria-pressed={active}
+                        class="flex h-[38px] cursor-pointer items-end overflow-hidden px-1.5 pb-1 transition-transform duration-100 hover:-translate-y-px
+                        {dragOverRole === role ? 'z-[1] scale-[1.06]' : ''}"
+                        style:background-color={display}
+                        style:color={light
+                            ? 'rgba(10,10,16,0.86)'
+                            : 'rgba(255,255,255,0.92)'}
+                        style:box-shadow={isOverridden || dragOverRole === role
+                            ? 'inset 0 0 0 2px var(--color-accent)'
+                            : 'inset 0 0 0 1px rgba(128,128,128,0.2)'}
+                        onclick={() =>
+                            openOverrideColorPicker(selectedApp, role)}
+                        oncontextmenu={e => openMenu(e, role)}
+                        onmouseenter={() => onButtonMouseEnter(role)}
+                        onmouseleave={() => (dragOverRole = '')}
+                        onmouseup={e => onButtonMouseUp(e, role)}
+                        title="{role}{isOverridden
+                            ? ` · override ${appOverrides[role]}`
+                            : ` · computed ${display}`}\nClick edit · Right-click for menu · Drag palette color to override"
                     >
-                        {appLabel(app)}
-                        {#if count > 0}
-                            <span class="text-accent ml-1 font-mono text-[9px]"
-                                >{count}</span
-                            >
-                        {/if}
+                        <span
+                            class="block w-full select-none truncate text-left text-[9.5px] leading-none opacity-85"
+                            >{getRoleLabel(role)}</span
+                        >
                     </button>
                 {/each}
-                {#if appOverrideCount > 0}
-                    <button
-                        class="text-destructive/60 hover:text-destructive ml-auto text-[10px] transition-colors"
-                        onclick={() => clearAppOverridesForApp(selectedApp)}
-                        title="Reset all overrides for {appLabel(selectedApp)}"
-                    >
-                        Reset {appLabel(selectedApp)}
-                    </button>
-                {/if}
             </div>
-
-            <!-- Color swatches for this app's template variables -->
-            {#if appColors.length > 0}
-                <div
-                    class="grid gap-1 [grid-template-columns:repeat(auto-fill,minmax(60px,1fr))]"
-                >
-                    {#each appColors as role}
-                        {@const display = getDisplayColor(role)}
-                        {@const isOverridden = !!appOverrides[role]}
-                        {@const light = isLightColor(display)}
-                        <button
-                            class="group relative flex h-9 cursor-pointer items-end justify-center overflow-hidden border px-1 transition-all duration-100
-                            {isOverridden
-                                ? 'border-accent border-2'
-                                : dragOverRole === role
-                                  ? 'border-accent scale-[1.06] border-2 shadow-md'
-                                  : 'border-border hover:border-border-focus'}"
-                            style:background-color={display}
-                            onclick={() =>
-                                openOverrideColorPicker(selectedApp, role)}
-                            oncontextmenu={e => openMenu(e, role)}
-                            onmouseenter={() => onButtonMouseEnter(role)}
-                            onmouseleave={() => (dragOverRole = '')}
-                            onmouseup={e => onButtonMouseUp(e, role)}
-                            title="{role}{isOverridden
-                                ? ` · override ${appOverrides[role]}`
-                                : ` · computed ${display}`}\nClick edit · Right-click for menu · Drag palette color to override"
-                        >
-                            <span
-                                class="block w-full select-none truncate pb-0.5 text-center text-[8px] leading-none opacity-80 transition-opacity group-hover:opacity-100
-                                {light ? 'text-black/85' : 'text-white/85'}"
-                                style="text-shadow: 0 1px 2px {light
-                                    ? 'rgba(255,255,255,0.4)'
-                                    : 'rgba(0,0,0,0.5)'}"
-                                >{getRoleLabel(role)}</span
-                            >
-                        </button>
-                    {/each}
-                </div>
-            {:else if selectedApp}
-                <p class="text-fg-dimmed text-[10px]">
-                    No color variables in this template.
-                </p>
-            {/if}
-        </div>
-    </ExpandableSection>
-</div>
+        {:else if selectedApp}
+            <p class="text-fg-dimmed text-[11.5px]">
+                No color variables in this template.
+            </p>
+        {:else}
+            <p class="text-fg-dimmed text-[11.5px]">Loading templates…</p>
+        {/if}
+    </div>
+</section>
 
 <ContextMenu
     open={menu.open}

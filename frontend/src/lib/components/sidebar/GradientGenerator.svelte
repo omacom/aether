@@ -30,40 +30,65 @@
     }
 </script>
 
-<ExpandableSection title="Gradient Generator" bind:expanded>
+{#snippet colorField(label: string, value: string, set: (v: string) => void)}
+    <label
+        class="border-border bg-bg-primary focus-within:border-accent flex h-8 min-w-0 flex-1 items-center gap-1.5 border pl-1 pr-2"
+    >
+        <input
+            type="color"
+            {value}
+            oninput={e => set(e.currentTarget.value)}
+            class="h-6 w-6 shrink-0 cursor-pointer border-none bg-transparent p-0"
+            title={label}
+            aria-label={label}
+        />
+        <span class="text-fg-secondary truncate font-mono text-[10.5px]"
+            >{value.toUpperCase()}</span
+        >
+    </label>
+{/snippet}
+
+<ExpandableSection title="Gradient" contentClass="px-4 pb-3.5" bind:expanded>
+    <p class="text-fg-dimmed mb-2.5 text-[11.5px] leading-normal">
+        Generate a palette as a smooth ramp between two colors.
+    </p>
     <div class="flex flex-col gap-2">
-        <div class="flex items-center gap-2">
-            <input
-                type="color"
-                bind:value={startColor}
-                class="h-6 w-8 cursor-pointer border-none bg-transparent"
-                title="Start color"
-                aria-label="Gradient start color"
-            />
-            <span class="text-fg-dimmed text-[10px]">&rarr;</span>
-            <input
-                type="color"
-                bind:value={endColor}
-                class="h-6 w-8 cursor-pointer border-none bg-transparent"
-                title="End color"
-                aria-label="Gradient end color"
-            />
-            <button
-                class="bg-bg-surface border-border text-fg-primary hover:border-accent ml-auto border px-2 py-1 text-[10px] transition-colors"
-                onclick={generatePreview}>Preview</button
+        <div class="flex items-center gap-1.5">
+            {@render colorField(
+                'Gradient start color',
+                startColor,
+                v => (startColor = v)
+            )}
+            <span class="text-fg-dimmed text-[11px]" aria-hidden="true"
+                >&rarr;</span
             >
+            {@render colorField(
+                'Gradient end color',
+                endColor,
+                v => (endColor = v)
+            )}
         </div>
 
         {#if preview.length > 0}
-            <div class="flex h-5">
+            <div class="outline-border flex h-5 outline outline-1">
                 {#each preview as color}
                     <div class="flex-1" style:background-color={color}></div>
                 {/each}
             </div>
-            <button
-                class="bg-bg-surface border-border text-fg-primary hover:border-accent border px-2 py-1 text-center text-[10px] transition-colors"
-                onclick={applyGradient}>Apply Gradient</button
-            >
         {/if}
+        <div class="flex gap-1.5">
+            <button
+                type="button"
+                class="border-border text-fg-secondary hover:bg-bg-hover hover:text-fg-primary h-8 flex-1 border px-3.5 text-[12px] font-medium transition-colors"
+                onclick={generatePreview}>Preview</button
+            >
+            {#if preview.length > 0}
+                <button
+                    type="button"
+                    class="bg-accent text-accent-fg hover:bg-accent-hover h-8 flex-1 px-3.5 text-[12px] font-semibold transition-colors"
+                    onclick={applyGradient}>Apply</button
+                >
+            {/if}
+        </div>
     </div>
 </ExpandableSection>

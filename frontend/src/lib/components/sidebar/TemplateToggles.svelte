@@ -10,8 +10,9 @@
         appLabel,
     } from '$lib/constants/apps';
     import ExpandableSection from '$lib/components/shared/ExpandableSection.svelte';
+    import Switch from '$lib/components/shared/Switch.svelte';
 
-    let templatesOpen = $state(true);
+    let templatesOpen = $state(false);
     let appsOpen = $state(false);
 
     const specialToggles = [
@@ -43,26 +44,26 @@
 </script>
 
 {#snippet toggleRow(label: string, on: boolean, onflip: () => void)}
-    <label class="flex cursor-pointer items-center justify-between gap-3">
-        <span class="text-fg-secondary text-[11px]">{label}</span>
-        <button
-            class="relative h-4 w-8 shrink-0 transition-colors duration-150
-            {on ? 'bg-accent' : 'bg-bg-surface border-border border'}"
-            onclick={onflip}
-            role="switch"
-            aria-checked={on}
-            aria-label="Toggle {label}"
-        >
-            <span
-                class="bg-fg-primary absolute left-0.5 top-0.5 h-3 w-3 transition-transform duration-150
-              {on ? 'translate-x-4' : 'translate-x-0'}"
-            ></span>
-        </button>
-    </label>
+    <div class="flex h-6 items-center justify-between gap-3">
+        <span class="text-fg-secondary text-[12px]">{label}</span>
+        <Switch
+            checked={on}
+            onchange={onflip}
+            label="Toggle {label}"
+            size="sm"
+        />
+    </div>
 {/snippet}
 
-<ExpandableSection title="Templates" bind:expanded={templatesOpen}>
-    <div class="flex flex-col gap-2">
+<ExpandableSection
+    title="App templates"
+    contentClass="px-4 pb-3.5"
+    bind:expanded={templatesOpen}
+>
+    <p class="text-fg-dimmed mb-2 text-[11.5px] leading-normal">
+        Pick which apps receive generated config files when you apply.
+    </p>
+    <div class="flex flex-col gap-1">
         {#each specialToggles as toggle}
             {@render toggleRow(toggle.label, isAppIncluded(toggle.key), () =>
                 toggleAppInclusion(toggle.key)
@@ -70,9 +71,14 @@
         {/each}
 
         {#if appList.length > 0}
-            <div class="mt-2">
-                <ExpandableSection title="Apps" bind:expanded={appsOpen}>
-                    <div class="flex flex-col gap-2">
+            <div class="-mx-1.5 mt-1">
+                <ExpandableSection
+                    variant="group"
+                    title="Apps"
+                    suffix={String(appList.length)}
+                    bind:expanded={appsOpen}
+                >
+                    <div class="flex flex-col gap-1 px-1.5 pt-1">
                         {#each appList as app}
                             {@render toggleRow(
                                 appLabel(app),

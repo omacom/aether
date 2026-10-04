@@ -66,11 +66,11 @@
         {key: 'brightness', label: 'Brightness'},
         {key: 'shadows', label: 'Shadows'},
         {key: 'highlights', label: 'Highlights'},
-        {key: 'hueShift', label: 'Hue Shift'},
+        {key: 'hueShift', label: 'Hue shift'},
         {key: 'temperature', label: 'Temperature'},
         {key: 'tint', label: 'Tint'},
-        {key: 'blackPoint', label: 'Black Point'},
-        {key: 'whitePoint', label: 'White Point'},
+        {key: 'blackPoint', label: 'Black point'},
+        {key: 'whitePoint', label: 'White point'},
         {key: 'gamma', label: 'Gamma'},
     ] as const;
 
@@ -144,60 +144,102 @@
         {label: '−S', title: 'Desaturate 15%', key: 'saturation', delta: -15},
         {label: '+S', title: 'Saturate 15%', key: 'saturation', delta: 15},
         {
-            label: '❄',
+            label: 'Cool',
             title: 'Cooler (temperature −15)',
             key: 'temperature',
             delta: -15,
         },
         {
-            label: '☀',
+            label: 'Warm',
             title: 'Warmer (temperature +15)',
             key: 'temperature',
             delta: 15,
         },
     ];
+
+    // The first six sliders are always visible. The other sliders show when
+    // the user expands the list or when their value is not the default, so
+    // a nudge never changes a hidden slider.
+    const PRIMARY_SLIDER_COUNT = 6;
+    let showAllSliders = $state(false);
+    function isChanged(key: AdjustmentKey): boolean {
+        return adj[key] !== ADJUSTMENT_LIMITS[key].default;
+    }
+    let visibleSliders = $derived(
+        sliderDefs.filter(
+            (def, i) =>
+                showAllSliders || i < PRIMARY_SLIDER_COUNT || isChanged(def.key)
+        )
+    );
+    let changedCount = $derived(
+        sliderDefs.filter(def => isChanged(def.key)).length +
+            (curvePoints.length > 0 ? 1 : 0)
+    );
 </script>
 
-<ExpandableSection title="Color Adjustments" bind:expanded>
-    <div class="mb-3">
+<ExpandableSection
+    title="Color adjustments"
+    suffix={changedCount > 0 ? `${changedCount} changed` : ''}
+    suffixAccent
+    bind:expanded
+>
+    <div class="flex flex-col gap-3.5">
         <CurvesEditor
             bind:points={curvePoints}
             histogram={paletteHistogram}
             onchange={handleCurveChange}
+            height={124}
+            label="Curve"
+            compact
         />
-    </div>
 
-    <div class="mb-2 flex items-center justify-between gap-2">
-        <div class="flex gap-1">
+        <div class="flex items-center gap-1">
             {#each VARIANTS as v}
                 <button
                     type="button"
-                    class="text-fg-secondary hover:text-fg-primary border-border hover:bg-bg-surface border px-1.5 py-0.5 text-[10px] tabular-nums transition-colors"
+                    class="border-border text-fg-secondary hover:border-border-focus hover:text-fg-primary h-6 border px-[7px] font-mono text-[10.5px] font-medium transition-colors"
                     onclick={() => nudge(v.key, v.delta)}
                     title={v.title}
                     aria-label={v.title}>{v.label}</button
                 >
             {/each}
+            <span class="flex-1"></span>
+            <button
+                type="button"
+                class="text-fg-dimmed hover:text-fg-primary text-[11px] transition-colors"
+                onclick={resetAll}
+                title="Reset all adjustments and the curve"
+            >
+                Reset
+            </button>
         </div>
-        <button
-            class="text-fg-dimmed hover:text-fg-secondary text-[10px]"
-            onclick={resetAll}
-        >
-            Reset All
-        </button>
-    </div>
-    <div class="flex flex-col gap-1.5">
-        {#each sliderDefs as def}
-            <AdjustmentSlider
-                label={def.label}
-                value={adj[def.key]}
-                min={ADJUSTMENT_LIMITS[def.key].min}
-                max={ADJUSTMENT_LIMITS[def.key].max}
-                step={ADJUSTMENT_LIMITS[def.key].step}
-                defaultValue={ADJUSTMENT_LIMITS[def.key].default}
-                oninput={v => handleSliderInput(def.key, v)}
-                oncommit={handleSliderCommit}
-            />
-        {/each}
+
+        <div class="flex flex-col gap-2.5">
+            {#each visibleSliders as def (def.key)}
+                <AdjustmentSlider
+                    label={def.label}
+                    value={adj[def.key]}
+                    min={ADJUSTMENT_LIMITS[def.key].min}
+                    max={ADJUSTMENT_LIMITS[def.key].max}
+                    step={ADJUSTMENT_LIMITS[def.key].step}
+                    defaultValue={ADJUSTMENT_LIMITS[def.key].default}
+                    oninput={v => handleSliderInput(def.key, v)}
+                    oncommit={handleSliderCommit}
+                />
+            {/each}
+        </div>
+
+        {#if showAllSliders || visibleSliders.length < sliderDefs.length}
+            <button
+                type="button"
+                class="text-accent hover:text-accent-hover self-start text-[11.5px] transition-colors"
+                onclick={() => (showAllSliders = !showAllSliders)}
+                aria-expanded={showAllSliders}
+            >
+                {showAllSliders
+                    ? 'Show fewer'
+                    : `Show all ${sliderDefs.length} sliders`}
+            </button>
+        {/if}
     </div>
 </ExpandableSection>

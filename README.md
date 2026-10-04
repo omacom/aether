@@ -1,10 +1,10 @@
+
+
 <p align="center">
   <img src="icon.png" alt="Aether Icon" width="256" height="256">
 </p>
 
-
-https://github.com/user-attachments/assets/862377df-ad05-48de-a0a3-65b243c4b44b
-
+https://github.com/user-attachments/assets/58bb3de6-d425-4f8e-a01c-79da7a26a9f0
 
 # Aether
 
@@ -158,7 +158,7 @@ From `frontend/`, run `npm ci`, `npm run check`, `npm test`, and `npm run build`
 
 ## Complementary Projects
 
-- [omarchy-theme-hook](https://github.com/OldJobobo/theme-hook-plugin-manager/) - A clean solution to extend your Omarchy theme to other apps.
+- [omarchy-theme-hook](https://github.com/OldJobobo/thpm) - A clean solution to extend your Omarchy theme to other apps.
 - [waybar-themes](https://github.com/HANCORE-linux/waybar-themes) - Waybar themes by HANCORE.
 
 ## Contributing

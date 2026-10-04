@@ -4,18 +4,29 @@
     import {isLightColor} from '$lib/utils/color';
 
     const W = 256;
-    const H = 192;
     const PAD = 0;
 
     let {
         points = $bindable<[number, number][]>([]),
         histogram = [] as number[],
         onchange = () => {},
+        height = 192,
+        label = '',
+        compact = false,
     }: {
         points: [number, number][];
         histogram: number[];
         onchange: () => void;
+        // Canvas height in pixels. The width stays 256 and scales to fit.
+        height?: number;
+        // Small caption in the top-left corner of the canvas.
+        label?: string;
+        // Show the hint row only while a point is selected, and omit the
+        // curve Reset button. The caller supplies its own reset.
+        compact?: boolean;
     } = $props();
+
+    let H = $derived(height);
 
     let canvasEl = $state<HTMLCanvasElement | null>(null);
     let dragging = $state<number | null>(null);
@@ -33,6 +44,7 @@
         const __ = histogram.length;
         const ___ = getLightMode();
         const ____ = selected;
+        const _____ = H;
         draw();
     });
 
@@ -64,13 +76,19 @@
         const light = bgVar ? isLightColor(bgVar) : getLightMode();
         const ink = (alpha: number) =>
             light ? `rgba(0,0,0,${alpha})` : `rgba(255,255,255,${alpha})`;
-        const outline = light ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)';
+        const rootStyle = getComputedStyle(document.documentElement);
+        const accent =
+            rootStyle.getPropertyValue('--color-accent').trim() ||
+            (light ? '#2563eb' : '#89b4fa');
+        const knobFill =
+            rootStyle.getPropertyValue('--color-bg-secondary').trim() ||
+            (light ? '#ececef' : '#16161b');
 
         // Histogram bars
         if (histogram.length === 256) {
             const max = Math.max(...histogram);
             if (max > 0) {
-                ctx.fillStyle = ink(0.14);
+                ctx.fillStyle = ink(0.055);
                 for (let i = 0; i < 256; i++) {
                     const barH = (histogram[i] / max) * H;
                     ctx.fillRect(PAD + i, PAD + H - barH, 1, barH);
@@ -79,7 +97,7 @@
         }
 
         // Grid lines
-        ctx.strokeStyle = ink(0.1);
+        ctx.strokeStyle = ink(light ? 0.11 : 0.075);
         ctx.lineWidth = 1;
         for (let i = 1; i < 4; i++) {
             const x = PAD + (W * i) / 4;
@@ -95,7 +113,7 @@
         }
 
         // Diagonal reference (identity)
-        ctx.strokeStyle = ink(0.2);
+        ctx.strokeStyle = ink(0.14);
         ctx.setLineDash([4, 4]);
         ctx.beginPath();
         ctx.moveTo(...toCanvas(0, 0));
@@ -105,7 +123,7 @@
 
         // Curve from LUT
         const lut = buildCurveLUT(points);
-        ctx.strokeStyle = ink(0.9);
+        ctx.strokeStyle = accent;
         ctx.lineWidth = 1.5;
         ctx.beginPath();
         for (let i = 0; i < 256; i++) {
@@ -123,28 +141,22 @@
             {x: 1, y: 1},
         ]) {
             const [cx, cy] = toCanvas(pt.x, pt.y);
-            ctx.beginPath();
-            ctx.arc(cx, cy, 3, 0, Math.PI * 2);
-            ctx.fillStyle = ink(0.4);
-            ctx.fill();
+            ctx.fillStyle = ink(0.35);
+            ctx.fillRect(cx - 2.5, cy - 2.5, 5, 5);
         }
 
-        // User points — selected ring highlighted
+        // User points: square knobs with an accent outline. The selected
+        // point fills with the accent.
         for (let i = 0; i < points.length; i++) {
             const [x, y] = points[i];
             const [cx, cy] = toCanvas(x, y);
             const isSel = selected === i;
-            ctx.beginPath();
-            ctx.arc(cx, cy, isSel ? 6 : 5, 0, Math.PI * 2);
-            ctx.fillStyle = ink(0.95);
-            ctx.fill();
-            ctx.strokeStyle = isSel
-                ? light
-                    ? 'rgba(47,110,255,0.95)'
-                    : 'rgba(120,170,255,0.95)'
-                : outline;
-            ctx.lineWidth = isSel ? 2 : 1;
-            ctx.stroke();
+            const half = isSel ? 5 : 4;
+            ctx.fillStyle = isSel ? accent : knobFill;
+            ctx.fillRect(cx - half, cy - half, half * 2, half * 2);
+            ctx.strokeStyle = accent;
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(cx - half, cy - half, half * 2, half * 2);
         }
     }
 
@@ -263,42 +275,54 @@
 </script>
 
 <div class="space-y-1.5">
-    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-    <canvas
-        bind:this={canvasEl}
-        width={W}
-        height={H}
-        tabindex="0"
-        class="border-border focus:border-accent/50 focus:ring-accent/10 w-full cursor-crosshair border outline-none focus:ring-2"
-        style="height: {H}px; image-rendering: auto;"
-        onmousedown={handleMouseDown}
-        onmousemove={handleMouseMove}
-        onmouseup={handleMouseUp}
-        onmouseleave={handleMouseUp}
-        onkeydown={handleKeyDown}
-        oncontextmenu={e => e.preventDefault()}
-    ></canvas>
-    <div class="flex items-center justify-between gap-2">
-        <span class="text-fg-dimmed text-[9px] leading-snug">
-            {#if selected !== null}
-                Point {selected + 1} selected · ← ↑ ↓ → nudge · Shift×10 · Del remove
-            {:else}
-                Click to add · drag to adjust · click a point then arrow keys to
-                nudge
-            {/if}
-        </span>
-        {#if points.length > 0}
-            <button
-                type="button"
-                class="text-fg-dimmed hover:text-fg-primary border-border hover:bg-bg-surface shrink-0 border px-2 py-0.5 text-[10px] transition-colors"
-                onclick={() => {
-                    points = [];
-                    selected = null;
-                    onchange();
-                }}
-                title="Clear all curve points"
-                aria-label="Reset curve">Reset</button
+    <div class="relative">
+        <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+        <canvas
+            bind:this={canvasEl}
+            width={W}
+            height={H}
+            tabindex="0"
+            class="border-border bg-bg-primary focus:border-accent block w-full cursor-crosshair border outline-none"
+            style="height: {H}px; image-rendering: auto;"
+            title="Click to add a point. Drag to adjust. Right-click to remove."
+            onmousedown={handleMouseDown}
+            onmousemove={handleMouseMove}
+            onmouseup={handleMouseUp}
+            onmouseleave={handleMouseUp}
+            onkeydown={handleKeyDown}
+            oncontextmenu={e => e.preventDefault()}
+        ></canvas>
+        {#if label}
+            <span
+                class="text-fg-dimmed pointer-events-none absolute left-1.5 top-1 font-mono text-[9.5px] font-medium"
+                >{label}</span
             >
         {/if}
     </div>
+    {#if !compact || selected !== null}
+        <div class="flex items-center justify-between gap-2">
+            <span class="text-fg-dimmed text-[10px] leading-snug">
+                {#if selected !== null}
+                    Point {selected + 1} selected · ← ↑ ↓ → nudge · Shift×10 · Del
+                    remove
+                {:else}
+                    Click to add · drag to adjust · click a point then arrow
+                    keys to nudge
+                {/if}
+            </span>
+            {#if points.length > 0 && !compact}
+                <button
+                    type="button"
+                    class="text-fg-secondary hover:text-fg-primary border-border hover:border-border-focus shrink-0 border px-2 py-0.5 text-[10.5px] transition-colors"
+                    onclick={() => {
+                        points = [];
+                        selected = null;
+                        onchange();
+                    }}
+                    title="Clear all curve points"
+                    aria-label="Reset curve">Reset</button
+                >
+            {/if}
+        </div>
+    {/if}
 </div>

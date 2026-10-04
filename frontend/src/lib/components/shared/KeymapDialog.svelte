@@ -1,5 +1,7 @@
 <script lang="ts">
-    import CloseIcon from './CloseIcon.svelte';
+    import Modal from './Modal.svelte';
+    import DialogHeader from './DialogHeader.svelte';
+    import Kbd from './Kbd.svelte';
 
     let {open, onclose}: {open: boolean; onclose: () => void} = $props();
 
@@ -66,66 +68,30 @@
     ];
 </script>
 
-{#if open}
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-        onclick={e => {
-            if (e.target === e.currentTarget) onclose();
-        }}
-        onkeydown={e => {
-            if (e.key === 'Escape') onclose();
-        }}
-    >
-        <div
-            class="border-border bg-bg-secondary w-[360px] border shadow-2xl"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="keymap-title"
-        >
-            <div
-                class="border-border flex items-center justify-between border-b px-4 py-3"
+<Modal {open} {onclose} bare panelClass="w-[420px]" label="Keyboard shortcuts">
+    <DialogHeader title="Keyboard shortcuts" {onclose} />
+    <div class="max-h-[60vh] overflow-y-auto px-5 pb-5 pt-2">
+        {#each keybindings as section}
+            <h4
+                class="text-fg-dimmed pb-1.5 pt-3.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
             >
-                <span
-                    id="keymap-title"
-                    class="text-fg-primary text-[12px] font-medium"
-                    >Keyboard Shortcuts</span
-                >
-                <button
-                    class="text-fg-dimmed hover:text-fg-primary flex h-6 w-6 items-center justify-center transition-colors"
-                    onclick={onclose}
-                    aria-label="Close shortcuts"
-                    title="Close"
-                >
-                    <CloseIcon />
-                </button>
-            </div>
-            <div class="max-h-[60vh] overflow-y-auto p-4">
-                {#each keybindings as section, i}
-                    {#if i > 0}
-                        <div class="border-border my-3 border-t"></div>
-                    {/if}
-                    <span
-                        class="text-fg-dimmed mb-2 block text-[9px] uppercase tracking-wider"
-                        >{section.group}</span
+                {section.group}
+            </h4>
+            {#each section.binds as bind}
+                <div class="flex h-7 items-center justify-between gap-3">
+                    <span class="text-fg-secondary text-[12px]"
+                        >{bind.desc}</span
                     >
-                    {#each section.binds as bind}
-                        <div class="flex items-center justify-between py-1">
-                            <span class="text-fg-secondary text-[11px]"
-                                >{bind.desc}</span
+                    <div class="flex shrink-0 gap-1">
+                        <!-- Split on "+" only when a key follows it, so
+                             "Ctrl++" shows Ctrl and +. -->
+                        {#each bind.keys.split(/\+(?=.)/) as part}
+                            <Kbd class="min-w-[22px] justify-center">{part}</Kbd
                             >
-                            <div class="flex gap-1">
-                                {#each bind.keys.split('+') as part}
-                                    <kbd
-                                        class="text-fg-primary border-border bg-bg-hover min-w-[24px] border px-1.5 py-0.5 text-center font-mono text-[10px]"
-                                        >{part}</kbd
-                                    >
-                                {/each}
-                            </div>
-                        </div>
-                    {/each}
-                {/each}
-            </div>
-        </div>
+                        {/each}
+                    </div>
+                </div>
+            {/each}
+        {/each}
     </div>
-{/if}
+</Modal>

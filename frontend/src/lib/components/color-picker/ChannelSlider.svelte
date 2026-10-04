@@ -60,17 +60,22 @@
     }
 </script>
 
-<div class="flex min-h-6 items-center gap-2">
-    <span class="text-fg-dimmed w-3 font-mono text-[10px]">{label}</span>
-
-    <div
-        class="border-border focus-within:border-accent group relative h-5 flex-1 border transition-colors
-            {disabled ? 'opacity-50' : ''}"
-        style:background={gradient}
+<!-- The row is as tall as the 14px track. The input and its 20px handle
+     extend 3px above and below the track. -->
+<div class="flex h-[14px] items-center gap-2.5">
+    <span
+        class="text-fg-dimmed w-3 shrink-0 font-mono text-[11px] font-semibold"
+        >{label}</span
     >
+
+    <div class="group relative h-full flex-1 {disabled ? 'opacity-50' : ''}">
+        <div
+            class="absolute inset-0 shadow-[inset_0_0_0_1px_rgba(128,128,128,0.2)] group-focus-within:shadow-[inset_0_0_0_1px_var(--color-accent)]"
+            style:background={gradient}
+        ></div>
         <input
             type="range"
-            class="channel-input absolute inset-0 w-full cursor-pointer disabled:cursor-not-allowed"
+            class="channel-input absolute inset-x-0 -top-[3px] h-5 w-full cursor-pointer disabled:cursor-not-allowed"
             {min}
             {max}
             {step}
@@ -92,15 +97,16 @@
             spellcheck={false}
             inputmode="decimal"
             aria-label="Edit {label} value"
-            class="text-fg-primary bg-bg-secondary border-accent h-5 w-14 border px-1 text-right font-mono text-[10px] tabular-nums outline-none"
+            class="text-fg-primary bg-bg-primary border-accent -my-[3px] h-5 w-12 shrink-0 border px-1 text-right font-mono text-[11px] font-medium tabular-nums outline-none"
         />
     {:else}
         <button
             type="button"
-            class="text-fg-dimmed h-5 w-14 text-right font-mono text-[10px] tabular-nums transition-colors
+            class="text-fg-secondary -my-[3px] h-5 w-12 shrink-0 text-right font-mono text-[11px] font-medium tabular-nums transition-colors
                 {disabled ? 'cursor-default' : 'hover:text-fg-primary'}"
             onclick={startEdit}
             {disabled}
+            title={disabled ? undefined : 'Click to type a value'}
             aria-label="Edit {label} value">{display}</button
         >
     {/if}
@@ -110,7 +116,6 @@
     .channel-input {
         -webkit-appearance: none;
         appearance: none;
-        height: 100%;
         margin: 0;
         touch-action: none;
         background: transparent;
@@ -126,22 +131,21 @@
     .channel-input::-webkit-slider-thumb {
         -webkit-appearance: none;
         appearance: none;
-        width: 5px;
+        width: 6px;
         height: 20px;
-        margin: -1px 0 0;
-        border: 1px solid rgba(0, 0, 0, 0.55);
+        border: 0;
         background: #fff;
         box-shadow:
-            0 0 0 1px rgba(255, 255, 255, 0.45),
-            0 1px 4px rgba(0, 0, 0, 0.45);
+            0 0 0 1px rgba(0, 0, 0, 0.55),
+            0 1px 3px rgba(0, 0, 0, 0.35);
     }
 
     .channel-input:hover::-webkit-slider-thumb,
     .channel-input:focus-visible::-webkit-slider-thumb {
         box-shadow:
-            0 0 0 1px rgba(255, 255, 255, 0.8),
-            0 0 0 2px rgba(0, 0, 0, 0.55),
-            0 1px 5px rgba(0, 0, 0, 0.5);
+            0 0 0 1px rgba(0, 0, 0, 0.55),
+            0 0 0 3px rgba(255, 255, 255, 0.55),
+            0 1px 4px rgba(0, 0, 0, 0.45);
     }
 
     .channel-input::-moz-range-track {
@@ -151,13 +155,13 @@
     }
 
     .channel-input::-moz-range-thumb {
-        width: 3px;
-        height: 18px;
-        border: 1px solid rgba(0, 0, 0, 0.55);
+        width: 6px;
+        height: 20px;
+        border: 0;
         border-radius: 0;
         background: #fff;
         box-shadow:
-            0 0 0 1px rgba(255, 255, 255, 0.45),
-            0 1px 4px rgba(0, 0, 0, 0.45);
+            0 0 0 1px rgba(0, 0, 0, 0.55),
+            0 1px 3px rgba(0, 0, 0, 0.35);
     }
 </style>

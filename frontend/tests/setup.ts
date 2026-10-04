@@ -38,9 +38,12 @@ export function deferred<T>() {
     return {promise, resolve, reject};
 }
 
+// Matches the visible text or, for icon-only buttons, the aria-label.
 export function button(target: HTMLElement, label: string): HTMLButtonElement {
     const found = [...target.querySelectorAll('button')].find(
-        el => el.textContent?.trim() === label
+        el =>
+            el.textContent?.trim() === label ||
+            el.getAttribute('aria-label') === label
     );
     if (!found) throw new Error(`Missing button: ${label}`);
     return found;

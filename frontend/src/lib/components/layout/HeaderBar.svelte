@@ -3,13 +3,12 @@
     import {
         getActiveTab,
         setActiveTab,
-        getSidebarVisible,
-        toggleSidebar,
         toggleKeymap,
         openCommandPalette,
         type Tab,
     } from '$lib/stores/ui.svelte';
     import SearchIcon from '$lib/components/shared/SearchIcon.svelte';
+    import Kbd from '$lib/components/shared/Kbd.svelte';
     import ReleaseIndicator from '$lib/components/layout/ReleaseIndicator.svelte';
     import aetherLogo from '../../../assets/aether-logo.png';
     import {
@@ -17,7 +16,6 @@
         initOmarchyCapabilities,
     } from '$lib/stores/omarchy.svelte';
 
-    let sidebarVisible = $derived(getSidebarVisible());
     let activeTab = $derived(getActiveTab());
     let isMac = $state(false);
     let omarchyAvailable = $derived(getOmarchyAvailable());
@@ -79,78 +77,72 @@
     );
 </script>
 
+{#snippet iconButton(
+    tab: Tab | null,
+    label: string,
+    title: string,
+    onclick: () => void,
+    icon: import('svelte').Snippet
+)}
+    <button
+        type="button"
+        class="flex h-[30px] w-[30px] items-center justify-center transition-colors
+            {tab && activeTab === tab
+            ? 'text-accent bg-accent-muted'
+            : 'text-fg-dimmed hover:text-fg-primary hover:bg-bg-hover'}"
+        {onclick}
+        aria-label={label}
+        aria-current={tab && activeTab === tab ? 'page' : undefined}
+        {title}
+    >
+        {@render icon()}
+    </button>
+{/snippet}
+
 <header
-    class="bg-bg-secondary border-border flex shrink-0 border-b px-4"
-    class:items-end={isMac}
-    class:items-center={!isMac}
-    class:pb-1.5={isMac}
+    class="bg-bg-secondary border-border flex shrink-0 items-stretch border-b pr-2"
+    class:h-11={!isMac}
+    class:h-[50px]={isMac}
+    class:pl-3.5={!isMac}
     class:pl-[84px]={isMac}
-    class:h-9={!isMac}
-    class:h-[46px]={isMac}
+    class:pt-1.5={isMac}
     style="--wails-draggable:drag"
 >
     <button
-        class="text-fg-primary hover:text-accent flex items-center gap-1.5 text-[11px] font-semibold tracking-wide transition-colors duration-100"
-        class:pb-1.5={isMac}
-        class:ml-2={isMac}
-        style="letter-spacing: 0.08em; --wails-draggable:no-drag"
+        type="button"
+        class="text-fg-primary hover:text-accent flex items-center gap-[9px] pr-3.5 text-[11px] font-semibold tracking-[0.18em] transition-colors duration-100"
+        style="--wails-draggable:no-drag"
         onclick={() => setActiveTab('editor')}
         title="Editor"
     >
-        <img src={aetherLogo} alt="" class="h-5 w-5 object-contain" />
+        <img src={aetherLogo} alt="" class="h-[18px] w-[18px] object-contain" />
         <span>AETHER</span>
     </button>
-    {#if activeTab === 'editor'}
-        <button
-            class="text-fg-dimmed hover:text-fg-primary mx-3 flex h-6 w-6 items-center justify-center transition-colors duration-100"
-            class:mb-0.5={isMac}
-            onclick={toggleSidebar}
-            title={sidebarVisible
-                ? 'Hide sidebar (Ctrl+B)'
-                : 'Show sidebar (Ctrl+B)'}
-            aria-label="Toggle sidebar"
-            style="--wails-draggable:no-drag"
-        >
-            <svg
-                class="h-3.5 w-3.5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-            >
-                <rect x="3" y="3" width="18" height="18" rx="2" /><line
-                    x1="9"
-                    y1="3"
-                    x2="9"
-                    y2="21"
-                />
-            </svg>
-        </button>
-    {/if}
+    <div class="bg-border my-3 mr-1 w-px shrink-0" aria-hidden="true"></div>
     <nav
-        class="flex min-w-0 flex-1 justify-end gap-0.5 overflow-x-auto"
+        class="flex min-w-0 items-stretch overflow-x-auto"
         aria-label="Main navigation"
         style="--wails-draggable:no-drag"
     >
         {#each visibleTabs as tab}
             <button
-                class="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium transition-all duration-100
-          {getActiveTab() === tab.id
-                    ? 'text-accent bg-accent-muted'
-                    : 'text-fg-dimmed hover:text-fg-secondary hover:bg-bg-hover'}"
+                type="button"
+                class="flex shrink-0 items-center gap-[7px] px-3 text-[12px] font-medium transition-colors duration-100
+                    {activeTab === tab.id
+                    ? 'text-fg-primary shadow-[inset_0_-2px_0_var(--color-accent)]'
+                    : 'text-fg-dimmed hover:text-fg-primary'}"
                 onclick={() => setActiveTab(tab.id)}
                 aria-current={activeTab === tab.id ? 'page' : undefined}
             >
                 <svg
-                    class="h-3 w-3 shrink-0"
+                    class="h-3.5 w-3.5 shrink-0"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
                     stroke-width="2"
                     stroke-linecap="round"
                     stroke-linejoin="round"
+                    aria-hidden="true"
                 >
                     {@html tab.icon}
                 </svg>
@@ -159,23 +151,26 @@
         {/each}
     </nav>
 
-    <div
-        class="ml-2 flex items-center gap-0.5"
-        style="--wails-draggable:no-drag"
-    >
+    <div class="min-w-4 flex-1"></div>
+
+    <div class="flex items-center gap-1" style="--wails-draggable:no-drag">
         <ReleaseIndicator {isMac} />
         <button
-            class="flex h-7 w-7 items-center justify-center transition-colors
-                {activeTab === 'settings'
-                ? 'text-accent bg-accent-muted'
-                : 'text-fg-dimmed hover:text-fg-primary hover:bg-bg-hover'}"
-            class:mb-0.5={isMac}
-            onclick={() => setActiveTab('settings')}
-            aria-label="Settings"
-            title="Settings"
+            type="button"
+            class="bg-bg-surface border-border text-fg-dimmed hover:border-border-focus mr-1.5 flex h-7 min-w-0 items-center gap-2 border pl-2.5 pr-1.5 text-[12px] transition-colors xl:w-[232px]"
+            onclick={openCommandPalette}
+            aria-label="Open command palette"
+            title="Command palette (Ctrl+P)"
         >
+            <SearchIcon size="h-[13px] w-[13px]" />
+            <span class="hidden flex-1 truncate text-left xl:inline"
+                >Search commands…</span
+            >
+            <Kbd class="text-fg-dimmed">Ctrl P</Kbd>
+        </button>
+        {#snippet settingsIcon()}
             <svg
-                class="h-3.5 w-3.5"
+                class="h-[15px] w-[15px]"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -187,19 +182,10 @@
                 <path d="M12 2l8.66 5v10L12 22l-8.66-5V7z"></path>
                 <circle cx="12" cy="12" r="3"></circle>
             </svg>
-        </button>
-        <button
-            class="flex h-7 w-7 items-center justify-center transition-colors
-                {activeTab === 'about'
-                ? 'text-accent bg-accent-muted'
-                : 'text-fg-dimmed hover:text-fg-primary hover:bg-bg-hover'}"
-            class:mb-0.5={isMac}
-            onclick={() => setActiveTab('about')}
-            aria-label="About"
-            title="About"
-        >
+        {/snippet}
+        {#snippet aboutIcon()}
             <svg
-                class="h-3.5 w-3.5"
+                class="h-[15px] w-[15px]"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -212,26 +198,32 @@
                 <line x1="12" y1="16" x2="12" y2="12"></line>
                 <line x1="12" y1="8" x2="12.01" y2="8"></line>
             </svg>
-        </button>
-        <button
-            class="text-fg-dimmed hover:text-fg-primary hover:bg-bg-hover flex h-7 w-7 items-center justify-center transition-colors"
-            class:mb-0.5={isMac}
-            onclick={openCommandPalette}
-            aria-label="Open command palette"
-            title="Command palette (Ctrl+P)"
-        >
-            <SearchIcon />
-        </button>
-        <button
-            class="text-fg-dimmed hover:text-fg-primary hover:bg-bg-hover flex h-7 w-7 items-center justify-center transition-colors"
-            class:mb-0.5={isMac}
-            onclick={toggleKeymap}
-            aria-label="Show keyboard shortcuts"
-            title="Keyboard shortcuts (Ctrl+K or ?)"
-        >
+        {/snippet}
+        {#snippet keymapIcon()}
             <span class="font-mono text-[12px] font-semibold leading-none"
                 >?</span
             >
-        </button>
+        {/snippet}
+        {@render iconButton(
+            'settings',
+            'Settings',
+            'Settings',
+            () => setActiveTab('settings'),
+            settingsIcon
+        )}
+        {@render iconButton(
+            'about',
+            'About',
+            'About',
+            () => setActiveTab('about'),
+            aboutIcon
+        )}
+        {@render iconButton(
+            null,
+            'Show keyboard shortcuts',
+            'Keyboard shortcuts (Ctrl+K or ?)',
+            toggleKeymap,
+            keymapIcon
+        )}
     </div>
 </header>

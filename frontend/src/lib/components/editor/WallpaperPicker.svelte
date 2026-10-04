@@ -17,19 +17,21 @@
 </script>
 
 <div
-    class="bg-bg-surface border-border mb-1 flex items-center gap-2 border p-3"
+    class="bg-bg-surface border-border-focus flex items-center gap-2 border border-dashed px-4 py-3"
 >
-    <span class="text-fg-dimmed flex-1 text-[11px]">No wallpaper selected</span>
-    <button
-        class="bg-accent hover:bg-accent-hover text-accent-fg px-3 py-1 text-[10px] font-medium transition-colors"
-        onclick={handleBrowse}>Browse</button
+    <span class="text-fg-secondary flex-1 text-[12.5px]"
+        >No wallpaper selected</span
     >
     <button
-        class="text-fg-secondary border-border hover:bg-bg-elevated border px-3 py-1 text-[10px] transition-colors"
-        onclick={() => setActiveTab('wallhaven')}>Wallhaven</button
+        class="bg-accent text-accent-fg hover:bg-accent-hover h-8 px-4 text-[12px] font-semibold transition-colors"
+        onclick={handleBrowse}>Browse files</button
     >
     <button
-        class="text-fg-secondary border-border hover:bg-bg-elevated border px-3 py-1 text-[10px] transition-colors"
-        onclick={() => setActiveTab('local')}>Local</button
+        class="border-border text-fg-secondary hover:bg-bg-hover hover:text-fg-primary h-8 border px-3.5 text-[12px] font-medium transition-colors"
+        onclick={() => setActiveTab('wallhaven')}>Search Wallhaven</button
+    >
+    <button
+        class="border-border text-fg-secondary hover:bg-bg-hover hover:text-fg-primary h-8 border px-3.5 text-[12px] font-medium transition-colors"
+        onclick={() => setActiveTab('local')}>Browse local</button
     >
 </div>

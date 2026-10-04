@@ -20,14 +20,18 @@
     } = $props();
 </script>
 
-<div class="flex h-full flex-col items-center justify-center p-8 text-center">
+<div class="flex h-full flex-col items-center justify-center p-10 text-center">
     {#if icon}
-        <div class="text-fg-dimmed mb-3 opacity-50">{@render icon()}</div>
+        <div
+            class="border-border bg-bg-secondary text-fg-dimmed mb-4 flex h-14 w-14 items-center justify-center border"
+        >
+            {@render icon()}
+        </div>
     {/if}
-    <h3 class="text-fg-primary mb-1.5 text-[13px] font-medium">{title}</h3>
+    <h3 class="text-fg-primary mb-1.5 text-[15px] font-semibold">{title}</h3>
     {#if body}
         <p
-            class="text-fg-dimmed mb-4 max-w-[340px] text-[11px] leading-relaxed"
+            class="text-fg-secondary mb-5 max-w-[380px] text-[12.5px] leading-relaxed"
         >
             {body}
         </p>
@@ -36,13 +40,13 @@
         <div class="flex items-center gap-2">
             <button
                 type="button"
-                class="bg-accent hover:bg-accent-hover text-accent-fg px-3 py-1.5 text-[11px] font-medium transition-colors"
+                class="bg-accent hover:bg-accent-hover text-accent-fg h-8 px-4 text-[12px] font-semibold transition-colors"
                 onclick={onaction}>{actionLabel}</button
             >
             {#if secondaryLabel && onsecondary}
                 <button
                     type="button"
-                    class="text-fg-secondary border-border hover:bg-bg-hover border px-3 py-1.5 text-[11px] transition-colors"
+                    class="text-fg-secondary border-border hover:bg-bg-hover hover:text-fg-primary h-8 border px-3.5 text-[12px] font-medium transition-colors"
                     onclick={onsecondary}>{secondaryLabel}</button
                 >
             {/if}

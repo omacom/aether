@@ -40,12 +40,22 @@
     let displayPath = $derived(blurredPath || wallpaperPath);
     let wallpaperImage = $derived(getCachedFullImage(displayPath) || '');
     let wallpaperName = $derived(wallpaperPath.split('/').pop() || '');
+    // Show the folder with the home directory as `~`.
+    let wallpaperFolder = $derived(
+        wallpaperPath
+            .slice(0, wallpaperPath.lastIndexOf('/'))
+            .replace(/^\/(?:home|Users)\/[^/]+/, '~')
+    );
+    let naturalSize = $state('');
+    let wallpaperMeta = $derived(
+        [naturalSize, wallpaperFolder].filter(Boolean).join(' · ')
+    );
     let loading = $derived(isPending(displayPath));
     let blurred = $derived(getWallpaperBlur());
     let isBlurring = $state(false);
     let previewOpen = $state(false);
     let eyedropperActive = $derived(getEyedropperActive());
-    let containerHeight = $derived(expanded ? 'h-[70vh]' : 'h-96');
+    let containerHeight = $derived(expanded ? 'h-[70vh]' : 'h-[380px]');
     let objectFit = $derived(expanded ? 'object-contain' : 'object-cover');
     let extraCount = $derived(getAdditionalImages().length);
     let extracting = $derived(getIsExtracting());
@@ -297,40 +307,80 @@
     });
 </script>
 
+{#snippet toolButton(
+    label: string,
+    title: string,
+    icon: string,
+    onclick: () => void,
+    active = false,
+    busy = false
+)}
+    <button
+        class="flex h-8 w-8 items-center justify-center transition-colors disabled:cursor-default disabled:opacity-50
+            {active
+            ? 'bg-white/22 text-white'
+            : 'text-white/82 hover:bg-white/14 hover:text-white'}"
+        {onclick}
+        {title}
+        aria-label={label}
+        aria-pressed={active || undefined}
+        aria-busy={busy || undefined}
+    >
+        <svg
+            class="h-[15px] w-[15px] {busy ? 'animate-spin' : ''}"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+        >
+            <path d={icon}></path>
+        </svg>
+    </button>
+{/snippet}
+
 <div class="group relative">
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <div
-        class="bg-bg-surface border-border flex w-full items-center justify-center overflow-hidden border transition-[height] duration-200 {containerHeight}"
+        class="border-border flex w-full items-center justify-center overflow-hidden border bg-black transition-[height] duration-200 {containerHeight}"
         class:cursor-crosshair={eyedropperActive}
         onclick={handleSample}
         onmousemove={handleSampleMove}
         onmouseleave={handleSampleLeave}
     >
         {#if loading}
-            <span class="text-fg-dimmed text-[11px]">Loading preview...</span>
+            <span class="text-[11px] text-white/60">Loading preview…</span>
         {:else if wallpaperImage}
             <img
                 bind:this={imgEl}
                 src={wallpaperImage}
                 alt="Current wallpaper"
-                class="h-full w-full {objectFit}"
+                class="block h-full w-full {objectFit}"
+                onload={() =>
+                    (naturalSize = imgEl
+                        ? `${imgEl.naturalWidth} × ${imgEl.naturalHeight}`
+                        : '')}
             />
         {:else}
-            <span class="text-fg-dimmed text-[11px]">No preview available</span>
+            <span class="text-[11px] text-white/60">No preview available</span>
         {/if}
 
         {#if extracting}
             <div
                 class="absolute inset-0 flex items-center justify-center bg-black/60"
             >
-                <span class="text-[11px] text-white">Extracting colors…</span>
+                <span class="text-[12px] font-medium text-white"
+                    >Extracting colors…</span
+                >
             </div>
         {/if}
 
         {#if eyedropperActive}
             <div
-                class="pointer-events-none absolute left-1/2 top-3 -translate-x-1/2 bg-black/70 px-3 py-1 text-[11px] font-medium text-white"
+                class="border-white/12 pointer-events-none absolute left-1/2 top-3 -translate-x-1/2 border bg-[rgba(10,10,14,0.72)] px-3 py-1.5 text-[11.5px] font-medium text-white backdrop-blur-[10px]"
             >
                 Click to pick a color · Esc to cancel
             </div>
@@ -339,116 +389,65 @@
 
     {#if !eyedropperActive}
         <div
-            class="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-3 bg-gradient-to-t from-black/65 to-transparent p-2.5"
+            class="pointer-events-none absolute inset-x-[1px] bottom-[1px] flex items-end justify-between gap-3 bg-[linear-gradient(to_top,rgba(0,0,0,0.72),rgba(0,0,0,0))] pb-3 pl-4 pr-3 pt-10"
         >
-            <span
-                class="pointer-events-auto truncate font-mono text-[10px] text-white/70"
-                style="text-shadow: 0 1px 2px rgba(0,0,0,0.6);"
-                title={wallpaperPath}
+            <div
+                class="pointer-events-auto flex min-w-0 flex-col gap-0.5 text-white"
             >
-                {wallpaperName}
-            </span>
-
-            <div class="pointer-events-auto flex shrink-0 items-center gap-1">
-                {#if wallpaperImage}
-                    <button
-                        class="flex h-7 w-7 items-center justify-center text-white/75 transition-colors hover:bg-white/15 hover:text-white"
-                        onclick={() => (previewOpen = true)}
-                        title="View full-size"
-                        aria-label="View full-size"
-                    >
-                        <svg
-                            class="h-4 w-4"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                        >
-                            <path
-                                d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"
-                            ></path>
-                            <circle cx="12" cy="12" r="3"></circle>
-                        </svg>
-                    </button>
-                {/if}
-                {#if onedit}
-                    <button
-                        class="flex h-7 w-7 items-center justify-center text-white/75 transition-colors hover:bg-white/15 hover:text-white"
-                        onclick={onedit}
-                        title="Edit — crop, adjust, filters"
-                        aria-label="Edit wallpaper"
-                    >
-                        <svg
-                            class="h-4 w-4"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                        >
-                            <path
-                                d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"
-                            ></path>
-                        </svg>
-                    </button>
-                {/if}
-                <button
-                    class="flex h-7 w-7 items-center justify-center transition-colors disabled:cursor-default disabled:opacity-50
-                        {blurred
-                        ? 'bg-white/20 text-white'
-                        : 'text-white/75 hover:bg-white/15 hover:text-white'}"
-                    onclick={handleToggleBlur}
-                    title={blurred
-                        ? 'Use the original image without blur'
-                        : 'Apply a blurred copy. Extract colors from the original image.'}
-                    aria-busy={isBlurring}
-                    aria-label={blurred
-                        ? 'Remove blur'
-                        : 'Heavy blur wallpaper'}
-                    aria-pressed={blurred}
+                <span
+                    class="text-white/92 truncate font-mono text-[12px] font-medium"
+                    title={wallpaperPath}
                 >
-                    <svg
-                        class="h-4 w-4 {isBlurring ? 'animate-spin' : ''}"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
+                    {wallpaperName}
+                </span>
+                {#if wallpaperMeta}
+                    <span class="text-white/62 truncate text-[11px]"
+                        >{wallpaperMeta}</span
                     >
-                        <path
-                            d="M12 2.7s6.5 7 6.5 11.3a6.5 6.5 0 1 1-13 0C5.5 9.7 12 2.7 12 2.7z"
-                        ></path>
-                    </svg>
-                </button>
-                <button
-                    class="flex h-7 w-7 items-center justify-center text-white/75 transition-colors hover:bg-white/15 hover:text-white"
-                    onclick={handleChange}
-                    title="Change wallpaper"
-                    aria-label="Change wallpaper"
-                >
-                    <svg
-                        class="h-4 w-4"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                    >
-                        <path d="M21 12a9 9 0 1 1-3-6.7L21 8"></path>
-                        <polyline points="21 3 21 8 16 8"></polyline>
-                    </svg>
-                </button>
+                {/if}
+            </div>
 
-                <span class="mx-1 h-5 w-px bg-white/20"></span>
+            <div class="pointer-events-auto flex shrink-0 items-center gap-2">
+                <div
+                    class="border-white/12 flex border bg-[rgba(10,10,14,0.55)] backdrop-blur-[10px]"
+                >
+                    {#if wallpaperImage}
+                        {@render toolButton(
+                            'View full-size',
+                            'View full-size',
+                            'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z',
+                            () => (previewOpen = true)
+                        )}
+                    {/if}
+                    {#if onedit}
+                        {@render toolButton(
+                            'Edit wallpaper',
+                            'Edit: crop, adjust, filters',
+                            'M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z',
+                            onedit
+                        )}
+                    {/if}
+                    {@render toolButton(
+                        blurred ? 'Remove blur' : 'Heavy blur wallpaper',
+                        blurred
+                            ? 'Use the original image without blur'
+                            : 'Apply a blurred copy. Extract colors from the original image.',
+                        'M12 2.7s6.5 7 6.5 11.3a6.5 6.5 0 1 1-13 0C5.5 9.7 12 2.7 12 2.7z',
+                        handleToggleBlur,
+                        blurred,
+                        isBlurring
+                    )}
+                    {@render toolButton(
+                        'Change wallpaper',
+                        'Change wallpaper',
+                        'M21 12a9 9 0 1 1-3-6.7L21 8 M21 3v5h-5',
+                        handleChange
+                    )}
+                </div>
 
                 {#if extraCount > 0}
                     <button
-                        class="bg-white/15 px-3 py-1 text-[11px] font-medium text-white transition-colors hover:bg-white/25 disabled:opacity-50"
+                        class="border-white/12 hover:bg-white/16 h-8 shrink-0 whitespace-nowrap border bg-[rgba(10,10,14,0.55)] px-3 text-[12px] font-medium text-white backdrop-blur-[10px] transition-colors disabled:opacity-50"
                         onclick={handleExtractAll}
                         disabled={extracting}
                         title="Blend palette from main + {extraCount} additional image{extraCount ===
@@ -456,12 +455,12 @@
                             ? ''
                             : 's'}"
                     >
-                        Extract All
-                        <span class="text-white/60">· {1 + extraCount}</span>
+                        Extract all
+                        <span class="text-white/55">· {1 + extraCount}</span>
                     </button>
                 {/if}
                 <button
-                    class="bg-accent hover:bg-accent-hover text-accent-fg px-3 py-1 text-[11px] font-medium transition-colors disabled:opacity-50"
+                    class="bg-accent hover:bg-accent-hover text-accent-fg h-8 shrink-0 whitespace-nowrap px-4 text-[12px] font-semibold transition-colors disabled:opacity-50"
                     onclick={handleExtractColors}
                     disabled={extracting}
                     title="Extract a 16-color palette from this wallpaper"

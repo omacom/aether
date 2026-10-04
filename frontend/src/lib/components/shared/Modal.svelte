@@ -8,6 +8,8 @@
         onenter,
         panelClass = 'w-80',
         z = 'z-50',
+        bare = false,
+        label,
         children,
     }: {
         open: boolean;
@@ -15,6 +17,10 @@
         onenter?: () => void;
         panelClass?: string;
         z?: string;
+        // Drop the panel padding so `DialogHeader` and `DialogFooter` can
+        // run edge to edge.
+        bare?: boolean;
+        label?: string;
         children: Snippet;
     } = $props();
 
@@ -92,7 +98,7 @@
 {#if open}
     <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
     <div
-        class="fixed inset-0 {z} flex items-center justify-center bg-black/45"
+        class="fixed inset-0 {z} bg-scrim flex items-center justify-center"
         onclick={e => {
             if (e.target === e.currentTarget) onclose();
         }}
@@ -100,9 +106,11 @@
     >
         <div
             bind:this={panelEl}
-            class="bg-bg-secondary border-border {panelClass} max-w-[90vw] border p-4 shadow-xl focus:outline-none"
+            class="bg-bg-secondary border-border {panelClass} shadow-(--shadow-panel) max-w-[90vw] border focus:outline-none"
+            class:p-5={!bare}
             role="dialog"
             aria-modal="true"
+            aria-label={label}
             tabindex="-1"
         >
             {@render children()}

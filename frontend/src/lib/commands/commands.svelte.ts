@@ -85,7 +85,7 @@ export function buildCommands(): Command[] {
         },
         {
             id: 'nav.system',
-            label: 'Go to System',
+            label: 'Go to Omarchy',
             category: 'Navigate',
             keywords: 'themes omarchy',
             run: () => setActiveTab('system'),

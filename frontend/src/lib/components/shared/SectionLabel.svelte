@@ -3,7 +3,7 @@
 </script>
 
 <h4
-    class="bg-bg-surface text-fg-dimmed border-border mt-1 border-b border-t px-3 py-1 text-[9px] font-semibold uppercase tracking-[0.12em]"
+    class="text-fg-dimmed px-4 pb-1.5 pt-[18px] text-[10px] font-semibold uppercase tracking-[0.14em]"
 >
     {label}
 </h4>

@@ -12,6 +12,7 @@ import {
     setAdditionalImages,
     setLastExtractedPath,
     setLockedColor,
+    dedupeAdditionalImages,
 } from '$lib/stores/theme.svelte';
 
 export function loadBlueprintIntoEditor(bp: Blueprint): void {
@@ -36,11 +37,25 @@ export function loadBlueprintIntoEditor(bp: Blueprint): void {
     setWallpaperPath(bp.palette.wallpaper ?? '');
     setWallpaperBlur(!!bp.palette.wallpaperBlur, true);
     setAppOverrides(bp.appOverrides ?? {});
-    setAdditionalImages(bp.palette.additionalImages ?? []);
+    // Blueprints can list the same wallpaper twice, or two wallpapers sharing a
+    // filename; the backend stages them into one flat directory and rejects
+    // such a set with a basename collision, so drop the unusable entries and
+    // tell the user instead of failing the later apply.
+    const requestedImages = bp.palette.additionalImages ?? [];
+    const uniqueImages = dedupeAdditionalImages(
+        requestedImages,
+        bp.palette.wallpaper ?? ''
+    );
+    setAdditionalImages(uniqueImages);
     setLastExtractedPath(bp.palette.wallpaper ?? '');
     for (let i = 0; i < 16; i++) {
         setLockedColor(i, bp.palette.lockedColors?.includes(i) ?? false);
     }
     setActiveTab('editor');
-    showToast(`Loaded: ${bp.name}. Review, then apply when ready.`);
+    const skippedImages = requestedImages.length - uniqueImages.length;
+    showToast(
+        skippedImages > 0
+            ? `Loaded: ${bp.name}. Skipped ${skippedImages} duplicate wallpaper${skippedImages === 1 ? '' : 's'}.`
+            : `Loaded: ${bp.name}. Review, then apply when ready.`
+    );
 }

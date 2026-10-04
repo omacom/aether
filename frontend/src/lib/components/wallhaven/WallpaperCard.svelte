@@ -10,6 +10,8 @@
     import {openURL} from '$lib/utils/browser';
     import {observeIntersection} from '$lib/utils/intersection';
     import {isFavorite, toggleFavorite} from '$lib/stores/favorites.svelte';
+    import {formatFileSize} from '$lib/utils/format';
+    import WallpaperTile from '$lib/components/shared/WallpaperTile.svelte';
 
     let {wallpaper, onpreview}: {wallpaper: any; onpreview: () => void} =
         $props();
@@ -49,8 +51,7 @@
         }
     }
 
-    async function handleFavorite(event: MouseEvent) {
-        event.stopPropagation();
+    async function handleFavorite() {
         try {
             await toggleFavorite(favoriteKey, 'wallhaven', {
                 id: wallpaper.id,
@@ -63,8 +64,7 @@
         }
     }
 
-    async function handleAddExtra(event: MouseEvent) {
-        event.stopPropagation();
+    async function handleAddExtra() {
         try {
             showToast('Downloading wallpaper...');
             const {DownloadWallpaper} = await import(
@@ -75,8 +75,11 @@
                 showToast('Already in additional images');
                 return;
             }
-            addAdditionalImage(localPath);
-            showToast('Added to additional images');
+            showToast(
+                addAdditionalImage(localPath)
+                    ? 'Added to additional images'
+                    : 'Skipped: the theme already has a wallpaper with that filename'
+            );
         } catch {
             showToast('Failed to download wallpaper');
         }
@@ -85,120 +88,44 @@
     function handleVisit() {
         openURL(`https://wallhaven.cc/w/${wallpaper.id}`);
     }
-
-    function formatSize(bytes: number): string {
-        if (!bytes) return '';
-        if (bytes < 1024) return bytes + ' B';
-        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
-        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-    }
 </script>
 
-<div
-    bind:this={cardEl}
-    class="bg-bg-surface border-border group relative overflow-hidden border"
->
-    <div class="bg-bg-primary aspect-video overflow-hidden">
-        {#if inView}
-            <img
-                src={wallpaper.thumbs?.large ||
-                    wallpaper.thumbs?.original ||
-                    wallpaper.thumbs?.small}
-                alt={wallpaper.id}
-                class="h-full w-full object-cover"
-                loading="lazy"
-            />
-        {/if}
-    </div>
-
-    <!-- Add to additional images -->
-    <button
-        class="absolute left-1.5 top-1.5 z-10 flex h-7 w-7 items-center justify-center opacity-0 transition-all
-      duration-150 hover:!opacity-100 group-hover:opacity-60"
-        onclick={handleAddExtra}
-        aria-label="Add to additional images"
+<div bind:this={cardEl}>
+    <WallpaperTile
+        path={wallpaper.path}
+        name={wallpaper.id}
+        {isFavorited}
+        busy={isDownloading}
+        applying={getIsApplying()}
+        useLabel={isDownloading ? 'Loading…' : 'Use'}
+        useTitle="Download, set as wallpaper, and open in editor"
+        visitTitle="Open on wallhaven.cc"
+        onuse={handleUse}
+        onwallpaperonly={() => applyWallpaperOnly(wallpaper.path)}
+        {onpreview}
+        onaddextra={handleAddExtra}
+        onfavorite={handleFavorite}
+        onvisit={handleVisit}
     >
-        <svg
-            class="h-4 w-4 text-white"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-        >
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-            <line x1="12" y1="8" x2="12" y2="16"></line>
-            <line x1="8" y1="12" x2="16" y2="12"></line>
-        </svg>
-    </button>
-
-    <!-- Favorite heart — always visible in corner -->
-    <button
-        class="absolute right-1.5 top-1.5 z-10 flex h-7 w-7 items-center justify-center transition-all duration-150
-      {isFavorited
-            ? 'opacity-100'
-            : 'opacity-0 hover:!opacity-100 group-hover:opacity-60'}"
-        onclick={handleFavorite}
-        aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
-    >
-        <svg
-            class="h-4 w-4 {isFavorited ? 'text-destructive' : 'text-white'}"
-            viewBox="0 0 24 24"
-            fill={isFavorited ? 'currentColor' : 'none'}
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-        >
-            <path
-                d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
-            ></path>
-        </svg>
-    </button>
-
-    <!-- Info bar -->
-    <div
-        class="text-fg-dimmed flex items-center justify-between px-2 py-1.5 text-[10px]"
-    >
-        <span>{wallpaper.resolution}</span>
-        <span>{formatSize(wallpaper.file_size)}</span>
-    </div>
-
-    <!-- Hover overlay -->
-    <div
-        class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/60 opacity-0 transition-opacity duration-150 group-hover:opacity-100"
-    >
-        <button
-            class="bg-accent hover:bg-accent-hover text-accent-fg pointer-events-auto min-w-[7rem] px-4 py-1.5 text-[11px] font-medium transition-colors disabled:opacity-50"
-            onclick={handleUse}
-            disabled={isDownloading}
-            title="Download, set as wallpaper, and open in editor"
-        >
-            {isDownloading ? 'Loading…' : 'Use'}
-        </button>
-        <div
-            class="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 px-2 text-[10px] text-white/85"
-        >
-            <button
-                class="pointer-events-auto px-1 transition-colors hover:text-white disabled:opacity-50"
-                onclick={() => applyWallpaperOnly(wallpaper.path)}
-                disabled={isDownloading || getIsApplying()}
-                title="Apply this wallpaper without changing the current palette"
-                >Wallpaper only</button
+        {#snippet thumb()}
+            {#if inView}
+                <img
+                    src={wallpaper.thumbs?.large ||
+                        wallpaper.thumbs?.original ||
+                        wallpaper.thumbs?.small}
+                    alt={wallpaper.id}
+                    class="h-full w-full object-cover"
+                    loading="lazy"
+                />
+            {/if}
+        {/snippet}
+        {#snippet meta()}
+            <span class="text-fg-secondary flex-1 truncate font-mono"
+                >{wallpaper.resolution?.replace('x', ' × ')}</span
             >
-            <span class="text-white/30" aria-hidden="true">·</span>
-            <button
-                class="pointer-events-auto px-1 transition-colors hover:text-white"
-                onclick={onpreview}
-                title="Preview wallpaper full-size">Preview</button
+            <span class="text-fg-dimmed shrink-0"
+                >{formatFileSize(wallpaper.file_size)}</span
             >
-            <span class="text-white/30" aria-hidden="true">·</span>
-            <button
-                class="pointer-events-auto px-1 transition-colors hover:text-white"
-                onclick={handleVisit}
-                title="Open wallhaven.cc page">Visit</button
-            >
-        </div>
-    </div>
+        {/snippet}
+    </WallpaperTile>
 </div>

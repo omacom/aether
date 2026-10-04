@@ -9,6 +9,7 @@
     import TemplateToggles from './TemplateToggles.svelte';
     import IconThemePicker from './IconThemePicker.svelte';
     import SectionLabel from '$lib/components/shared/SectionLabel.svelte';
+    import Segmented from '$lib/components/shared/Segmented.svelte';
     import {getLightMode, setLightMode} from '$lib/stores/theme.svelte';
     import {
         getOmarchyAvailable,
@@ -18,63 +19,44 @@
     let lightMode = $derived(getLightMode());
     let isOmarchy = $derived(getOmarchyAvailable());
 
+    const paletteModes = [
+        {value: 'dark', label: 'Dark', title: 'Generate a dark palette'},
+        {value: 'light', label: 'Light', title: 'Generate a light palette'},
+    ] as const;
+
     void initOmarchyCapabilities();
 </script>
 
-<div class="flex h-full flex-col overflow-y-auto">
-    <section class="border-border border-b p-3">
-        <label class="flex cursor-pointer items-center justify-between gap-3">
-            <span class="text-fg-secondary text-[11px]">Light mode</span>
-            <button
-                class="relative h-4 w-8 shrink-0 transition-colors duration-150
-                {lightMode
-                    ? 'bg-accent'
-                    : 'bg-bg-surface border-border border'}"
-                onclick={() => setLightMode(!lightMode)}
-                role="switch"
-                aria-checked={lightMode}
-                aria-label="Toggle light mode"
-            >
-                <span
-                    class="bg-fg-primary absolute left-0.5 top-0.5 h-3 w-3 transition-transform duration-150
-                    {lightMode ? 'translate-x-4' : 'translate-x-0'}"
-                ></span>
-            </button>
-        </label>
-    </section>
+<!-- Each section component renders its own bordered <section>. -->
+<div class="flex h-full flex-col overflow-y-auto pb-6">
+    <div
+        class="border-border flex items-center justify-between gap-3 border-b px-4 py-3.5"
+    >
+        <span class="text-fg-secondary text-[12px] font-medium"
+            >Palette mode</span
+        >
+        <Segmented
+            options={paletteModes}
+            value={lightMode ? 'light' : 'dark'}
+            onchange={mode => setLightMode(mode === 'light')}
+            label="Palette mode"
+        />
+    </div>
 
     <SectionLabel label="Generate" />
-    <section class="border-border border-b p-3">
-        <ExtractionModeSelect />
-    </section>
-    <section class="border-border border-b p-3">
-        <PresetsSection />
-    </section>
-    <section class="border-border border-b p-3">
-        <PaletteFromColor />
-    </section>
-    <section class="border-border border-b p-3">
-        <GradientGenerator />
-    </section>
+    <ExtractionModeSelect />
+    <PresetsSection />
+    <PaletteFromColor />
+    <GradientGenerator />
 
     <SectionLabel label="Adjust" />
-    <section class="border-border border-b p-3">
-        <ColorAdjustments />
-    </section>
-    <section class="border-border border-b p-3">
-        <IconThemePicker />
-    </section>
-    <section class="border-border border-b p-3">
-        <AccessibilityPanel />
-    </section>
+    <ColorAdjustments />
+    <IconThemePicker />
+    <AccessibilityPanel />
 
     <SectionLabel label="Targets" />
-    <section class="border-border border-b p-3">
-        <NeovimThemes />
-    </section>
+    <NeovimThemes />
     {#if !isOmarchy}
-        <section class="p-3">
-            <TemplateToggles />
-        </section>
+        <TemplateToggles />
     {/if}
 </div>

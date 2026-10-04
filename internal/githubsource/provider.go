@@ -59,7 +59,14 @@ func (c *Client) ListImages(rawURL string) (*ListContentsResult, error) {
 	items := make([]ImageInfo, 0, len(contents))
 	for _, entry := range contents {
 		if entry.Type == "dir" {
-			items = append(items, ImageInfo{Name: entry.Name, Path: entry.Path, Type: "dir"})
+			// Keep the page URL only when it parses as a GitHub location.
+			// It names the branch, so navigation from a repository root
+			// cannot mistake a folder called "tree" or "blob" for one.
+			page := ""
+			if _, err := parseURL(entry.HTMLURL); err == nil {
+				page = entry.HTMLURL
+			}
+			items = append(items, ImageInfo{Name: entry.Name, Path: entry.Path, Type: "dir", HTMLURL: page})
 		} else if entry.Type == "file" && isImageFile(entry.Name) && wallpaper.ValidateRemoteURL(entry.DownloadURL) == nil {
 			items = append(items, ImageInfo{Name: entry.Name, URL: entry.DownloadURL, Size: entry.Size, Type: "file", Path: entry.Path})
 		}

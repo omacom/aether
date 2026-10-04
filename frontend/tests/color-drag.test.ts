@@ -74,7 +74,6 @@ function beginDrag(element: HTMLElement) {
 
 async function overrideTarget() {
     const target = render(AppColorOverrides, {});
-    target.target.querySelector<HTMLButtonElement>('button')!.click();
     await settle();
     return target.target.querySelector<HTMLButtonElement>(
         'button[title^="background"]'

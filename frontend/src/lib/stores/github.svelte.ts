@@ -19,9 +19,15 @@ export function getError(): string {
     return error;
 }
 
+// Escapes a percent sign that does not start an escape, as in "100%".
+// The backend rejects such a URL, but the user can type or paste one.
+function escapeStrayPercent(value: string): string {
+    return value.replace(/%(?![0-9A-Fa-f]{2})/g, '%25');
+}
+
 export function setURL(value: string): void {
     requestSequence++;
-    url = value.trim();
+    url = escapeStrayPercent(value.trim());
     results = [];
     error = '';
     isLoading = false;
@@ -54,12 +60,22 @@ export function getCanGoUp(): boolean {
     return parts.length > (parts[2] === 'tree' || parts[2] === 'blob' ? 4 : 2);
 }
 
-export function navigateToDir(name: string): void {
+// Opens a subfolder. A URL without "tree/<branch>" cannot tell a folder
+// called "tree" or "blob" from the branch marker, so use the folder's page
+// URL from GitHub there. Otherwise keep the branch as the user wrote it.
+export function navigateToDir(name: string, htmlURL = ''): void {
     const parsed = navigationURL();
     if (!parsed) return;
-    parsed.pathname =
-        parsed.pathname.replace(/\/+$/, '') + '/' + encodeURIComponent(name);
-    setURL(parsed.toString());
+    const parts = parsed.pathname.split('/').filter(Boolean);
+    if (htmlURL && parts[2] !== 'tree' && parts[2] !== 'blob') {
+        setURL(htmlURL);
+    } else {
+        parsed.pathname =
+            parsed.pathname.replace(/\/+$/, '') +
+            '/' +
+            encodeURIComponent(name);
+        setURL(parsed.toString());
+    }
     void fetchImages();
 }
 

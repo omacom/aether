@@ -85,7 +85,7 @@
 {#if status !== 'managed'}
     <button
         type="button"
-        class="text-fg-dimmed hover:bg-bg-hover relative flex h-7 w-7 items-center justify-center transition-colors"
+        class="text-fg-dimmed hover:bg-bg-hover relative flex h-[30px] w-[30px] items-center justify-center transition-colors"
         class:mb-0.5={isMac}
         onclick={handleClick}
         aria-label={title}

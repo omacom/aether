@@ -25,8 +25,10 @@
     } from '$lib/stores/theme.svelte';
     import {
         ANSI_COLOR_NAMES,
+        ANSI_SLOT_ROLES,
         EXTENDED_COLOR_LABELS,
     } from '$lib/constants/colors';
+    import {appLabel} from '$lib/constants/apps';
     import {onDestroy, untrack} from 'svelte';
     import {
         hexToRgb,
@@ -48,6 +50,7 @@
     import ChannelSlider from './ChannelSlider.svelte';
     import LockIcon from '$lib/components/shared/LockIcon.svelte';
     import CloseIcon from '$lib/components/shared/CloseIcon.svelte';
+    import Segmented from '$lib/components/shared/Segmented.svelte';
     import {clamp} from '$lib/utils/math';
 
     const ROLE_LABELS: Record<string, string> = {
@@ -143,7 +146,11 @@
               : ANSI_COLOR_NAMES[idx] || ''
     );
     let subtitle = $derived(
-        isOverride ? overrideApp : isExtended ? 'Extended' : `#${idx}`
+        isOverride
+            ? `${appLabel(overrideApp)} override · ${overrideValue ? 'custom' : 'computed'}`
+            : isExtended
+              ? 'Semantic color'
+              : `ANSI slot ${idx} · ${ANSI_SLOT_ROLES[idx] ?? ''}`
     );
 
     let eyedropperActive = $derived(getEyedropperActive());
@@ -233,6 +240,10 @@
         hsl: 'HSL',
         oklch: 'OKLCH',
     };
+    const MODEL_OPTIONS = COLOR_MODELS.map(id => ({
+        value: id,
+        label: MODEL_LABELS[id],
+    }));
     let activeModel = $derived(getColorPickerModel());
 
     function parseEditedNumber(raw: string): number | null {
@@ -403,21 +414,28 @@
     let recents = $derived(getRecentColors());
 </script>
 
-<div class="flex h-full flex-col">
-    <header
-        class="border-border flex items-center justify-between gap-2 border-b px-4 py-2.5"
+{#snippet eyebrow(text: string)}
+    <span
+        class="text-fg-dimmed text-[10px] font-semibold uppercase tracking-[0.14em]"
+        >{text}</span
     >
-        <div class="min-w-0">
-            <div class="text-fg-primary truncate text-[12px] font-medium">
+{/snippet}
+
+<div class="flex h-full min-h-0 flex-col">
+    <header
+        class="border-border flex shrink-0 items-center gap-2 border-b py-2.5 pl-4 pr-2.5"
+    >
+        <div class="min-w-0 flex-1">
+            <div class="text-fg-primary truncate text-[13px] font-semibold">
                 {title}
             </div>
-            <div class="text-fg-dimmed truncate text-[10px]">
+            <div class="text-fg-dimmed truncate text-[11px]">
                 {subtitle}
             </div>
         </div>
-        <div class="flex shrink-0 items-center gap-0.5">
+        <div class="flex shrink-0 items-center">
             <button
-                class="flex h-7 w-7 items-center justify-center transition-colors {eyedropperActive
+                class="flex h-[30px] w-[30px] items-center justify-center transition-colors {eyedropperActive
                     ? 'text-accent bg-accent-muted'
                     : 'text-fg-dimmed hover:text-fg-primary hover:bg-bg-hover'}"
                 onclick={() => setEyedropperActive(!eyedropperActive)}
@@ -425,7 +443,12 @@
                 aria-pressed={eyedropperActive}
                 title="Pick from wallpaper"
             >
-                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                <svg
+                    class="h-[15px] w-[15px]"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    aria-hidden="true"
+                >
                     <path
                         d="M20.71 5.63l-2.34-2.34a1 1 0 0 0-1.41 0l-3.12 3.12-1.93-1.93-1.41 1.41 1.42 1.42L3 16.25V21h4.75l8.92-8.92 1.42 1.42 1.41-1.41-1.92-1.92 3.12-3.12a1 1 0 0 0 .01-1.42ZM6.92 19 5 17.08l8.06-8.06 1.92 1.92Z"
                     />
@@ -433,7 +456,7 @@
             </button>
             {#if isAnsi}
                 <button
-                    class="flex h-7 w-7 items-center justify-center transition-colors {locked
+                    class="flex h-[30px] w-[30px] items-center justify-center transition-colors {locked
                         ? 'text-accent bg-accent-muted'
                         : 'text-fg-dimmed hover:text-fg-primary hover:bg-bg-hover'}"
                     onclick={toggleLock}
@@ -441,12 +464,12 @@
                     aria-checked={locked}
                     title={locked ? 'Unlock color' : 'Lock color'}
                 >
-                    <LockIcon {locked} size="h-4 w-4" />
+                    <LockIcon {locked} size="h-[15px] w-[15px]" />
                 </button>
             {/if}
             {#if isOverride && overrideValue}
                 <button
-                    class="text-destructive/70 hover:text-destructive hover:bg-destructive/10 flex h-7 items-center justify-center px-2 text-[10px] uppercase tracking-wider transition-colors"
+                    class="text-destructive hover:bg-bg-hover flex h-[30px] items-center justify-center px-2 text-[11px] transition-colors"
                     onclick={handleResetOverride}
                     title="Reset override to computed value"
                 >
@@ -454,25 +477,28 @@
                 </button>
             {/if}
             <button
-                class="text-fg-dimmed hover:text-fg-primary hover:bg-bg-hover flex h-7 w-7 items-center justify-center transition-colors"
+                class="text-fg-dimmed hover:text-fg-primary hover:bg-bg-hover flex h-[30px] w-[30px] items-center justify-center transition-colors"
                 onclick={closeColorPicker}
                 aria-label="Close color picker"
                 title="Close"
             >
-                <CloseIcon />
+                <CloseIcon size="h-[15px] w-[15px]" />
             </button>
         </div>
     </header>
 
-    <div class="flex-1 space-y-4 overflow-y-auto p-4">
+    <div class="flex min-h-0 flex-1 flex-col gap-[22px] overflow-y-auto p-4">
         <div class="flex gap-3">
             <label
-                class="border-border relative h-16 w-16 shrink-0 overflow-hidden border {locked
+                class="relative h-[68px] w-[68px] shrink-0 overflow-hidden {locked
                     ? 'cursor-not-allowed'
                     : 'cursor-pointer'}"
+                title={locked
+                    ? 'Color is locked'
+                    : 'Open the system color picker'}
             >
                 <div
-                    class="absolute inset-0"
+                    class="absolute inset-0 shadow-[inset_0_0_0_1px_rgba(128,128,128,0.25)]"
                     style:background-color={currentColor}
                 ></div>
                 {#if locked}
@@ -492,11 +518,11 @@
                 {/if}
             </label>
 
-            <div class="flex min-w-0 flex-1 flex-col justify-between gap-1.5">
+            <div class="flex min-w-0 flex-1 flex-col justify-between gap-2">
                 <div class="relative">
                     <input
                         type="text"
-                        class="text-fg-primary bg-bg-secondary w-full border py-1.5 pl-2.5 pr-8 font-mono text-[13px] outline-none disabled:cursor-not-allowed disabled:opacity-50
+                        class="text-fg-primary bg-bg-primary h-[34px] w-full border pl-2.5 pr-[34px] font-mono text-[13px] font-medium uppercase outline-none transition-colors disabled:cursor-not-allowed disabled:opacity-50
                           {isValid
                             ? 'focus:border-accent border-border'
                             : 'border-destructive'}"
@@ -514,23 +540,23 @@
                     />
                     <button
                         type="button"
-                        class="text-fg-dimmed hover:text-fg-primary absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center transition-colors"
+                        class="text-fg-dimmed hover:text-fg-primary absolute right-1 top-1 flex h-[26px] w-[26px] items-center justify-center transition-colors"
                         onclick={() => copyColor(currentColor)}
                         title="Copy hex"
                         aria-label="Copy hex"
                     >
                         <svg
-                            class="h-3.5 w-3.5"
+                            class="h-[13px] w-[13px]"
                             viewBox="0 0 24 24"
                             fill="none"
                             stroke="currentColor"
                             stroke-width="2"
                             stroke-linecap="round"
                             stroke-linejoin="round"
+                            aria-hidden="true"
                         >
-                            <rect x="9" y="9" width="13" height="13"></rect>
                             <path
-                                d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+                                d="M9 9h13v13H9z M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
                             ></path>
                         </svg>
                     </button>
@@ -539,13 +565,13 @@
                 {#if !isValid}
                     <p
                         id="hex-input-error"
-                        class="text-destructive text-[10px]"
+                        class="text-destructive text-[11px]"
                     >
                         Enter a 6-digit hex like #1a2b3c
                     </p>
                 {:else if contrastPills.length > 0}
                     <div
-                        class="text-fg-dimmed flex items-center gap-2 text-[10px] tabular-nums"
+                        class="text-fg-dimmed flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] tabular-nums"
                     >
                         {#each contrastPills as pill}
                             {@const level = contrastLevel(pill.ratio)}
@@ -553,7 +579,7 @@
                                 class="flex items-baseline gap-1"
                                 title="Contrast against {pill.anchor}"
                             >
-                                <span class="font-mono"
+                                <span class="text-fg-secondary font-mono"
                                     >{pill.ratio.toFixed(1)}</span
                                 >
                                 <span class="font-semibold {LEVEL_TEXT[level]}"
@@ -567,25 +593,17 @@
             </div>
         </div>
 
-        <section class="space-y-2">
+        <section class="flex flex-col gap-2.5">
             <div class="flex items-center justify-between">
-                <span class="text-fg-dimmed text-[9px] uppercase tracking-wider"
-                    >Channels</span
-                >
-                <div class="flex items-center gap-px">
-                    {#each COLOR_MODELS as id}
-                        <button
-                            type="button"
-                            class="border px-1.5 py-0.5 text-[9px] uppercase tracking-wider transition-colors
-                            {activeModel === id
-                                ? 'text-accent border-accent bg-accent-muted'
-                                : 'text-fg-dimmed border-border hover:text-fg-secondary'}"
-                            onclick={() => setColorPickerModel(id)}
-                            aria-pressed={activeModel === id}
-                            >{MODEL_LABELS[id]}</button
-                        >
-                    {/each}
-                </div>
+                {@render eyebrow('Channels')}
+                <Segmented
+                    options={MODEL_OPTIONS}
+                    value={activeModel}
+                    onchange={setColorPickerModel}
+                    size="sm"
+                    mono
+                    label="Color model"
+                />
             </div>
 
             {#if activeModel === 'rgb'}
@@ -650,10 +668,8 @@
             {/if}
         </section>
 
-        <section class="space-y-1.5">
-            <span class="text-fg-dimmed text-[9px] uppercase tracking-wider"
-                >Harmony</span
-            >
+        <section class="flex flex-col gap-2">
+            {@render eyebrow('Harmony')}
             <div class="grid grid-cols-5 gap-1">
                 {#each harmonyColors as h}
                     <button
@@ -663,12 +679,12 @@
                         disabled={locked}
                         title="{h.title} · {h.hex}"
                     >
-                        <div
-                            class="h-7 w-full"
-                            style:background-color={h.hex}
-                        ></div>
                         <span
-                            class="text-fg-dimmed py-0.5 text-center text-[9px] tabular-nums leading-none"
+                            class="block h-7 w-full"
+                            style:background-color={h.hex}
+                        ></span>
+                        <span
+                            class="text-fg-dimmed py-[3px] text-center font-mono text-[9.5px] font-medium leading-none"
                             >{h.label}</span
                         >
                     </button>
@@ -676,23 +692,25 @@
             </div>
         </section>
 
-        <section class="space-y-1.5">
-            <span class="text-fg-dimmed text-[9px] uppercase tracking-wider"
-                >Tones</span
-            >
-            <ShadeGrid baseColor={currentColor} onselect={c => applyColor(c)} />
+        <section class="flex flex-col gap-2">
+            {@render eyebrow('Tones')}
+            <ShadeGrid
+                hue={hsl.h}
+                saturation={hsl.s}
+                lightness={hsl.l}
+                disabled={locked}
+                onselect={c => applyColor(c)}
+            />
         </section>
 
         {#if recents.length > 0}
-            <section class="space-y-1.5">
-                <span class="text-fg-dimmed text-[9px] uppercase tracking-wider"
-                    >Recent</span
-                >
-                <div class="grid grid-cols-12 gap-1">
+            <section class="flex flex-col gap-2">
+                {@render eyebrow('Recent')}
+                <div class="grid grid-cols-12 gap-[3px]">
                     {#each recents as hex}
                         <button
                             type="button"
-                            class="border-border hover:border-border-focus aspect-square border transition-colors disabled:opacity-40"
+                            class="aspect-square shadow-[inset_0_0_0_1px_rgba(128,128,128,0.2)] transition-transform hover:-translate-y-px disabled:opacity-40"
                             style:background-color={hex}
                             onclick={() => applyColor(hex)}
                             disabled={locked}

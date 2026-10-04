@@ -31,6 +31,9 @@
     {#if cached}
         <img src={cached} {alt} class="h-full w-full object-cover" />
     {:else}
-        <span class="text-fg-dimmed text-[9px]">...</span>
+        <span
+            class="bg-bg-surface h-full w-full animate-pulse"
+            aria-hidden="true"
+        ></span>
     {/if}
 </div>

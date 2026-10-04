@@ -15,6 +15,7 @@ import {
     type Snapshot,
 } from '$lib/stores/history.svelte';
 import {debounce} from '$lib/utils/debounce';
+import {showToast} from '$lib/stores/ui.svelte';
 import {buildCurveLUT, applyCurveToColors} from '$lib/utils/canvas-filters';
 
 // Extraction follows this revision. Adjustment jobs are invalidated separately
@@ -195,6 +196,80 @@ export function getIsExtracting(): boolean {
 export function getIsApplying(): boolean {
     return isApplying;
 }
+// The backend copies every background into a single flat `backgrounds/`
+// directory. Two different files with the same filename cannot coexist in one
+// theme, and the backend rejects the apply with a basename collision. Dedupe
+// by full path and by basename before the list reaches the backend. The first
+// entry wins, and the primary wallpaper counts as the first entry.
+export function imageBasename(path: string): string {
+    return path.split(/[\\/]/).pop() ?? path;
+}
+
+export function dedupeAdditionalImages(
+    images: readonly string[],
+    primaryWallpaper: string
+): string[] {
+    const seenPaths = new Set<string>();
+    const seenNames = new Set<string>();
+    if (primaryWallpaper) {
+        seenPaths.add(primaryWallpaper);
+        seenNames.add(imageBasename(primaryWallpaper));
+    }
+    const unique: string[] = [];
+    for (const image of images) {
+        if (!image) continue;
+        const name = imageBasename(image);
+        if (seenPaths.has(image) || seenNames.has(name)) continue;
+        seenPaths.add(image);
+        seenNames.add(name);
+        unique.push(image);
+    }
+    return unique;
+}
+
+function sameStringList(a: readonly string[], b: readonly string[]): boolean {
+    return (
+        a.length === b.length && a.every((value, index) => value === b[index])
+    );
+}
+
+// Drops additional images that collide with a new main wallpaper. History
+// snapshots do not hold additional images, so undo cannot bring them back.
+// Tell the user about each different file that was dropped.
+function dropImagesCollidingWith(primary: string): void {
+    const kept = dedupeAdditionalImages(additionalImages, primary);
+    if (sameStringList(kept, additionalImages)) return;
+    const dropped = additionalImages.filter(
+        image => image !== primary && !kept.includes(image)
+    );
+    additionalImages = kept;
+    if (dropped.length > 0) {
+        const noun = dropped.length === 1 ? 'image' : 'images';
+        showToast(
+            `Removed ${dropped.length} additional ${noun} with the same filename as the main wallpaper`
+        );
+    }
+}
+
+// Order-independent comparison for values pushed from the backend. Keeping
+// `applyBackendState` from rewriting identical maps/slices stops it re-arming
+// App's SyncState `$effect` with an unchanged snapshot.
+function sameSerialized(a: unknown, b: unknown): boolean {
+    return stableStringify(a) === stableStringify(b);
+}
+
+function stableStringify(value: unknown): string {
+    return JSON.stringify(value, (_key, val: unknown) =>
+        val && typeof val === 'object' && !Array.isArray(val)
+            ? Object.fromEntries(
+                  Object.entries(val as Record<string, unknown>).sort(
+                      ([a], [b]) => a.localeCompare(b)
+                  )
+              )
+            : val
+    );
+}
+
 export function getAdditionalImages(): string[] {
     return additionalImages;
 }
@@ -249,6 +324,9 @@ export function restoreHistorySnapshot(snapshot: Snapshot): void {
     wallpaperBlur = restored.wallpaperBlur;
     blurPreview = null;
     wallpaperRevision++;
+    // An undo can bring back a main wallpaper whose filename matches an
+    // additional image. Drop those entries so the restored state still applies.
+    dropImagesCollidingWith(restored.wallpaperPath);
     palette = restored.palette;
     basePalette = restored.basePalette;
     extendedColors = restored.extendedColors;
@@ -644,6 +722,9 @@ export function setWallpaperPath(path: string): void {
     blurPreview = null;
     invalidateThemeRequests(false);
     wallpaperPath = path;
+    // An additional image whose filename matches the new wallpaper can never be
+    // staged alongside it, so drop it instead of failing the whole apply.
+    dropImagesCollidingWith(path);
 }
 export function setLightMode(enabled: boolean): void {
     invalidateThemeRequests(false);
@@ -669,15 +750,24 @@ export function setIsApplying(v: boolean): void {
 }
 
 export function setAdditionalImages(images: string[]): void {
+    const unique = dedupeAdditionalImages(images, wallpaperPath);
+    if (sameStringList(unique, additionalImages)) return;
     invalidateThemeRequests(false);
-    additionalImages = [...images];
+    additionalImages = unique;
 }
 
-export function addAdditionalImage(path: string): void {
-    if (!additionalImages.includes(path)) {
-        invalidateThemeRequests(false);
-        additionalImages = [...additionalImages, path];
-    }
+// Returns false when the image repeats a path or a filename that the theme
+// already uses, including the main wallpaper.
+export function addAdditionalImage(path: string): boolean {
+    if (!path || additionalImages.includes(path)) return false;
+    const next = dedupeAdditionalImages(
+        [...additionalImages, path],
+        wallpaperPath
+    );
+    if (!next.includes(path)) return false;
+    invalidateThemeRequests(false);
+    additionalImages = next;
+    return true;
 }
 
 export function removeAdditionalImage(path: string): void {
@@ -690,14 +780,75 @@ export function swapMainWithAdditional(path: string): void {
     if (idx === -1) return;
     invalidateThemeRequests(false);
     const oldMain = wallpaperPath;
-    setWallpaperPath(path);
     const next = [...additionalImages];
     if (oldMain) {
         next[idx] = oldMain;
     } else {
         next.splice(idx, 1);
     }
-    additionalImages = next;
+    setWallpaperPath(path);
+    const unique = dedupeAdditionalImages(next, path);
+    if (!sameStringList(unique, additionalImages)) additionalImages = unique;
+}
+
+// Shape of the editor snapshot the Go backend pushes over the
+// `ipc-state-changed` Wails event for IPC remote control.
+export interface BackendStatePayload {
+    palette?: string[];
+    extendedColors?: Record<string, string>;
+    nativeColors?: Record<string, string>;
+    iconTheme?: {mode?: string; id?: string};
+    lightMode?: boolean;
+    mode?: string;
+    wallpaper?: string;
+    wallpaperBlur?: boolean;
+    adjustments?: Adjustments;
+    appOverrides?: Record<string, Record<string, string>>;
+    additionalImages?: string[];
+}
+
+// Mirrors a backend-pushed snapshot into local state. Values that already
+// match local state are skipped, so an equal push does not cancel pending
+// theme requests or send the same snapshot back to Go.
+export function applyBackendState(state: BackendStatePayload): void {
+    if (
+        state.palette &&
+        state.palette.length >= 16 &&
+        !sameSerialized(state.palette, palette)
+    ) {
+        setPalette(state.palette);
+    }
+    if (
+        state.extendedColors &&
+        !sameSerialized(state.extendedColors, extendedColors)
+    ) {
+        setExtendedColors(state.extendedColors);
+    }
+    if (
+        state.nativeColors &&
+        !sameSerialized(state.nativeColors, nativeColors)
+    ) {
+        setNativeColors(state.nativeColors);
+    }
+    if (state.iconTheme) setIconTheme(state.iconTheme, true);
+    if (state.lightMode !== undefined) setLightMode(state.lightMode);
+    if (state.mode) setExtractionMode(state.mode);
+    if (state.wallpaper !== undefined && state.wallpaper !== wallpaperPath) {
+        setWallpaperPath(state.wallpaper);
+    }
+    if (state.wallpaperBlur !== undefined) {
+        setWallpaperBlur(state.wallpaperBlur, true);
+    }
+    if (state.adjustments && !sameSerialized(state.adjustments, adjustments)) {
+        setAdjustments(state.adjustments);
+    }
+    if (
+        state.appOverrides &&
+        !sameSerialized(state.appOverrides, appOverrides)
+    ) {
+        setAppOverrides(state.appOverrides);
+    }
+    if (state.additionalImages) setAdditionalImages(state.additionalImages);
 }
 
 // --- Shuffle (experimental) ---

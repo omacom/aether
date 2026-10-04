@@ -1,7 +1,8 @@
 <script lang="ts">
     import {onMount} from 'svelte';
     import Modal from '$lib/components/shared/Modal.svelte';
-    import CloseIcon from '$lib/components/shared/CloseIcon.svelte';
+    import DialogHeader from '$lib/components/shared/DialogHeader.svelte';
+    import Switch from '$lib/components/shared/Switch.svelte';
     import IconThemePreview from './IconThemePreview.svelte';
     import {getIconTheme, setIconTheme} from '$lib/stores/theme.svelte';
     import type {IconThemeSelection} from '$lib/types/theme';
@@ -40,6 +41,23 @@
               : missing
                 ? `${selection.id} · Missing`
                 : selection.id
+    );
+    // The picker button shows the theme name and a dimmed detail.
+    let summaryName = $derived(
+        selection.mode === 'automatic'
+            ? 'Automatic'
+            : (selectedTheme?.name ?? selection.id)
+    );
+    let summaryDetail = $derived(
+        selection.mode === 'automatic'
+            ? 'Yaru, palette-matched'
+            : missing
+              ? 'Missing'
+              : selectedTheme
+                ? selectedTheme.origin === 'user'
+                    ? 'User'
+                    : 'System'
+                : ''
     );
     let filteredThemes = $derived.by(() => {
         const needle = query.trim().toLocaleLowerCase();
@@ -91,11 +109,23 @@
     });
 </script>
 
-<div class="flex items-center gap-2">
-    <span class="text-fg-secondary shrink-0 text-[11px]">Icons</span>
+<section class="border-border flex flex-col gap-[9px] border-b px-4 py-3">
+    <div class="flex items-center gap-2">
+        <span class="text-fg-primary flex-1 text-[12.5px] font-medium"
+            >Desktop icons</span
+        >
+        <Switch
+            checked={enabled}
+            onchange={() => toggleAppInclusion('icons')}
+            label="Toggle Icons"
+            title={enabled
+                ? 'Icons are themed on apply'
+                : 'Icons are not themed on apply'}
+        />
+    </div>
     <button
         type="button"
-        class="border-border bg-bg-surface hover:bg-bg-hover ml-auto flex min-w-0 flex-1 items-center gap-1 border px-2 py-1 text-left transition-colors disabled:cursor-default disabled:opacity-50"
+        class="border-border bg-bg-surface enabled:hover:border-border-focus flex h-[30px] min-w-0 items-center gap-2 border px-2.5 text-left text-[12px] transition-colors disabled:cursor-default disabled:opacity-45"
         class:border-warning={missing}
         onclick={showPicker}
         disabled={!enabled}
@@ -104,68 +134,50 @@
             ? 'Choose an installed desktop icon theme'
             : 'Enable Icons to choose a theme'}
     >
-        <span
-            class="min-w-0 flex-1 truncate text-[10px]"
-            class:text-warning={missing}
-            class:text-fg-secondary={!missing}>{summary}</span
+        <span class="text-fg-primary min-w-0 flex-1 truncate"
+            >{summaryName}</span
         >
+        {#if summaryDetail}
+            <span
+                class="shrink-0 truncate text-[11px]"
+                class:text-warning={missing}
+                class:text-fg-dimmed={!missing}>{summaryDetail}</span
+            >
+        {/if}
         <svg
             class="text-fg-dimmed h-3 w-3 shrink-0"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
-            stroke-width="2"
-            aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg
+            stroke-width="2.2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg
         >
     </button>
-    <button
-        type="button"
-        class="relative h-4 w-8 shrink-0 transition-colors duration-150
-        {enabled ? 'bg-accent' : 'bg-bg-surface border-border border'}"
-        onclick={() => toggleAppInclusion('icons')}
-        role="switch"
-        aria-checked={enabled}
-        aria-label="Toggle Icons"
-    >
-        <span
-            class="bg-fg-primary absolute left-0.5 top-0.5 h-3 w-3 transition-transform duration-150
-            {enabled ? 'translate-x-4' : 'translate-x-0'}"
-        ></span>
-    </button>
-</div>
+</section>
 
 <Modal
     {open}
     onclose={() => (open = false)}
+    bare
+    label="Choose icon theme"
     panelClass="w-[560px] max-h-[82vh] flex flex-col"
 >
-    <div class="mb-3 flex items-center gap-2">
-        <h3 class="text-fg-primary text-[12px] font-medium">
-            Choose icon theme
-        </h3>
-        <button
-            type="button"
-            class="text-fg-dimmed hover:text-fg-primary ml-auto p-1 transition-colors"
-            onclick={() => (open = false)}
-            aria-label="Close icon theme picker"
-            title="Close"
-        >
-            <CloseIcon size="h-3.5 w-3.5" />
-        </button>
-    </div>
+    <DialogHeader title="Choose icon theme" onclose={() => (open = false)} />
 
-    <div class="mb-3 flex gap-2">
+    <div class="flex gap-2 px-5 pb-3 pt-4">
         <input
             bind:this={searchInput}
             bind:value={query}
             type="search"
-            class="bg-bg-surface border-border text-fg-primary placeholder:text-fg-dimmed focus:border-border-focus min-w-0 flex-1 border px-2 py-1.5 text-[11px] outline-none"
+            class="bg-bg-primary border-border text-fg-primary focus:border-accent h-[34px] min-w-0 flex-1 border px-2.5 text-[13px] outline-none"
             placeholder="Search installed themes…"
             aria-label="Search installed icon themes"
         />
         <button
             type="button"
-            class="border-border text-fg-secondary hover:bg-bg-hover border px-2.5 py-1.5 text-[10px] transition-colors disabled:opacity-50"
+            class="border-border text-fg-secondary hover:bg-bg-hover hover:text-fg-primary h-[34px] border px-3.5 text-[12px] font-medium transition-colors disabled:opacity-50"
             onclick={() => loadThemes(true)}
             disabled={loading}
         >
@@ -174,11 +186,13 @@
     </div>
 
     {#if error}
-        <p class="text-warning mb-2 text-[10px]" role="status">{error}</p>
+        <p class="text-warning px-5 pb-2 text-[11px]" role="status">
+            {error}
+        </p>
     {/if}
 
     <div
-        class="border-border min-h-0 flex-1 overflow-y-auto border"
+        class="border-border mx-5 mb-5 min-h-0 flex-1 overflow-y-auto border"
         role="group"
         aria-label="Icon themes"
     >
@@ -186,7 +200,7 @@
             type="button"
             aria-pressed={selection.mode === 'automatic'}
             aria-label="Use automatic icon theme"
-            class="border-border hover:bg-bg-hover flex w-full items-start gap-2 border-b px-3 py-2 text-left transition-colors"
+            class="border-border hover:bg-bg-hover flex w-full items-start gap-2.5 border-b px-3 py-2.5 text-left transition-colors"
             class:bg-accent-muted={selection.mode === 'automatic'}
             onclick={() => choose({mode: 'automatic'})}
         >
@@ -196,10 +210,10 @@
                 aria-hidden="true"
             ></span>
             <span>
-                <span class="text-fg-primary block text-[11px] font-medium"
+                <span class="text-fg-primary block text-[12px] font-medium"
                     >Automatic · Color-matched Yaru</span
                 >
-                <span class="text-fg-dimmed mt-0.5 block text-[10px]">
+                <span class="text-fg-dimmed mt-0.5 block text-[11px]">
                     Uses Aether’s palette-derived Yaru variant
                 </span>
             </span>
@@ -210,7 +224,7 @@
                 type="button"
                 aria-pressed="true"
                 aria-label="Keep missing icon theme {selection.id}"
-                class="border-border bg-accent-muted hover:bg-bg-hover flex w-full items-start gap-2 border-b px-3 py-2 text-left transition-colors"
+                class="border-border bg-accent-muted hover:bg-bg-hover flex w-full items-start gap-2.5 border-b px-3 py-2.5 text-left transition-colors"
                 onclick={() => (open = false)}
             >
                 <span
@@ -218,10 +232,10 @@
                     aria-hidden="true"
                 ></span>
                 <span>
-                    <span class="text-warning block text-[11px] font-medium"
+                    <span class="text-warning block text-[12px] font-medium"
                         >{selection.id} · Missing</span
                     >
-                    <span class="text-fg-dimmed mt-0.5 block text-[10px]">
+                    <span class="text-fg-dimmed mt-0.5 block text-[11px]">
                         This icon theme is not installed. Aether preserves its
                         ID.
                     </span>
@@ -231,18 +245,18 @@
 
         {#if loading && !loaded}
             <p
-                class="text-fg-dimmed px-3 py-5 text-center text-[10px]"
+                class="text-fg-dimmed px-3 py-6 text-center text-[11.5px]"
                 role="status"
             >
                 Loading installed icon themes…
             </p>
         {:else if loaded && themes.length === 0}
-            <p class="text-fg-dimmed px-3 py-5 text-center text-[10px]">
+            <p class="text-fg-dimmed px-3 py-6 text-center text-[11.5px]">
                 No installed icon themes were found. Automatic Yaru is still
                 available.
             </p>
         {:else if filteredThemes.length === 0}
-            <p class="text-fg-dimmed px-3 py-5 text-center text-[10px]">
+            <p class="text-fg-dimmed px-3 py-6 text-center text-[11.5px]">
                 No installed themes match this search.
             </p>
         {:else}
@@ -252,7 +266,7 @@
                     aria-pressed={selection.mode === 'explicit' &&
                         selection.id === theme.id}
                     aria-label="Use icon theme {theme.name}"
-                    class="border-border hover:bg-bg-hover flex w-full items-start gap-2 border-b px-3 py-2 text-left transition-colors last:border-b-0"
+                    class="border-border hover:bg-bg-hover flex w-full items-start gap-2.5 border-b px-3 py-2.5 text-left transition-colors last:border-b-0"
                     class:bg-accent-muted={selection.mode === 'explicit' &&
                         selection.id === theme.id}
                     onclick={() => choose({mode: 'explicit', id: theme.id})}
@@ -266,18 +280,18 @@
                     <span class="min-w-0 flex-1">
                         <span class="flex items-baseline gap-2">
                             <span
-                                class="text-fg-primary truncate text-[11px] font-medium"
+                                class="text-fg-primary truncate text-[12px] font-medium"
                                 >{theme.name}</span
                             >
                             <span
-                                class="text-fg-dimmed ml-auto shrink-0 text-[9px] uppercase tracking-wide"
+                                class="text-fg-dimmed ml-auto shrink-0 text-[10px] font-semibold uppercase tracking-[0.12em]"
                             >
                                 {theme.origin === 'user' ? 'User' : 'System'}
                             </span>
                         </span>
                         {#if theme.id.toLocaleLowerCase() !== theme.name.toLocaleLowerCase()}
                             <span
-                                class="text-fg-dimmed mt-0.5 block truncate text-[9px]"
+                                class="text-fg-dimmed mt-0.5 block truncate font-mono text-[10px]"
                             >
                                 {theme.id}
                             </span>

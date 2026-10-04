@@ -492,6 +492,32 @@ func TestPrepareThemeDirPreservesMediaOnFailure(t *testing.T) {
 	}
 }
 
+func TestPrepareThemeDirStagesRepeatedPathsOnce(t *testing.T) {
+	root := setupWriterTestEnv(t)
+	target := filepath.Join(root, "theme")
+	wallpaper := filepath.Join(root, "incoming", "wall.png")
+	extra := filepath.Join(root, "incoming", "extra.png")
+	writeWriterTestFile(t, wallpaper, "wallpaper")
+	writeWriterTestFile(t, extra, "extra")
+	state := NewThemeState()
+	state.WallpaperPath = wallpaper
+	state.AdditionalImages = []string{extra, wallpaper, extra}
+
+	dest, err := prepareThemeDir(target, state)
+	if err != nil {
+		t.Fatalf("prepareThemeDir() error = %v", err)
+	}
+	if want := filepath.Join(target, "backgrounds", "wall.png"); dest != want {
+		t.Fatalf("prepareThemeDir() = %q, want %q", dest, want)
+	}
+	assertWriterTestFile(t, filepath.Join(target, "backgrounds", "wall.png"), "wallpaper")
+	assertWriterTestFile(t, filepath.Join(target, "backgrounds", "extra.png"), "extra")
+	entries, err := os.ReadDir(filepath.Join(target, "backgrounds"))
+	if err != nil || len(entries) != 2 {
+		t.Fatalf("backgrounds = %v, err = %v; want 2 files", entries, err)
+	}
+}
+
 func TestPrepareThemeDirSupportsExistingMediaSources(t *testing.T) {
 	for _, mode := range []string{"self source", "symlink source", "additional only", "color only"} {
 		t.Run(mode, func(t *testing.T) {

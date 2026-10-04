@@ -59,20 +59,23 @@
 <div class="relative z-20" bind:this={anchorEl}>
     {#if currentLabel}
         <button
-            class="flex items-center gap-1 px-2 py-1 text-[10px] font-medium transition-colors hover:brightness-125"
-            style="background-color: {currentLabel.color}20; color: {currentLabel.color}; border: 1px solid {currentLabel.color}40;"
+            class="flex h-5 max-w-[120px] items-center gap-1 px-1.5 text-[10.5px] font-medium transition-colors hover:brightness-125"
+            style="background-color: {currentLabel.color}24; color: {currentLabel.color}; border: 1px solid {currentLabel.color}55;"
             onclick={toggle}
+            title="Change label"
         >
             <span
                 class="h-2 w-2 shrink-0"
                 style:background-color={currentLabel.color}
             ></span>
-            {currentLabel.name}
+            <span class="truncate">{currentLabel.name}</span>
         </button>
     {:else}
         <button
-            class="text-fg-dimmed hover:text-fg-secondary border-border hover:border-border-focus flex items-center gap-1 border px-2 py-1 text-[10px] transition-colors"
+            class="text-fg-dimmed hover:text-fg-secondary border-border hover:border-border-focus flex h-5 w-5 items-center justify-center border transition-colors"
             onclick={toggle}
+            aria-label="Add label"
+            title="Add label"
         >
             <svg
                 class="h-3 w-3"
@@ -81,10 +84,13 @@
                 stroke="currentColor"
                 stroke-width="2"
                 stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
             >
-                <path d="M12 5v14M5 12h14"></path>
+                <path
+                    d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z M7 7h.01"
+                ></path>
             </svg>
-            Label
         </button>
     {/if}
 
@@ -101,14 +107,14 @@
             role="presentation"
         ></div>
         <div
-            class="border-border-focus bg-bg-secondary absolute bottom-full left-0 z-50 mb-1 min-w-[160px] border shadow-xl"
+            class="border-border bg-bg-secondary shadow-(--shadow-panel) absolute bottom-full left-0 z-50 mb-1 min-w-[200px] border"
         >
             {#if allLabels.length > 0}
-                <div class="p-1">
+                <div class="py-1">
                     {#each allLabels as label}
                         <div class="group/label flex items-center">
                             <button
-                                class="hover:bg-bg-hover flex flex-1 items-center gap-2 px-2.5 py-1.5 text-left text-[11px] transition-colors
+                                class="hover:bg-bg-hover hover:text-fg-primary flex h-[30px] flex-1 items-center gap-2 px-3 text-left text-[12px] transition-colors
                   {currentLabel?.id === label.id
                                     ? 'text-fg-primary'
                                     : 'text-fg-secondary'}"
@@ -133,7 +139,8 @@
                                 {/if}
                             </button>
                             <button
-                                class="text-fg-dimmed hover:text-destructive px-1.5 py-1.5 opacity-0 transition-all group-hover/label:opacity-100"
+                                class="text-fg-dimmed hover:text-destructive flex h-[30px] w-8 items-center justify-center opacity-0 transition-opacity focus-visible:opacity-100 group-hover/label:opacity-100"
+                                aria-label="Delete label {label.name}"
                                 onclick={e => {
                                     e.stopPropagation();
                                     deleteLabel(label.id);
@@ -148,19 +155,19 @@
             {/if}
 
             {#if currentLabel}
-                <div class="border-border border-t p-1">
+                <div class="border-border border-t py-1">
                     <button
-                        class="text-fg-dimmed hover:text-fg-secondary hover:bg-bg-hover w-full px-2.5 py-1.5 text-left text-[11px] transition-colors"
+                        class="text-fg-secondary hover:text-fg-primary hover:bg-bg-hover h-[30px] w-full px-3 text-left text-[12px] transition-colors"
                         onclick={remove}>Remove label</button
                     >
                 </div>
             {/if}
 
-            <div class="border-border border-t p-1">
+            <div class="border-border border-t py-1">
                 {#if creating}
                     <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
                     <div
-                        class="space-y-1.5 px-1.5 py-1"
+                        class="space-y-2 px-3 py-1.5"
                         onclick={e => e.stopPropagation()}
                         role="presentation"
                     >
@@ -168,10 +175,10 @@
                         <div class="flex flex-wrap gap-1">
                             {#each LABEL_COLORS as c}
                                 <button
-                                    class="h-4 w-4 transition-all
+                                    class="h-4 w-4 transition-shadow
                     {newColor === c
-                                        ? 'ring-offset-bg-secondary scale-110 ring-1 ring-white ring-offset-1'
-                                        : 'hover:scale-110'}"
+                                        ? 'ring-offset-bg-secondary ring-fg-primary ring-1 ring-offset-1'
+                                        : 'hover:ring-border-focus hover:ring-1'}"
                                     style:background-color={c}
                                     onclick={e => {
                                         e.stopPropagation();
@@ -191,7 +198,7 @@
                             <input
                                 bind:this={newNameInput}
                                 type="text"
-                                class="text-fg-primary focus:border-accent border-border-focus bg-bg-secondary flex-1 border px-2 py-1 text-[11px] outline-none"
+                                class="text-fg-primary focus:border-accent border-border bg-bg-primary h-7 min-w-0 flex-1 border px-2 text-[12px] outline-none"
                                 placeholder="Name..."
                                 bind:value={newName}
                                 onkeydown={e => {
@@ -226,7 +233,7 @@
                     </div>
                 {:else}
                     <button
-                        class="text-accent hover:bg-bg-hover w-full px-2.5 py-1.5 text-left text-[11px] transition-colors"
+                        class="text-accent hover:bg-bg-hover h-[30px] w-full px-3 text-left text-[12px] transition-colors"
                         onclick={e => {
                             e.stopPropagation();
                             creating = true;

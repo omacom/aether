@@ -6,20 +6,47 @@
         getLockedColors,
         setLockedColor,
         getSelectedColors,
-        hasColorSelection,
         hasAnySelection,
         clearColorSelection,
         shufflePalette,
         setPalette,
+        getExtractionMode,
+        getSelectedExtColors,
     } from '$lib/stores/theme.svelte';
-    import {openColorPicker, showToast} from '$lib/stores/ui.svelte';
-    import {ANSI_COLOR_NAMES, ANSI_SLOT_ROLES} from '$lib/constants/colors';
+    import {
+        openColorPicker,
+        showToast,
+        getColorPickerOpen,
+        getColorPickerIndex,
+        getColorPickerExtKey,
+        getColorPickerOverrideApp,
+    } from '$lib/stores/ui.svelte';
+    import {
+        ANSI_COLOR_NAMES,
+        ANSI_SLOT_ROLES,
+        EXTRACTION_MODES,
+    } from '$lib/constants/colors';
     import {hslToHex, copyColor} from '$lib/utils/color';
 
     let palette = $derived(getPalette());
     let locked = $derived(getLockedColors());
     let selected = $derived(getSelectedColors());
+    let selectedCount = $derived(
+        Object.values(selected).filter(Boolean).length +
+            Object.values(getSelectedExtColors()).filter(Boolean).length
+    );
     let hasSelect = $derived(hasAnySelection());
+    let modeLabel = $derived(
+        EXTRACTION_MODES.find(m => m.value === getExtractionMode())?.label ?? ''
+    );
+    // The palette slot that the color picker edits, or -1.
+    let activeIndex = $derived(
+        getColorPickerOpen() &&
+            !getColorPickerExtKey() &&
+            !getColorPickerOverrideApp()
+            ? getColorPickerIndex()
+            : -1
+    );
 
     let gridEl = $state<HTMLDivElement | null>(null);
     let focusedIndex = $state(0);
@@ -108,69 +135,68 @@
     }
 </script>
 
-<div>
-    <SectionHeader title="Palette" suffix={hasSelect ? '(selection)' : ''}>
+<section>
+    <SectionHeader
+        title="Palette"
+        suffix={hasSelect
+            ? `${selectedCount} selected`
+            : `16 colors${modeLabel ? ` · ${modeLabel}` : ''}`}
+    >
+        {#if hasSelect}
+            <button
+                class="text-accent hover:text-accent-hover h-[26px] px-2 text-[11.5px] transition-colors"
+                onclick={clearColorSelection}>Clear selection</button
+            >
+        {/if}
         <button
-            class="text-fg-dimmed hover:text-accent text-[9px] transition-colors"
+            class="border-border text-fg-secondary hover:border-border-focus hover:text-fg-primary h-[26px] border px-2.5 text-[11.5px] transition-colors"
             onclick={randomPalette}
             title="Generate palette from a random shade (experimental)"
             >Random</button
         >
         <button
-            class="text-fg-dimmed hover:text-accent text-[9px] transition-colors"
+            class="border-border text-fg-secondary hover:border-border-focus hover:text-fg-primary h-[26px] border px-2.5 text-[11.5px] transition-colors"
             onclick={shufflePalette}
             title="Shuffle ANSI color roles (experimental)">Shuffle</button
-        >
-        {#if hasSelect}
-            <button
-                class="text-accent hover:text-accent-hover text-[9px] transition-colors"
-                onclick={clearColorSelection}>Clear</button
-            >
-        {/if}
-        <span class="text-fg-dimmed text-[9px]"
-            >Shift+click select · ←→↑↓ navigate · L lock · C copy</span
         >
     </SectionHeader>
 
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <!-- 8 columns, each has normal + bright stacked with label -->
+    <!-- 8 columns. Each column has a label, the normal color, and the bright color. -->
     <div
         bind:this={gridEl}
-        class="grid grid-cols-8 gap-1.5"
+        class="grid grid-cols-8 gap-2"
         role="grid"
         tabindex={-1}
         aria-label="Palette colours"
         onkeydown={handleGridKey}
     >
         {#each Array(8) as _, i}
-            <div class="flex flex-col gap-1.5">
-                <ColorSwatch
-                    color={palette[i]}
-                    index={i}
-                    label={ANSI_COLOR_NAMES[i]}
-                    role={ANSI_SLOT_ROLES[i]}
-                    contrastAgainst={palette[0]}
-                    locked={locked[i] || false}
-                    selected={selected[i] || false}
-                    focused={focusedIndex === i}
-                    onclick={() => openColorPicker(i)}
-                />
-                <ColorSwatch
-                    color={palette[i + 8]}
-                    index={i + 8}
-                    label={ANSI_COLOR_NAMES[i + 8]}
-                    role={ANSI_SLOT_ROLES[i + 8]}
-                    contrastAgainst={palette[0]}
-                    locked={locked[i + 8] || false}
-                    selected={selected[i + 8] || false}
-                    focused={focusedIndex === i + 8}
-                    onclick={() => openColorPicker(i + 8)}
-                />
+            <div class="flex min-w-0 flex-col gap-1.5">
                 <span
-                    class="text-fg-dimmed mt-0.5 select-none text-center text-[8px]"
+                    class="text-fg-dimmed select-none pl-px text-[11px] font-medium"
                     >{labels[i]}</span
                 >
+                {#each [i, i + 8] as idx}
+                    <ColorSwatch
+                        color={palette[idx]}
+                        index={idx}
+                        label={ANSI_COLOR_NAMES[idx]}
+                        role={ANSI_SLOT_ROLES[idx]}
+                        contrastAgainst={palette[0]}
+                        locked={locked[idx] || false}
+                        selected={selected[idx] || false}
+                        active={activeIndex === idx}
+                        focused={focusedIndex === idx}
+                        onclick={() => openColorPicker(idx)}
+                    />
+                {/each}
             </div>
         {/each}
     </div>
-</div>
+    <p class="text-fg-dimmed mt-2.5 text-[11px]">
+        Click to edit · Shift-click to select · Ctrl-click to copy · Drag onto a
+        template override · <span class="font-mono">L</span> lock ·
+        <span class="font-mono">C</span> copy
+    </p>
+</section>

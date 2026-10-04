@@ -178,3 +178,109 @@ test('malformed saved repository preferences do not break the browser', () => {
         target.querySelector('[aria-label="GitHub repository URL"]')
     ).not.toBeNull();
 });
+
+const folder = (name: string, htmlURL = '') => ({
+    name,
+    path: name,
+    type: 'dir',
+    size: 0,
+    url: '',
+    htmlURL,
+});
+
+function openFolder(target: HTMLElement, name: string) {
+    const button = target.querySelector<HTMLButtonElement>(
+        `[aria-label="Open directory ${name}"]`
+    );
+    if (!button) throw new Error(`Missing folder: ${name}`);
+    button.click();
+}
+
+test('folders with spaces, # and other reserved characters open and close', async () => {
+    const names = ['My Folder', 'C#', 'a&b?c', '100%', 'æøå'];
+    vi.mocked(ListGitHubImages).mockResolvedValue({
+        items: names.map(name => folder(name)),
+    } as never);
+    const {target} = render(GitHubBrowser, {});
+    source.setURL('https://github.com/owner/repo/tree/main');
+    await source.fetchImages();
+    await settle();
+
+    for (const name of names) {
+        openFolder(target, name);
+        await settle();
+    }
+    const deepest =
+        'https://github.com/owner/repo/tree/main/My%20Folder/C%23/a%26b%3Fc/100%25/%C3%A6%C3%B8%C3%A5';
+    expect(source.getURL()).toBe(deepest);
+    expect(vi.mocked(ListGitHubImages).mock.calls.at(-1)?.[0]).toBe(deepest);
+
+    for (const _ of names) {
+        target
+            .querySelector<HTMLButtonElement>(
+                '[aria-label="Go to parent directory"]'
+            )!
+            .click();
+        await settle();
+    }
+    expect(source.getURL()).toBe('https://github.com/owner/repo/tree/main');
+    expect(source.getCanGoUp()).toBe(false);
+});
+
+test('a folder named tree at a repository root opens through its page URL', async () => {
+    source.setURL('https://github.com/owner/repo');
+    source.navigateToDir(
+        'tree',
+        'https://github.com/owner/repo/tree/main/tree'
+    );
+    await settle();
+    expect(source.getURL()).toBe(
+        'https://github.com/owner/repo/tree/main/tree'
+    );
+    expect(source.getCanGoUp()).toBe(true);
+    source.navigateToDir('blob', 'https://github.com/other/repo/tree/x/blob');
+    await settle();
+    expect(source.getURL()).toBe(
+        'https://github.com/owner/repo/tree/main/tree/blob'
+    );
+});
+
+test('a typed percent sign that starts no escape is escaped', () => {
+    source.setURL(' https://github.com/owner/repo/tree/main/100%/a%20b ');
+    expect(source.getURL()).toBe(
+        'https://github.com/owner/repo/tree/main/100%25/a%20b'
+    );
+});
+
+test('a new folder starts at the top without the previous filter', async () => {
+    vi.mocked(ListGitHubImages).mockResolvedValue({
+        items: [folder('My Folder'), image],
+    } as never);
+    const {target} = render(GitHubBrowser, {});
+    source.setURL('https://github.com/owner/repo/tree/main');
+    await source.fetchImages();
+    await settle();
+
+    const scroller = target.querySelector<HTMLElement>('.overflow-y-auto')!;
+    let offset = 640;
+    Object.defineProperty(scroller, 'scrollTop', {
+        configurable: true,
+        get: () => offset,
+        set: value => (offset = value),
+    });
+    const filter = target.querySelector<HTMLInputElement>(
+        '[aria-label="Filter repository files"]'
+    )!;
+    filter.value = 'my';
+    filter.dispatchEvent(new Event('input', {bubbles: true}));
+    await settle();
+
+    openFolder(target, 'My Folder');
+    await settle();
+    expect(offset).toBe(0);
+    expect(
+        target.querySelector<HTMLInputElement>(
+            '[aria-label="Filter repository files"]'
+        )?.value
+    ).toBe('');
+});

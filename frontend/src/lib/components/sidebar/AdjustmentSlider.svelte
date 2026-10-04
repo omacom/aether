@@ -32,6 +32,23 @@
         }
     });
 
+    let changed = $derived(value !== defaultValue);
+    let display = $derived(
+        step < 1
+            ? value.toFixed(1)
+            : `${value > 0 && min < 0 ? '+' : ''}${value}`
+    );
+
+    // The track paints the accent fill from the default value to the
+    // current value. The thumb covers the ends of the fill.
+    let trackBackground = $derived.by(() => {
+        const pct = (v: number) => ((v - min) / (max - min)) * 100;
+        const lo = Math.min(pct(value), pct(defaultValue));
+        const hi = Math.max(pct(value), pct(defaultValue));
+        const rest = 'var(--color-bg-elevated)';
+        return `linear-gradient(to right, ${rest} ${lo}%, var(--color-accent) ${lo}% ${hi}%, ${rest} ${hi}%)`;
+    });
+
     function handleDblClick() {
         oninput(defaultValue);
         oncommit?.();
@@ -57,26 +74,27 @@
     }
 </script>
 
-<div class="flex flex-col gap-0.5">
+<div class="flex flex-col gap-[3px]">
     <!-- Label + value row -->
-    <div class="flex items-center justify-between">
-        <span class="text-fg-secondary text-[11px]">{label}</span>
+    <div class="flex items-baseline justify-between">
+        <span class="text-fg-secondary text-[12px]">{label}</span>
 
         {#if editing}
             <div class="flex items-center gap-1">
                 <input
                     bind:this={editInput}
                     type="text"
-                    class="text-fg-primary bg-bg-surface border-accent w-10 border px-1 py-0 text-right font-mono text-[10px] outline-none"
+                    class="text-fg-primary bg-bg-primary border-accent w-11 border px-1 py-0 text-right font-mono text-[11px] outline-none"
                     bind:value={editValue}
                     onblur={commitEdit}
                     onkeydown={handleEditKeydown}
                     aria-label="{label} value"
                 />
                 <button
-                    class="text-accent hover:text-accent-hover text-[10px]"
+                    class="text-accent hover:text-accent-hover"
                     onclick={commitEdit}
                     title="Apply"
+                    aria-label="Apply {label} value"
                 >
                     <svg
                         class="h-3 w-3"
@@ -94,9 +112,9 @@
         {:else}
             <!-- svelte-ignore a11y_no_static_element_interactions -->
             <span
-                class="cursor-text font-mono text-[10px]
-          {value !== defaultValue
-                    ? 'text-fg-secondary hover:text-accent'
+                class="cursor-text font-mono text-[11px] font-medium tabular-nums transition-colors
+          {changed
+                    ? 'text-fg-primary hover:text-accent'
                     : 'text-fg-dimmed hover:text-fg-secondary'}"
                 role="button"
                 tabindex="-1"
@@ -105,23 +123,27 @@
                 onkeydown={onActivate(startEdit)}
                 title="Click to type · Double-click to reset"
             >
-                {step < 1 ? value.toFixed(1) : value}
+                {display}
             </span>
         {/if}
     </div>
 
-    <!-- Slider -->
-    <input
-        type="range"
-        class="w-full cursor-pointer"
-        {min}
-        {max}
-        {step}
-        {value}
-        oninput={e => oninput(parseFloat(e.currentTarget.value))}
-        onchange={() => oncommit?.()}
-        ondblclick={handleDblClick}
-        title="Double-click to reset"
-        aria-label={label}
-    />
+    <!-- Slider. The inline background overrides the flat track from
+         app.css with the accent fill. -->
+    <div class="flex h-3.5 items-center">
+        <input
+            type="range"
+            class="w-full cursor-pointer"
+            style:background={trackBackground}
+            {min}
+            {max}
+            {step}
+            {value}
+            oninput={e => oninput(parseFloat(e.currentTarget.value))}
+            onchange={() => oncommit?.()}
+            ondblclick={handleDblClick}
+            title="Double-click to reset"
+            aria-label={label}
+        />
+    </div>
 </div>

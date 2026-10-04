@@ -12,6 +12,7 @@
     import {applyWallpaperOnly} from '$lib/actions/themeActions';
     import {isFavorite, toggleFavorite} from '$lib/stores/favorites.svelte';
     import {observeIntersection} from '$lib/utils/intersection';
+    import {formatFileSize} from '$lib/utils/format';
     import type {githubsource} from '../../../../wailsjs/go/models';
 
     let {
@@ -83,8 +84,11 @@
                     showToast('Already in additional images');
                     return;
                 }
-                addAdditionalImage(path);
-                showToast('Added to additional images');
+                showToast(
+                    addAdditionalImage(path)
+                        ? 'Added to additional images'
+                        : 'Skipped: the theme already has a wallpaper with that filename'
+                );
             } else {
                 setWallpaperPath(path);
                 setActiveTab('editor');
@@ -115,6 +119,7 @@
         applying={getIsApplying()}
         isFavorited={isFavorite(image.url)}
         isAdded={!!localPath && getAdditionalImages().includes(localPath)}
+        useLabel={busy ? 'Loading…' : 'Use'}
         onuse={() => useImage()}
         onaddextra={() => useImage(true)}
         onfavorite={favorite}
@@ -128,25 +133,28 @@
                     class="h-full w-full object-cover"
                     loading="lazy"
                 />
-            {:else}<span class="text-fg-dimmed text-[10px]"
+            {:else}<span class="text-fg-dimmed font-mono text-[10px]"
                     >{thumbError
                         ? 'Preview unavailable'
                         : 'Loading preview…'}</span
                 >{/if}
         {/snippet}
+        {#snippet meta()}
+            <span
+                class="text-fg-secondary shrink-0 font-mono"
+                title={image.name}>{dimensions || '—'}</span
+            >
+            <span
+                class="text-fg-dimmed min-w-0 flex-1 truncate"
+                title={image.name}>{image.name}</span
+            >
+            {#if thumbError}<button
+                    class="text-accent hover:text-accent-hover shrink-0"
+                    onclick={loadThumbnail}>Retry preview</button
+                >{/if}
+            <span class="text-fg-dimmed shrink-0"
+                >{formatFileSize(image.size)}</span
+            >
+        {/snippet}
     </WallpaperTile>
-    <div
-        class="text-fg-dimmed mt-1 flex items-center justify-between gap-2 text-[10px]"
-    >
-        <span>{dimensions}</span>
-        {#if thumbError}<button
-                class="text-accent px-1 py-0.5"
-                onclick={loadThumbnail}>Retry preview</button
-            >{/if}
-        <span
-            >{image.size > 0
-                ? `${(image.size / 1024 / 1024).toFixed(1)} MB`
-                : ''}</span
-        >
-    </div>
 </div>

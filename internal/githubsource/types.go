@@ -2,11 +2,12 @@ package githubsource
 
 // ImageInfo describes a single item (file or directory) from a GitHub repository.
 type ImageInfo struct {
-	Name string `json:"name"`
-	URL  string `json:"url"`   // raw.githubusercontent.com download URL (empty for dirs)
-	Size int64  `json:"size"`
-	Type string `json:"type"`  // "file" or "dir"
-	Path string `json:"path"`  // repo-relative path
+	Name    string `json:"name"`
+	URL     string `json:"url"` // raw.githubusercontent.com download URL (empty for dirs)
+	Size    int64  `json:"size"`
+	Type    string `json:"type"`    // "file" or "dir"
+	Path    string `json:"path"`    // repo-relative path
+	HTMLURL string `json:"htmlURL"` // github.com page URL with the branch (dirs only)
 }
 
 // ListContentsResult is returned by ListImages, containing both files and dirs.
@@ -29,4 +30,5 @@ type githubContent struct {
 	Path        string `json:"path"`
 	Size        int64  `json:"size"`
 	DownloadURL string `json:"download_url"`
+	HTMLURL     string `json:"html_url"`
 }

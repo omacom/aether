@@ -32,6 +32,10 @@
         return out;
     });
 
+    let selectedLabel = $derived(
+        EXTRACTION_MODES.find(m => m.value === selectedMode)?.label ?? ''
+    );
+
     function activeInGroup(groupId: ExtractionModeGroup) {
         return grouped[groupId]?.find(m => m.value === selectedMode);
     }
@@ -94,7 +98,7 @@
 </script>
 
 {#snippet modeList(items: ExtractionMode[])}
-    <ul class="flex flex-col">
+    <ul class="flex flex-col gap-px">
         {#each items as mode}
             {@const isActive = selectedMode === mode.value}
             {@const strip = getStrip(mode.value)}
@@ -104,30 +108,22 @@
                     onclick={() => handleModeChange(mode.value)}
                     title={mode.description}
                     aria-pressed={isActive}
-                    class="hover:bg-bg-hover flex w-full items-center justify-between gap-2 px-2 py-1.5 text-left text-[11px] transition-colors duration-100 {isActive
-                        ? 'bg-bg-elevated text-accent border-border-focus border-l-2'
-                        : 'text-fg-primary border-l-2 border-transparent'}"
+                    class="flex h-[30px] w-full items-center gap-2.5 pl-2.5 pr-2 text-left text-[12px] transition-colors duration-100 {isActive
+                        ? 'bg-bg-elevated text-fg-primary shadow-[inset_2px_0_0_var(--color-accent)]'
+                        : 'text-fg-secondary hover:bg-bg-hover hover:text-fg-primary'}"
                 >
-                    <span class="min-w-0 truncate">{mode.label}</span>
-                    <span class="flex shrink-0 items-center gap-1">
+                    <span class="min-w-0 flex-1 truncate">{mode.label}</span>
+                    <span
+                        class="outline-border flex h-2 w-14 shrink-0 overflow-hidden outline outline-1"
+                        aria-hidden="true"
+                    >
                         {#if strip}
-                            <span
-                                class="border-border flex h-2.5 w-12 overflow-hidden border"
-                                aria-hidden="true"
-                            >
-                                {#each [0, 1, 2, 3, 4, 5, 6, 7] as i}
-                                    <span
-                                        class="flex-1"
-                                        style:background-color={strip[i]}
-                                    ></span>
-                                {/each}
-                            </span>
-                        {/if}
-                        {#if isActive}
-                            <span
-                                class="text-accent text-[10px]"
-                                aria-hidden="true">●</span
-                            >
+                            {#each [0, 1, 2, 3, 4, 5, 6, 7] as i}
+                                <span
+                                    class="flex-1"
+                                    style:background-color={strip[i]}
+                                ></span>
+                            {/each}
                         {/if}
                     </span>
                 </button>
@@ -136,8 +132,13 @@
     </ul>
 {/snippet}
 
-<ExpandableSection title="Extraction Mode" bind:expanded>
-    <div class="flex flex-col gap-3">
+<ExpandableSection
+    title="Extraction mode"
+    suffix={selectedLabel}
+    contentClass="px-2.5 pb-3"
+    bind:expanded
+>
+    <div class="flex flex-col gap-px">
         {#if grouped.auto?.length}
             {@render modeList(grouped.auto)}
         {/if}
@@ -149,8 +150,12 @@
                     {@const isOpen = openGroups[group.id]}
                     {@const active = activeInGroup(group.id)}
                     <ExpandableSection
+                        variant="group"
                         title={group.label}
-                        suffix={!isOpen && active ? active.label : ''}
+                        suffix={!isOpen && active
+                            ? active.label
+                            : String(items.length)}
+                        suffixAccent={!isOpen && !!active}
                         bind:expanded={openGroups[group.id]}
                     >
                         {@render modeList(items)}

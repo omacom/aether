@@ -15,6 +15,7 @@
         getAdjustments,
     } from '$lib/stores/theme.svelte';
     import Modal from '$lib/components/shared/Modal.svelte';
+    import DialogFooter from '$lib/components/shared/DialogFooter.svelte';
 
     let {
         open = true,
@@ -138,58 +139,95 @@
     }
 </script>
 
-<Modal {open} onclose={handleClose} onenter={handleEnter} z="z-40">
+<Modal
+    {open}
+    onclose={handleClose}
+    onenter={handleEnter}
+    z="z-40"
+    bare
+    panelClass="w-[420px]"
+    label={showOverrideConfirm ? 'Override existing theme' : 'Save blueprint'}
+>
+    <div class="flex h-1.5" aria-hidden="true">
+        {#each getPalette() as color}
+            <span class="flex-1" style:background-color={color}></span>
+        {/each}
+    </div>
     {#if showOverrideConfirm}
-        <h3 class="text-fg-primary mb-3 text-[12px] font-medium">
-            Override existing theme?
-        </h3>
-        <p class="text-fg-dimmed mb-3 text-[11px]">
-            A theme named "{pendingSave?.name}" already exists.
-        </p>
-        <div class="flex justify-end gap-2">
+        <div class="px-5 pb-5 pt-[18px]">
+            <h3 class="text-fg-primary mb-1 text-[14px] font-semibold">
+                Override existing theme?
+            </h3>
+            <p class="text-fg-dimmed text-[12px] leading-relaxed">
+                A theme named "{pendingSave?.name}" already exists.
+            </p>
+        </div>
+        <DialogFooter>
             <button
-                class="text-fg-dimmed hover:text-fg-secondary px-3 py-1.5 text-[11px] transition-colors"
+                type="button"
+                class="text-fg-secondary hover:bg-bg-hover hover:text-fg-primary h-8 px-3.5 text-[12px] transition-colors disabled:opacity-50"
                 disabled={isSaving}
                 onclick={handleClose}>Cancel</button
             >
             <button
-                class="bg-accent hover:bg-accent-hover text-accent-fg px-3 py-1.5 text-[11px] font-medium transition-colors disabled:opacity-50"
+                type="button"
+                class="bg-accent hover:bg-accent-hover text-accent-fg h-8 px-4 text-[12px] font-semibold transition-colors disabled:opacity-50"
                 onclick={handleOverride}
                 disabled={isSaving}
                 >{isSaving ? 'Saving...' : 'Override'}</button
             >
-        </div>
+        </DialogFooter>
     {:else}
-        <h3 class="text-fg-primary mb-3 text-[12px] font-medium">Save Theme</h3>
-        <input
-            bind:this={nameInput}
-            type="text"
-            class="bg-bg-surface text-fg-primary focus:border-border-focus w-full border px-2 py-1.5 text-[12px] outline-none {nameError
-                ? 'border-destructive'
-                : 'border-border'}"
-            placeholder="Theme name..."
-            bind:value={name}
-            disabled={isSaving}
-            aria-invalid={!!nameError}
-            aria-describedby={nameError ? 'save-name-error' : undefined}
-        />
-        {#if nameError}
-            <p id="save-name-error" class="text-destructive mt-1 text-[10px]">
-                {nameError}
-            </p>
-        {/if}
-        <div class="mt-3 flex justify-end gap-2">
+        <div class="flex flex-col gap-3.5 px-5 pb-5 pt-[18px]">
+            <div>
+                <h3 class="text-fg-primary mb-1 text-[14px] font-semibold">
+                    Save blueprint
+                </h3>
+                <p class="text-fg-dimmed text-[12px] leading-relaxed">
+                    Saves the current palette, adjustments, overrides, and
+                    wallpaper so you can load them again later.
+                </p>
+            </div>
+            <label class="flex flex-col gap-1.5">
+                <span class="text-fg-secondary text-[12px] font-medium"
+                    >Theme name</span
+                >
+                <input
+                    bind:this={nameInput}
+                    type="text"
+                    class="bg-bg-primary text-fg-primary h-[34px] border px-2.5 text-[13px] outline-none disabled:opacity-60 {nameError
+                        ? 'border-destructive'
+                        : 'border-border focus:border-accent'}"
+                    placeholder="e.g. Midnight Aurora"
+                    bind:value={name}
+                    disabled={isSaving}
+                    aria-invalid={!!nameError}
+                    aria-describedby={nameError ? 'save-name-error' : undefined}
+                />
+            </label>
+            {#if nameError}
+                <p
+                    id="save-name-error"
+                    class="text-destructive -mt-2 text-[11px]"
+                >
+                    {nameError}
+                </p>
+            {/if}
+        </div>
+        <DialogFooter>
             <button
-                class="text-fg-dimmed hover:text-fg-secondary px-3 py-1.5 text-[11px] transition-colors"
+                type="button"
+                class="text-fg-secondary hover:bg-bg-hover hover:text-fg-primary h-8 px-3.5 text-[12px] transition-colors disabled:opacity-50"
                 disabled={isSaving}
                 onclick={handleClose}>Cancel</button
             >
             <button
-                class="bg-accent hover:bg-accent-hover text-accent-fg px-3 py-1.5 text-[11px] font-medium transition-colors disabled:opacity-50"
+                type="button"
+                class="bg-accent hover:bg-accent-hover text-accent-fg h-8 px-4 text-[12px] font-semibold transition-colors disabled:opacity-50"
                 onclick={handleSave}
                 disabled={!name.trim() || isSaving}
                 >{isSaving ? 'Saving...' : 'Save'}</button
             >
-        </div>
+        </DialogFooter>
     {/if}
 </Modal>

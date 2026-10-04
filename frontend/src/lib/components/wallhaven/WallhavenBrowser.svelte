@@ -18,6 +18,7 @@
     import EmptyState from '$lib/components/shared/EmptyState.svelte';
     import LoadingState from '$lib/components/shared/LoadingState.svelte';
     import SearchIcon from '$lib/components/shared/SearchIcon.svelte';
+    import CardSizeToggle from '$lib/components/shared/CardSizeToggle.svelte';
 
     let scrollContainer = $state<HTMLDivElement | null>(null);
     let sentinel = $state<HTMLDivElement | null>(null);
@@ -55,7 +56,7 @@
 <div class="flex h-full flex-col">
     <WallhavenFilters />
 
-    <div class="flex-1 overflow-y-auto p-3" bind:this={scrollContainer}>
+    <div class="flex-1 overflow-y-auto p-4" bind:this={scrollContainer}>
         {#if getIsSearching() && getResults().length === 0}
             <LoadingState message="Searching wallhaven…" />
         {:else if getSearchError() && getResults().length === 0}
@@ -82,23 +83,21 @@
                     : undefined}
             >
                 {#snippet icon()}
-                    <SearchIcon size="h-12 w-12" strokeWidth={1.5} />
+                    <SearchIcon size="h-[26px] w-[26px]" strokeWidth={1.5} />
                 {/snippet}
             </EmptyState>
         {:else}
+            <div class="-mt-1 mb-3 flex justify-end">
+                <CardSizeToggle />
+            </div>
+
             <WallpaperGrid wallpapers={getResults()} />
 
             <div bind:this={sentinel} class="h-1 w-full"></div>
 
-            {#if getIsLoadingMore()}
-                <div class="flex h-12 items-center justify-center">
-                    <span class="text-fg-dimmed text-[12px]"
-                        >Loading more...</span
-                    >
-                </div>
-            {:else if getSearchError()}
+            {#if getSearchError() && !getIsLoadingMore()}
                 <div
-                    class="text-fg-dimmed flex items-center justify-center gap-3 py-3 text-[11px]"
+                    class="text-fg-dimmed flex h-12 items-center justify-center gap-3 text-[11.5px]"
                 >
                     <span>{getSearchError()}</span>
                     <button
@@ -106,11 +105,15 @@
                         onclick={loadMore}>Retry</button
                     >
                 </div>
-            {:else if !getHasMore()}
-                <div class="flex h-12 items-center justify-center">
-                    <span class="text-fg-dimmed text-[12px]"
-                        >End of results</span
-                    >
+            {:else}
+                <div
+                    class="text-fg-dimmed flex h-12 items-center justify-center text-[11.5px]"
+                >
+                    {getIsLoadingMore()
+                        ? 'Loading more…'
+                        : getHasMore()
+                          ? 'Scroll for more'
+                          : 'End of results'}
                 </div>
             {/if}
         {/if}

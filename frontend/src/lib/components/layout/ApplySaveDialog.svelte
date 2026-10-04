@@ -6,6 +6,7 @@
         saveAndApplyTheme,
     } from '$lib/actions/themeActions';
     import Modal from '$lib/components/shared/Modal.svelte';
+    import DialogFooter from '$lib/components/shared/DialogFooter.svelte';
 
     let {open, onclose}: {open: boolean; onclose: () => void} = $props();
     let name = $state('');
@@ -116,47 +117,65 @@
     onenter={() => {
         if (!pending) void save();
     }}
+    bare
+    panelClass="w-[420px]"
+    label={pending ? 'Update theme folder' : 'Save theme folder'}
 >
-    <h3 class="text-fg-primary mb-2 text-[12px] font-medium">
-        {pending ? 'Update Theme Folder' : 'Save Theme Folder'}
-    </h3>
-    {#if pending}
-        <p class="text-fg-secondary mb-3 text-[11px]">
-            A theme folder named <strong>{pending.name}</strong> already exists.
-            Update this folder and apply the captured theme?
-        </p>
-    {:else}
-        <p class="text-fg-dimmed mb-3 text-[11px] leading-relaxed">
-            Use lowercase letters, digits, and hyphens.
-        </p>
-        <input
-            bind:this={nameInput}
-            bind:value={name}
-            type="text"
-            maxlength="64"
-            class="bg-bg-surface text-fg-primary focus:border-border-focus w-full border px-2 py-1.5 text-[12px] outline-none {name &&
-            !validName(name)
-                ? 'border-destructive'
-                : 'border-border'}"
-            oninput={() =>
-                (name = name.replace(/[^a-zA-Z0-9-]/g, '').toLowerCase())}
-            aria-label="Theme folder name"
-            disabled={busy}
-        />
-    {/if}
-    {#if error}<p class="text-destructive mt-2 text-[11px]" role="alert">
-            {error}
-        </p>{/if}
-    <div class="mt-3 flex justify-end gap-2">
+    <div class="flex flex-col gap-3.5 px-5 pb-5 pt-[18px]">
+        <div>
+            <h3 class="text-fg-primary mb-1 text-[14px] font-semibold">
+                {pending ? 'Update theme folder' : 'Save theme folder'}
+            </h3>
+            {#if pending}
+                <p class="text-fg-secondary text-[12px] leading-relaxed">
+                    A theme folder named <strong
+                        class="text-fg-primary font-semibold"
+                        >{pending.name}</strong
+                    > already exists. Update this folder and apply the captured theme?
+                </p>
+            {:else}
+                <p class="text-fg-dimmed text-[12px] leading-relaxed">
+                    Use lowercase letters, digits, and hyphens.
+                </p>
+            {/if}
+        </div>
+        {#if !pending}
+            <label class="flex flex-col gap-1.5">
+                <span class="text-fg-secondary text-[12px] font-medium"
+                    >Folder name</span
+                >
+                <input
+                    bind:this={nameInput}
+                    bind:value={name}
+                    type="text"
+                    maxlength="64"
+                    class="bg-bg-primary text-fg-primary h-[34px] border px-2.5 font-mono text-[13px] outline-none disabled:opacity-60 {name &&
+                    !validName(name)
+                        ? 'border-destructive'
+                        : 'border-border focus:border-accent'}"
+                    oninput={() =>
+                        (name = name
+                            .replace(/[^a-zA-Z0-9-]/g, '')
+                            .toLowerCase())}
+                    aria-label="Theme folder name"
+                    disabled={busy}
+                />
+            </label>
+        {/if}
+        {#if error}<p class="text-destructive text-[12px]" role="alert">
+                {error}
+            </p>{/if}
+    </div>
+    <DialogFooter>
         <button
             type="button"
-            class="text-fg-secondary px-3 py-1.5 text-[11px] disabled:opacity-50"
+            class="text-fg-secondary hover:bg-bg-hover hover:text-fg-primary h-8 px-3.5 text-[12px] transition-colors disabled:opacity-50"
             onclick={handleClose}
             disabled={busy}>{pending ? 'Back' : 'Cancel'}</button
         >
         <button
             type="button"
-            class="bg-accent hover:bg-accent-hover text-accent-fg px-3 py-1.5 text-[11px] font-medium disabled:opacity-50"
+            class="bg-accent hover:bg-accent-hover text-accent-fg h-8 px-4 text-[12px] font-semibold transition-colors disabled:opacity-50"
             onclick={() => save(!!pending)}
             disabled={busy || (!pending && !validName(name))}
             >{busy
@@ -165,5 +184,5 @@
                   ? 'Update and Apply'
                   : 'Save and Apply'}</button
         >
-    </div>
+    </DialogFooter>
 </Modal>

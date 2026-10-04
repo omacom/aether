@@ -30,31 +30,31 @@
 
 <div class="flex h-full">
     {#if sidebarVisible}
-        <aside class="bg-bg-secondary border-border w-64 shrink-0 border-r">
+        <aside
+            class="bg-bg-secondary border-border w-[284px] shrink-0 border-r"
+        >
             <SettingsSidebar />
         </aside>
     {/if}
 
-    <div class="flex-1 overflow-y-auto p-4">
+    <div class="min-w-0 flex-1 overflow-y-auto">
         {#if hasContent}
-            {#if wallpaper}
-                <WallpaperHero
-                    expanded={colorPickerOpen}
-                    onedit={() => setImageEditorOpen(true)}
-                />
-            {:else}
-                <WallpaperPicker />
-            {/if}
+            <div class="flex max-w-[1280px] flex-col gap-7 px-6 pb-8 pt-5">
+                {#if wallpaper}
+                    <WallpaperHero
+                        expanded={colorPickerOpen}
+                        onedit={() => setImageEditorOpen(true)}
+                    />
+                {:else}
+                    <WallpaperPicker />
+                {/if}
 
-            <div class={wallpaper ? 'mt-4' : 'mt-1'}>
                 <ColorPaletteGrid />
-            </div>
-            <SemanticColors />
-            <div class="mt-4 flex flex-col gap-4 sm:flex-row">
-                <div class="min-w-0 flex-1">
+                <SemanticColors />
+                <div
+                    class="grid grid-cols-1 items-start gap-2.5 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]"
+                >
                     <AppColorOverrides />
-                </div>
-                <div class="min-w-0 flex-1">
                     <AdditionalImages />
                 </div>
             </div>
@@ -65,7 +65,7 @@
 
     {#if colorPickerOpen}
         <aside
-            class="bg-bg-secondary border-border w-72 shrink-0 overflow-y-auto border-l"
+            class="bg-bg-secondary border-border flex min-h-0 w-[304px] shrink-0 flex-col border-l"
         >
             <ColorPickerDialog />
         </aside>

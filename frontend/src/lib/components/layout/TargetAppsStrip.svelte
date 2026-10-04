@@ -5,6 +5,7 @@
         toggleAppInclusion,
     } from '$lib/stores/settings.svelte';
     import {setTargetsVisible} from '$lib/stores/ui.svelte';
+    import CloseIcon from '$lib/components/shared/CloseIcon.svelte';
     import {
         SPECIAL_APP_FLAGS,
         SPECIAL_APP_ORDER,
@@ -39,10 +40,10 @@
 </script>
 
 <div
-    class="bg-bg-secondary border-border flex shrink-0 items-center gap-2 border-t px-3 py-1.5"
+    class="bg-bg-secondary border-border flex shrink-0 items-center gap-3 border-t px-4 py-2"
 >
     <span
-        class="text-fg-dimmed shrink-0 text-[10px] uppercase tracking-wider"
+        class="text-fg-dimmed shrink-0 text-[10px] font-semibold uppercase tracking-[0.14em]"
         title="Aether app templates included as overrides"
     >
         Targets
@@ -53,9 +54,9 @@
             <button
                 type="button"
                 onclick={() => toggleAppInclusion(app)}
-                class="border px-2 py-0.5 text-[10px] transition-colors duration-100 {on
+                class="h-6 border px-[9px] text-[11.5px] transition-colors duration-100 {on
                     ? 'bg-accent-muted border-accent text-accent'
-                    : 'border-border text-fg-dimmed hover:text-fg-secondary hover:border-border-focus'}"
+                    : 'border-border text-fg-secondary hover:text-fg-primary hover:border-border-focus'}"
                 title={on
                     ? `${appLabel(app)} will use Aether's template override`
                     : `${appLabel(app)} will use the default generated template unless it has color overrides`}
@@ -67,11 +68,11 @@
     </div>
     <button
         type="button"
-        class="text-fg-dimmed hover:text-fg-secondary shrink-0 px-1 text-[14px] leading-none transition-colors"
+        class="text-fg-dimmed hover:text-fg-primary hover:bg-bg-hover flex h-6 w-6 shrink-0 items-center justify-center transition-colors"
         onclick={() => setTargetsVisible(false)}
         title="Hide targets"
         aria-label="Hide targets"
     >
-        ×
+        <CloseIcon size="h-3.5 w-3.5" />
     </button>
 </div>

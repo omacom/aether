@@ -36,29 +36,46 @@
 </script>
 
 <ExpandableSection
-    title="Neovim Theme"
-    suffix={selected ? `(${selected})` : ''}
+    title="Neovim theme"
+    suffix={selected || 'Default'}
+    contentClass="px-2.5 pb-3"
     bind:expanded
 >
-    <div class="max-h-48 overflow-y-auto">
-        <button
-            class="mb-0.5 w-full px-2 py-1 text-left text-[10px] transition-colors duration-100
-        {!selected
-                ? 'text-accent bg-accent-muted'
-                : 'text-fg-dimmed hover:text-fg-secondary hover:bg-bg-hover'}"
-            onclick={handleClear}>Default (template)</button
-        >
+    <p class="text-fg-dimmed mb-2 px-1.5 text-[11.5px] leading-normal">
+        Choose which Neovim colorscheme is written with the theme.
+    </p>
+    <div class="flex max-h-56 flex-col gap-px overflow-y-auto">
+        {@render option('Default (template)', '', !selected, handleClear)}
         {#each NEOVIM_PRESETS as preset}
-            <button
-                class="mb-0.5 w-full px-2 py-1 text-left text-[10px] transition-colors duration-100
-          {selected === preset.name
-                    ? 'text-accent bg-accent-muted'
-                    : 'text-fg-dimmed hover:text-fg-secondary hover:bg-bg-hover'}"
-                onclick={() => handleSelect(preset)}
-            >
-                <span>{preset.name}</span>
-                <span class="text-fg-dimmed ml-1">by {preset.author}</span>
-            </button>
+            {@render option(
+                preset.name,
+                preset.author,
+                selected === preset.name,
+                () => handleSelect(preset)
+            )}
         {/each}
     </div>
 </ExpandableSection>
+
+{#snippet option(
+    name: string,
+    author: string,
+    active: boolean,
+    onpick: () => void
+)}
+    <button
+        type="button"
+        class="flex h-7 w-full shrink-0 items-center gap-2 pl-2.5 pr-2 text-left text-[12px] transition-colors duration-100 {active
+            ? 'bg-bg-elevated text-fg-primary shadow-[inset_2px_0_0_var(--color-accent)]'
+            : 'text-fg-secondary hover:bg-bg-hover hover:text-fg-primary'}"
+        aria-pressed={active}
+        onclick={onpick}
+    >
+        <span class="min-w-0 flex-1 truncate">{name}</span>
+        {#if author}
+            <span class="text-fg-dimmed shrink-0 truncate text-[11px]"
+                >{author}</span
+            >
+        {/if}
+    </button>
+{/snippet}

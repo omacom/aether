@@ -26,6 +26,8 @@
     import ViewHeader from '$lib/components/shared/ViewHeader.svelte';
     import SearchIcon from '$lib/components/shared/SearchIcon.svelte';
     import CardSizeToggle from '$lib/components/shared/CardSizeToggle.svelte';
+    import Segmented from '$lib/components/shared/Segmented.svelte';
+    import {formatFileSize} from '$lib/utils/format';
     import {getCardSize, CARD_MIN_WIDTH} from '$lib/stores/cardsize.svelte';
     import {getSettings} from '$lib/stores/settings.svelte';
     import type {wallpaper} from '../../../../wailsjs/go/models';
@@ -49,8 +51,16 @@
     // and only mount the visible slice (plus a small buffer). Spacer divs at
     // top/bottom preserve scrollbar position so scrolling feels native.
     const CARD_GAP = 12; // matches gap-3
-    const NAME_ROW_HEIGHT = 28; // TagPicker + name row
+    const GRID_PADDING = 16; // matches p-4 on the scroll container
+    const CARD_BORDER = 1; // 1px card border on each side
+    const META_ROW_HEIGHT = 32; // h-8 row with the label picker and name
     const BUFFER_ROWS = 3; // rows rendered above + below the viewport
+
+    const SORT_OPTIONS = [
+        {value: 'date', label: 'Date', title: 'Newest first'},
+        {value: 'name', label: 'Name', title: 'A to Z'},
+        {value: 'size', label: 'Size', title: 'Largest first'},
+    ] as const;
 
     let scrollContainer = $state<HTMLDivElement | null>(null);
     let scrollTop = $state(0);
@@ -124,8 +134,8 @@
         })()
     );
 
-    // Available width is container minus horizontal padding (p-3 = 12px each side).
-    let innerWidth = $derived(Math.max(0, containerWidth - 24));
+    // Available width is the container minus the horizontal padding.
+    let innerWidth = $derived(Math.max(0, containerWidth - GRID_PADDING * 2));
     let minCardWidth = $derived(CARD_MIN_WIDTH[getCardSize()]);
     let columns = $derived(
         Math.max(
@@ -138,9 +148,13 @@
             ? (innerWidth - (columns - 1) * CARD_GAP) / columns
             : minCardWidth
     );
-    // aspect-video thumb (16:9) + name row + bottom gap = one row's pitch.
+    // One row's pitch: the 16:9 thumb inside the border, the meta row, the
+    // top and bottom border, and the gap below.
     let rowHeight = $derived(
-        Math.round((cardWidth * 9) / 16) + NAME_ROW_HEIGHT + CARD_GAP
+        Math.round(((cardWidth - CARD_BORDER * 2) * 9) / 16) +
+            META_ROW_HEIGHT +
+            CARD_BORDER * 2 +
+            CARD_GAP
     );
     let totalRows = $derived(Math.ceil(filtered.length / columns));
     let firstVisibleRow = $derived(
@@ -185,8 +199,11 @@
             showToast('Already in additional images');
             return;
         }
-        addAdditionalImage(path);
-        showToast('Added to additional images');
+        showToast(
+            addAdditionalImage(path)
+                ? 'Added to additional images'
+                : 'Skipped: the theme already has a wallpaper with that filename'
+        );
     }
 
     async function handleFavorite(wp: Wallpaper) {
@@ -218,91 +235,128 @@
     }
 </script>
 
+{#snippet chip(
+    active: boolean,
+    label: string,
+    color: string,
+    onclick: () => void
+)}
+    <button
+        class="flex h-6 items-center gap-1.5 border px-[9px] text-[11.5px] transition-colors {active
+            ? ''
+            : 'text-fg-dimmed border-border hover:text-fg-secondary'}"
+        style={active && color
+            ? `background: ${color}24; border-color: ${color}; color: ${color};`
+            : ''}
+        class:text-accent={active && !color}
+        class:border-accent={active && !color}
+        class:bg-accent-muted={active && !color}
+        aria-pressed={active}
+        {onclick}
+    >
+        {#if color}
+            <span class="h-2 w-2 shrink-0" style:background-color={color}
+            ></span>
+        {/if}
+        {label}
+    </button>
+{/snippet}
+
 <div class="flex h-full flex-col">
     <ViewHeader>
-        <button
-            class="bg-accent hover:bg-accent-hover text-accent-fg px-2 py-0.5 text-[11px] font-medium transition-colors"
-            onclick={handleBrowse}
-            title="Browse local files">Browse…</button
+        <h2 class="text-fg-primary shrink-0 text-[13.5px] font-semibold">
+            Local
+        </h2>
+        <span
+            class="text-fg-dimmed mr-2 min-w-0 max-w-[280px] truncate text-[12px]"
+            title={wallpaperFolder}
+            >{wallpaperFolder} · {filterTag || query
+                ? `${filtered.length.toLocaleString()} of ${wallpapers.length.toLocaleString()}`
+                : wallpapers.length.toLocaleString()} images</span
         >
 
-        <span class="bg-border mx-1 h-4 w-px"></span>
+        <label
+            class="bg-bg-primary border-border focus-within:border-accent text-fg-dimmed flex h-8 w-56 items-center gap-2 border px-2.5 transition-colors"
+        >
+            <SearchIcon size="h-3.5 w-3.5" />
+            <input
+                type="search"
+                bind:value={query}
+                placeholder="Search name or folder…"
+                aria-label="Search local wallpapers"
+                class="text-fg-primary min-w-0 flex-1 bg-transparent text-[12px] outline-none"
+            />
+            {#if query}
+                <button
+                    class="hover:text-fg-primary -mr-1 flex h-5 w-5 items-center justify-center transition-colors"
+                    onclick={() => (query = '')}
+                    title="Clear search"
+                    aria-label="Clear search"
+                    ><svg
+                        class="h-3 w-3"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.4"
+                        stroke-linecap="round"
+                        aria-hidden="true"
+                        ><path d="M18 6L6 18M6 6l12 12"></path></svg
+                    ></button
+                >
+            {/if}
+        </label>
 
-        <input
-            type="search"
-            bind:value={query}
-            placeholder="Search name or folder…"
-            class="bg-bg-primary text-fg-primary border-border focus:border-border-focus placeholder:text-fg-dimmed w-44 border px-2 py-0.5 text-[11px] outline-none transition-colors"
+        <Segmented
+            options={SORT_OPTIONS}
+            value={sortBy}
+            onchange={v => (sortBy = v)}
+            size="sm"
+            label="Sort wallpapers"
         />
 
-        {#if query}
-            <button
-                class="text-fg-dimmed hover:text-fg-secondary px-1 text-[11px]"
-                onclick={() => (query = '')}
-                title="Clear search"
-                aria-label="Clear search">×</button
-            >
-        {/if}
-
-        <span class="bg-border mx-1 h-4 w-px"></span>
-
-        <!-- Sort -->
-        <span class="text-fg-dimmed text-[10px] uppercase tracking-wider"
-            >Sort</span
-        >
-        {#each ['date', 'name', 'size'] as option}
-            <button
-                class="px-2 py-0.5 text-[11px] transition-colors duration-100
-          {sortBy === option
-                    ? 'text-accent bg-accent-muted'
-                    : 'text-fg-dimmed hover:text-fg-secondary hover:bg-bg-hover'}"
-                onclick={() => (sortBy = option as any)}>{option}</button
-            >
-        {/each}
-
-        <span class="bg-border mx-1 h-4 w-px"></span>
-
-        <!-- Label filter -->
         {#if allLabels.length > 0}
-            <button
-                class="px-2 py-0.5 text-[10px] transition-colors duration-100
-          {!filterTag
-                    ? 'text-accent bg-accent-muted'
-                    : 'text-fg-dimmed hover:text-fg-secondary hover:bg-bg-hover'}"
-                onclick={() => (filterTag = '')}>All</button
-            >
-            {#each allLabels as label}
-                <button
-                    class="flex items-center gap-1 px-1.5 py-0.5 text-[10px] transition-all"
-                    style={filterTag === label.id
-                        ? `background: ${label.color}20; border: 1px solid ${label.color}40; color: ${label.color};`
-                        : ''}
-                    class:text-fg-dimmed={filterTag !== label.id}
-                    class:hover:text-fg-secondary={filterTag !== label.id}
-                    onclick={() =>
-                        (filterTag = filterTag === label.id ? '' : label.id)}
-                >
-                    <span
-                        class="h-2 w-2 shrink-0"
-                        style:background-color={label.color}
-                    ></span>
-                    {label.name}
-                </button>
-            {/each}
+            <span class="bg-border h-4 w-px"></span>
+            <div class="flex flex-wrap items-center gap-1">
+                {@render chip(!filterTag, 'All', '', () => (filterTag = ''))}
+                {#each allLabels as label}
+                    {@render chip(
+                        filterTag === label.id,
+                        label.name,
+                        label.color,
+                        () =>
+                            (filterTag = filterTag === label.id ? '' : label.id)
+                    )}
+                {/each}
+            </div>
         {/if}
 
-        <div class="ml-auto flex items-center gap-2">
+        <div class="ml-auto flex shrink-0 items-center gap-2">
             <CardSizeToggle />
-            <span class="text-fg-dimmed text-[10px]"
-                >{filtered.length}{filterTag
-                    ? `/${wallpapers.length}`
-                    : ''}</span
+            <button
+                class="border-border text-fg-secondary hover:bg-bg-hover hover:text-fg-primary flex h-8 items-center gap-1.5 border px-3 text-[12px] font-medium transition-colors"
+                onclick={handleBrowse}
+                title="Browse local files"
             >
+                <svg
+                    class="h-3.5 w-3.5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                    ><path
+                        d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
+                    ></path></svg
+                >
+                Browse…
+            </button>
         </div>
     </ViewHeader>
 
     <div
-        class="flex-1 overflow-y-auto p-3"
+        class="flex-1 overflow-y-auto p-4"
         bind:this={scrollContainer}
         onscroll={handleScroll}
     >
@@ -317,7 +371,7 @@
             >
                 {#snippet icon()}
                     <svg
-                        class="h-12 w-12"
+                        class="h-[26px] w-[26px]"
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
@@ -346,7 +400,10 @@
                     }}
                 >
                     {#snippet icon()}
-                        <SearchIcon size="h-12 w-12" strokeWidth={1.5} />
+                        <SearchIcon
+                            size="h-[26px] w-[26px]"
+                            strokeWidth={1.5}
+                        />
                     {/snippet}
                 </EmptyState>
             {:else}
@@ -358,7 +415,7 @@
                 >
                     {#snippet icon()}
                         <svg
-                            class="h-12 w-12"
+                            class="h-[26px] w-[26px]"
                             viewBox="0 0 24 24"
                             fill="none"
                             stroke="currentColor"
@@ -387,6 +444,7 @@
                     <WallpaperTile
                         path={wp.path}
                         name={wp.name}
+                        detail={formatFileSize(wp.size)}
                         isAdded={getAdditionalImages().includes(wp.path)}
                         isFavorited={isFavorite(wp.path)}
                         applying={getIsApplying()}

@@ -1,4 +1,5 @@
 <script lang="ts">
+    import Segmented from './Segmented.svelte';
     import {
         getCardSize,
         setCardSize,
@@ -14,17 +15,12 @@
     ];
 </script>
 
-<div class="flex items-center gap-0.5" title="Card size">
-    {#each sizeOptions as opt}
-        <button
-            type="button"
-            class="border px-1.5 py-0.5 text-[10px] transition-colors
-            {getCardSize() === opt.value
-                ? 'text-accent border-accent bg-accent-muted'
-                : 'text-fg-dimmed border-border hover:text-fg-secondary'}"
-            onclick={() => setCardSize(opt.value)}
-            title={opt.title}
-            aria-pressed={getCardSize() === opt.value}>{opt.label}</button
-        >
-    {/each}
-</div>
+<Segmented
+    options={sizeOptions}
+    value={getCardSize()}
+    onchange={setCardSize}
+    size="sm"
+    mono
+    label="Card size"
+    itemClass="w-[26px] !px-0"
+/>

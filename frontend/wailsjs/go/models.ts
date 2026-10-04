@@ -66,6 +66,7 @@ export namespace githubsource {
 	    size: number;
 	    type: string;
 	    path: string;
+	    htmlURL: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ImageInfo(source);
@@ -78,6 +79,7 @@ export namespace githubsource {
 	        this.size = source["size"];
 	        this.type = source["type"];
 	        this.path = source["path"];
+	        this.htmlURL = source["htmlURL"];
 	    }
 	}
 	export class ListContentsResult {

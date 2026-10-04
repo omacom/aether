@@ -191,11 +191,14 @@
     });
 </script>
 
-<div class="mt-4">
-    <SectionHeader title="Semantic Colors">
+<section>
+    <SectionHeader
+        title="Semantic colors"
+        suffix="Derived automatically. Click a shade to pin it."
+    >
         {#if pinnedCount > 0}
             <button
-                class="text-destructive/60 hover:text-destructive text-[10px] normal-case transition-colors"
+                class="text-destructive h-[26px] px-1 text-[11.5px] transition-colors hover:underline"
                 onclick={resetAll}
                 title="Reset all pinned shades to auto"
             >
@@ -204,11 +207,11 @@
         {/if}
     </SectionHeader>
 
-    <div class="grid gap-2 sm:grid-cols-2">
+    <div class="grid gap-2.5 sm:grid-cols-2">
         {#each CARDS as card}
-            <div class="border-border bg-bg-secondary border p-2">
+            <div class="border-border bg-bg-secondary border p-3">
                 <span
-                    class="text-fg-dimmed mb-1.5 block text-[9px] font-medium uppercase tracking-wider"
+                    class="text-fg-dimmed mb-[9px] block text-[10px] font-semibold uppercase tracking-[0.12em]"
                     >{card.label}</span
                 >
                 <div class="flex gap-1.5">
@@ -219,13 +222,16 @@
                             item.kind === 'shade' && !!ext[item.key]}
                         {@const sel =
                             item.kind === 'ui' && !!selectedExt[item.key]}
-                        <div class="flex min-w-0 flex-1 flex-col gap-1">
+                        <div class="flex min-w-0 flex-1 flex-col gap-[5px]">
                             <button
-                                class="group relative h-12 w-full overflow-hidden border transition-all duration-150
-                                {pinned || sel
-                                    ? 'border-accent border-2'
-                                    : 'border-border hover:border-accent hover:z-10 hover:scale-[1.04]'}"
+                                class="relative h-10 w-full overflow-hidden transition-transform duration-[120ms] hover:-translate-y-px"
                                 style:background-color={hex}
+                                style:box-shadow={sel
+                                    ? 'inset 0 0 0 2px var(--color-accent)'
+                                    : 'inset 0 0 0 1px rgba(128,128,128,0.18)'}
+                                style:color={light
+                                    ? 'rgba(10,10,16,0.86)'
+                                    : 'rgba(255,255,255,0.92)'}
                                 onclick={e => handleClick(e, item)}
                                 oncontextmenu={e => openMenu(e, item)}
                                 title={`${item.label} · ${hex}${
@@ -236,28 +242,19 @@
                                           : ''
                                 }\nClick edit · Ctrl+click copy · Right-click menu`}
                             >
+                                <span
+                                    class="pointer-events-none absolute bottom-1 left-1.5 right-1 select-none overflow-hidden whitespace-nowrap text-left font-mono text-[9.5px] font-medium leading-none opacity-75"
+                                    >{hex.toUpperCase()}</span
+                                >
                                 {#if pinned}
                                     <span
-                                        class="bg-accent absolute right-1 top-1 h-2 w-2"
+                                        class="bg-accent absolute right-[5px] top-[5px] h-1.5 w-1.5"
+                                        style="box-shadow: 0 0 0 1.5px var(--color-bg-secondary)"
                                         aria-hidden="true"
                                     ></span>
                                 {/if}
-                                {#if sel}
-                                    <span
-                                        class="bg-accent absolute bottom-1 left-1/2 h-1.5 w-1.5 -translate-x-1/2"
-                                        aria-hidden="true"
-                                    ></span>
-                                {/if}
-                                <span
-                                    class="absolute inset-0 flex select-none items-center justify-center font-mono text-[9px] opacity-0 transition-opacity group-hover:opacity-100
-                                    {light ? 'text-black/80' : 'text-white/80'}"
-                                    style="text-shadow: 0 1px 3px {light
-                                        ? 'rgba(255,255,255,0.3)'
-                                        : 'rgba(0,0,0,0.5)'}">{hex}</span
-                                >
                             </button>
-                            <span
-                                class="text-fg-dimmed truncate text-center text-[9px]"
+                            <span class="text-fg-dimmed truncate text-[11px]"
                                 >{item.label}</span
                             >
                         </div>
@@ -266,7 +263,7 @@
             </div>
         {/each}
     </div>
-</div>
+</section>
 
 <ContextMenu
     open={menu.open}

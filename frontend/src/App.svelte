@@ -64,14 +64,10 @@
         setExtendedColors,
         setNativeColors,
         setIconTheme,
-        setAdjustments,
         setColor,
         setExtendedColor,
         setAppOverride,
-        setAppOverrides,
-        setAdditionalImages,
-        setLightMode,
-        setExtractionMode,
+        applyBackendState,
         getThemeSnapshot,
         getThemeSignature,
         getLastAppliedSignature,
@@ -79,6 +75,7 @@
         getIsAdjusting,
         getIsExtracting,
         setLastExtractedPath,
+        type BackendStatePayload,
     } from '$lib/stores/theme.svelte';
     import {debounce} from '$lib/utils/debounce';
     import {STORAGE_KEYS} from '$lib/constants/storage';
@@ -129,21 +126,20 @@
     // visually layered on any theme bg.
     const BG_SECONDARY_SHIFT = 10;
     // CSS tokens layered over bg-primary, paired with their alpha values
-    // for light and dark backgrounds. Order: [token, lightAlpha, darkAlpha].
-    // [token, lightBgAlpha, darkBgAlpha]. Light-bg alphas are roughly 2x dark
-    // because dark-on-light surfaces need more weight than light-on-dark to
-    // achieve equivalent visual separation from the page background.
+    // for light and dark backgrounds. Order: [token, lightBgAlpha,
+    // darkBgAlpha]. The values match the tokens in app.css. Borders need
+    // more alpha on a light bg to separate panels from the page.
     const OVERLAY_TOKENS: ReadonlyArray<[string, number, number]> = [
-        ['--color-bg-surface', 0.06, 0.04],
-        ['--color-bg-elevated', 0.09, 0.07],
-        ['--color-bg-hover', 0.07, 0.05],
-        ['--color-border', 0.16, 0.08],
-        ['--color-border-focus', 0.3, 0.18],
+        ['--color-bg-surface', 0.03, 0.035],
+        ['--color-bg-elevated', 0.065, 0.075],
+        ['--color-bg-hover', 0.05, 0.055],
+        ['--color-border', 0.11, 0.075],
+        ['--color-border-focus', 0.28, 0.2],
     ];
     // Design alpha for fg-secondary/dimmed; bumped at apply-time when needed
     // to satisfy WCAG against the actual theme bg/fg pair.
-    const FG_SECONDARY_DESIGN_ALPHA = 0.75;
-    const FG_DIMMED_DESIGN_ALPHA = 0.5;
+    const FG_SECONDARY_DESIGN_ALPHA = 0.74;
+    const FG_DIMMED_DESIGN_ALPHA = 0.52;
     const WCAG_AA_RATIO = 4.5;
     const WCAG_AA_LARGE_RATIO = 3;
 
@@ -157,10 +153,15 @@
             .catch(() => {});
     }, STATE_SYNC_DEBOUNCE_MS);
 
+    // Send only snapshots that differ from the last mirrored state, so a
+    // backend push of equal values does not cause another SyncState call.
+    let lastSyncedSignature = '';
     $effect(() => {
-        syncStateToBackend(
-            getThemeSnapshot() as unknown as main.SyncStateRequest
-        );
+        const snapshot = getThemeSnapshot();
+        const signature = getThemeSignature(snapshot);
+        if (signature === lastSyncedSignature) return;
+        lastSyncedSignature = signature;
+        syncStateToBackend(snapshot as unknown as main.SyncStateRequest);
     });
 
     // Arming records the initial state without applying it. Queuing is not an
@@ -554,55 +555,12 @@
                     }
                 } catch {}
 
-                // Listen for IPC remote control state changes
-                EventsOn(
-                    'ipc-state-changed',
-                    (state: {
-                        palette?: string[];
-                        extendedColors?: Record<string, string>;
-                        nativeColors?: Record<string, string>;
-                        iconTheme?: {mode?: string; id?: string};
-                        lightMode?: boolean;
-                        mode?: string;
-                        wallpaper?: string;
-                        wallpaperBlur?: boolean;
-                        adjustments?: import('$lib/types/theme').Adjustments;
-                        appOverrides?: Record<string, Record<string, string>>;
-                        additionalImages?: string[];
-                    }) => {
-                        if (state.palette && state.palette.length >= 16) {
-                            setPalette(state.palette);
-                        }
-                        if (state.extendedColors) {
-                            setExtendedColors(state.extendedColors);
-                        }
-                        if (state.nativeColors) {
-                            setNativeColors(state.nativeColors);
-                        }
-                        if (state.iconTheme)
-                            setIconTheme(state.iconTheme, true);
-                        if (state.lightMode !== undefined) {
-                            setLightMode(state.lightMode);
-                        }
-                        if (state.mode) {
-                            setExtractionMode(state.mode);
-                        }
-                        if (state.wallpaper !== undefined) {
-                            setWallpaperPath(state.wallpaper);
-                        }
-                        if (state.wallpaperBlur !== undefined)
-                            setWallpaperBlur(state.wallpaperBlur, true);
-                        if (state.adjustments) {
-                            setAdjustments(state.adjustments);
-                        }
-                        if (state.appOverrides) {
-                            setAppOverrides(state.appOverrides);
-                        }
-                        if (state.additionalImages) {
-                            setAdditionalImages(state.additionalImages);
-                        }
-                    }
-                );
+                // Listen for IPC remote control state changes. The applier
+                // skips fields that already match, so an echo of our own
+                // SyncState cannot re-arm the sync effect above.
+                EventsOn('ipc-state-changed', (state: BackendStatePayload) => {
+                    applyBackendState(state);
+                });
             } catch {}
         })();
     });

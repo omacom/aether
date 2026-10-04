@@ -1,15 +1,16 @@
 <script lang="ts">
     import {onMount} from 'svelte';
-    import BlueprintCard from './BlueprintCard.svelte';
+    import BlueprintCard, {THEME_CARD_MIN_WIDTH} from './BlueprintCard.svelte';
     import SaveDialog from './SaveDialog.svelte';
     import {showToast} from '$lib/stores/ui.svelte';
     import {loadBlueprintIntoEditor} from '$lib/actions/blueprintActions';
+    import {importThemeFile} from '$lib/actions/importActions';
     import type {Blueprint} from '$lib/types/theme';
     import EmptyState from '$lib/components/shared/EmptyState.svelte';
     import LoadingState from '$lib/components/shared/LoadingState.svelte';
     import ViewHeader from '$lib/components/shared/ViewHeader.svelte';
     import CardSizeToggle from '$lib/components/shared/CardSizeToggle.svelte';
-    import {getCardSize, CARD_MIN_WIDTH} from '$lib/stores/cardsize.svelte';
+    import {getCardSize} from '$lib/stores/cardsize.svelte';
 
     let blueprints = $state<Blueprint[]>([]);
     let isLoading = $state(true);
@@ -60,20 +61,30 @@
 
 <div class="flex h-full flex-col">
     <ViewHeader>
-        <span
-            class="text-fg-dimmed text-[10px] font-medium uppercase tracking-wider"
-            >My Themes</span
-        >
-        <div class="ml-auto flex items-center gap-1.5">
+        <h2 class="text-fg-primary text-[13.5px] font-semibold">My themes</h2>
+        {#if !isLoading}
+            <span class="text-fg-dimmed text-[12px]"
+                >{blueprints.length} saved</span
+            >
+        {/if}
+        <div class="ml-auto flex items-center gap-2">
             <CardSizeToggle />
             <button
-                class="bg-accent hover:bg-accent-hover text-accent-fg px-2 py-0.5 text-[11px] font-medium transition-colors"
-                onclick={() => (showSaveDialog = true)}>Save Current</button
+                type="button"
+                class="border-border text-fg-secondary hover:bg-bg-hover hover:text-fg-primary h-7 border px-3 text-[12px] font-medium transition-colors"
+                onclick={() => importThemeFile('blueprint')}
+                title="Load a blueprint .json file into the editor"
+                >Import</button
+            >
+            <button
+                type="button"
+                class="bg-accent text-accent-fg hover:bg-accent-hover h-7 px-3 text-[12px] font-semibold transition-colors"
+                onclick={() => (showSaveDialog = true)}>Save current</button
             >
         </div>
     </ViewHeader>
 
-    <div class="flex-1 overflow-y-auto p-3">
+    <div class="flex-1 overflow-y-auto p-4">
         {#if isLoading}
             <LoadingState message="Loading themes…" />
         {:else if blueprints.length === 0}
@@ -85,7 +96,7 @@
             >
                 {#snippet icon()}
                     <svg
-                        class="h-12 w-12"
+                        class="h-6 w-6"
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
@@ -102,7 +113,7 @@
         {:else}
             <div
                 class="grid gap-3"
-                style:grid-template-columns="repeat(auto-fill, minmax({CARD_MIN_WIDTH[
+                style:grid-template-columns="repeat(auto-fill, minmax({THEME_CARD_MIN_WIDTH[
                     getCardSize()
                 ]}px, 1fr))"
             >

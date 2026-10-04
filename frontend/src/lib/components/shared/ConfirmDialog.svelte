@@ -1,5 +1,6 @@
 <script lang="ts">
     import Modal from './Modal.svelte';
+    import DialogFooter from './DialogFooter.svelte';
 
     let {
         open,
@@ -28,28 +29,37 @@
     });
 </script>
 
-<Modal {open} onclose={oncancel} onenter={onconfirm}>
-    <h3 class="text-fg-primary mb-3 text-[12px] font-medium">
-        {title}
-    </h3>
-    {#if body}
-        <p class="text-fg-dimmed mb-4 text-[11px] leading-relaxed">
-            {body}
-        </p>
-    {/if}
-    <div class="flex justify-end gap-2">
+<Modal
+    {open}
+    onclose={oncancel}
+    onenter={onconfirm}
+    bare
+    panelClass="w-[400px]"
+    label={title}
+>
+    <div class="px-5 pb-5 pt-[18px]">
+        <h3 class="text-fg-primary mb-1 text-[14px] font-semibold">
+            {title}
+        </h3>
+        {#if body}
+            <p class="text-fg-dimmed text-[12px] leading-relaxed">
+                {body}
+            </p>
+        {/if}
+    </div>
+    <DialogFooter>
         <button
             type="button"
-            class="text-fg-dimmed hover:text-fg-secondary px-3 py-1.5 text-[11px] transition-colors"
+            class="text-fg-secondary hover:bg-bg-hover hover:text-fg-primary h-8 px-3.5 text-[12px] transition-colors"
             onclick={oncancel}>{cancelLabel}</button
         >
         <button
             type="button"
             bind:this={confirmEl}
-            class="px-3 py-1.5 text-[11px] font-medium transition-colors {danger
+            class="h-8 px-4 text-[12px] font-semibold transition-colors {danger
                 ? 'bg-destructive hover:bg-destructive/85 text-destructive-fg'
                 : 'bg-accent hover:bg-accent-hover text-accent-fg'}"
             onclick={onconfirm}>{confirmLabel}</button
         >
-    </div>
+    </DialogFooter>
 </Modal>

@@ -6,7 +6,7 @@
         swapMainWithAdditional,
     } from '$lib/stores/theme.svelte';
     import {showToast} from '$lib/stores/ui.svelte';
-    import SectionHeader from '$lib/components/shared/SectionHeader.svelte';
+    import CloseIcon from '$lib/components/shared/CloseIcon.svelte';
 
     let thumbnails = $state<Record<string, string>>({});
 
@@ -43,8 +43,11 @@
             );
             const path = await OpenFileDialog();
             if (path) {
-                addAdditionalImage(path);
-                showToast('Image added');
+                showToast(
+                    addAdditionalImage(path)
+                        ? 'Image added'
+                        : 'Skipped: the theme already has a wallpaper with that filename'
+                );
             }
         } catch {}
     }
@@ -62,48 +65,65 @@
     }
 </script>
 
-<div>
-    <SectionHeader title="Additional Images">
-        <button
-            class="text-fg-secondary border-border hover:bg-bg-hover border px-2 py-1 text-[10px] font-medium transition-colors duration-100"
-            onclick={handleAdd}>+ Add</button
+<section class="bg-bg-secondary border-border border">
+    <div class="border-border flex items-center gap-2 border-b px-3.5 py-3">
+        <h3 class="text-fg-primary text-[13px] font-semibold">
+            Additional images
+        </h3>
+        <span class="text-fg-dimmed truncate text-[11.5px]"
+            >Blended by Extract all</span
         >
-    </SectionHeader>
+    </div>
 
-    {#if getAdditionalImages().length > 0}
-        <div class="grid grid-cols-4 gap-1.5">
-            {#each getAdditionalImages() as img (img)}
-                <div
-                    class="border-border bg-bg-primary group relative aspect-video overflow-hidden border"
+    <div class="grid grid-cols-2 gap-2 px-3.5 pb-3.5 pt-3">
+        <!-- Unkeyed on purpose. A keyed each throws on a repeated path,
+             and that error stopped every later effect (issue #130). -->
+        {#each getAdditionalImages() as img}
+            <div
+                class="border-border group relative aspect-video overflow-hidden border bg-black"
+            >
+                {#if thumbnails[img]}
+                    <img
+                        src={thumbnails[img]}
+                        alt=""
+                        class="block h-full w-full object-cover"
+                    />
+                {:else}
+                    <div class="flex h-full w-full items-center justify-center">
+                        <span class="text-[11px] text-white/60">Loading…</span>
+                    </div>
+                {/if}
+                <button
+                    class="absolute left-1 top-1 flex h-[22px] items-center bg-black/55 px-1.5 text-[10.5px] font-medium text-white opacity-0 transition-opacity hover:bg-black/80 focus-visible:opacity-100 group-hover:opacity-100"
+                    onclick={() => handleSetAsMain(img)}
+                    aria-label="Set as main wallpaper"
+                    title="Set as main wallpaper">Set main</button
                 >
-                    {#if thumbnails[img]}
-                        <img
-                            src={thumbnails[img]}
-                            alt=""
-                            class="h-full w-full object-cover"
-                        />
-                    {:else}
-                        <div
-                            class="flex h-full w-full items-center justify-center"
-                        >
-                            <span class="text-fg-dimmed text-[9px]">...</span>
-                        </div>
-                    {/if}
-                    <button
-                        class="hover:bg-accent/80 absolute left-0.5 top-0.5 flex h-4 items-center justify-center bg-black/60 px-1 text-[8px]
-              font-medium uppercase tracking-wider text-white opacity-0 transition-opacity group-hover:opacity-100"
-                        onclick={() => handleSetAsMain(img)}
-                        aria-label="Set as main wallpaper"
-                        title="Set as main wallpaper">Main</button
-                    >
-                    <button
-                        class="hover:bg-destructive/80 absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center bg-black/60
-              text-[9px] text-white opacity-0 transition-opacity group-hover:opacity-100"
-                        onclick={() => handleRemove(img)}
-                        aria-label="Remove image">x</button
-                    >
-                </div>
-            {/each}
-        </div>
-    {/if}
-</div>
+                <button
+                    class="absolute right-1 top-1 flex h-[22px] w-[22px] items-center justify-center bg-black/55 text-white transition-colors hover:bg-black/80"
+                    onclick={() => handleRemove(img)}
+                    aria-label="Remove image"
+                    title="Remove image"
+                >
+                    <CloseIcon size="h-[11px] w-[11px]" />
+                </button>
+            </div>
+        {/each}
+        <button
+            class="border-border-focus text-fg-dimmed hover:bg-bg-hover hover:text-fg-primary flex aspect-video flex-col items-center justify-center gap-[5px] border border-dashed text-[11.5px] transition-colors"
+            onclick={handleAdd}
+            title="Add an image to blend into Extract all"
+        >
+            <svg
+                class="h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg
+            >
+            Add image
+        </button>
+    </div>
+</section>

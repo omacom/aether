@@ -1,68 +1,50 @@
 <script lang="ts">
-    import {hexToHsl, hslToHex} from '$lib/utils/color';
+    import {hslToHex} from '$lib/utils/color';
 
+    // One row of tones: the current hue and saturation at 11 lightness
+    // steps. The tone nearest to the current lightness gets a ring.
     let {
-        baseColor,
+        hue,
+        saturation,
+        lightness,
+        disabled = false,
         onselect,
     }: {
-        baseColor: string;
+        hue: number;
+        saturation: number;
+        lightness: number;
+        disabled?: boolean;
         onselect: (color: string) => void;
     } = $props();
 
-    const COLS = 10;
-    const L_MIN = 10;
-    const L_MAX = 95;
-    const SAT_LEVELS = [100, 75, 50, 25] as const;
-    const HUE_STEPS = 12;
+    const STEPS = 11;
+    const L_MIN = 8;
+    const L_STEP = 8.4;
 
-    let hsl = $derived(hexToHsl(baseColor));
-
-    // Split deriveds so adjusting only saturation/lightness doesn't re-run
-    // the 40-cell tone grid (depends only on hue), and vice versa.
-    let hue = $derived(hsl.h);
-    let toneGrid = $derived(
-        SAT_LEVELS.map(sat =>
-            Array.from({length: COLS}, (_, i) =>
-                hslToHex(hue, sat, L_MIN + (i * (L_MAX - L_MIN)) / (COLS - 1))
-            )
-        )
-    );
-
-    let hueStrip = $derived(
-        Array.from({length: HUE_STEPS}, (_, i) =>
-            hslToHex((i * 360) / HUE_STEPS, hsl.s, hsl.l)
-        )
+    let tones = $derived(
+        Array.from({length: STEPS}, (_, i) => {
+            const l = L_MIN + i * L_STEP;
+            return {
+                hex: hslToHex(hue, saturation, l),
+                current: Math.abs(l - lightness) < L_STEP / 2,
+            };
+        })
     );
 </script>
 
-<div class="space-y-1.5">
-    <div class="flex flex-col gap-px">
-        {#each toneGrid as row}
-            <div class="flex gap-px">
-                {#each row as shade}
-                    <button
-                        type="button"
-                        class="h-5 flex-1 cursor-pointer border border-transparent transition-all duration-100 hover:z-10 hover:scale-y-150 hover:border-white/40"
-                        style:background-color={shade}
-                        onclick={() => onselect(shade)}
-                        title={shade}
-                        aria-label="Apply {shade}"
-                    ></button>
-                {/each}
-            </div>
-        {/each}
-    </div>
-
-    <div class="flex gap-px">
-        {#each hueStrip as hue}
-            <button
-                type="button"
-                class="h-5 flex-1 cursor-pointer border border-transparent transition-all duration-100 hover:z-10 hover:scale-y-150 hover:border-white/40"
-                style:background-color={hue}
-                onclick={() => onselect(hue)}
-                title="Hue · {hue}"
-                aria-label="Apply hue {hue}"
-            ></button>
-        {/each}
-    </div>
+<div class="flex gap-[2px]">
+    {#each tones as tone}
+        <button
+            type="button"
+            class="h-[26px] flex-1 transition-transform hover:-translate-y-px disabled:opacity-40
+                {tone.current
+                ? 'shadow-[inset_0_0_0_2px_var(--color-fg-primary)]'
+                : ''}"
+            style:background-color={tone.hex}
+            onclick={() => onselect(tone.hex)}
+            {disabled}
+            title={tone.hex}
+            aria-label="Apply {tone.hex}"
+        ></button>
+    {/each}
 </div>
