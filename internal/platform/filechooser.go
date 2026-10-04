@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/godbus/dbus/v5"
 )
@@ -16,6 +17,11 @@ const (
 	portalOpenFile    = "org.freedesktop.portal.FileChooser.OpenFile"
 	portalRequestIfc  = "org.freedesktop.portal.Request"
 	portalResponseSig = "Response"
+
+	// portalCallTimeout bounds the OpenFile method call only. The portal
+	// returns a request handle at once, so a slow reply means the portal is
+	// stuck. The wait for the user's pick has no limit.
+	portalCallTimeout = 10 * time.Second
 )
 
 // FileFilter is one entry in a file chooser's filter list.
@@ -48,8 +54,8 @@ var portalRequestCounter atomic.Uint64
 // PortalOpenFile asks xdg-desktop-portal's FileChooser for one file or
 // directory, so the user's configured picker (GTK, KDE, a terminal file
 // manager, ...) is used. It returns "" with a nil error when the user cancels,
-// and an error when no portal answers, so callers can fall back to a toolkit
-// dialog.
+// and an error when no portal answers or the backend fails, so callers can
+// fall back to a toolkit dialog.
 func PortalOpenFile(ctx context.Context, opts FileChooserOptions) (string, error) {
 	conn, err := dbus.SessionBus()
 	if err != nil {
@@ -81,8 +87,11 @@ func PortalOpenFile(ctx context.Context, opts FileChooserOptions) (string, error
 	}
 
 	var handle dbus.ObjectPath
-	call := conn.Object(portalBusName, portalObjectPath).CallWithContext(ctx, portalOpenFile, 0, "", opts.Title, options)
-	if err := call.Store(&handle); err != nil {
+	callCtx, cancel := context.WithTimeout(ctx, portalCallTimeout)
+	call := conn.Object(portalBusName, portalObjectPath).CallWithContext(callCtx, portalOpenFile, 0, "", opts.Title, options)
+	err = call.Store(&handle)
+	cancel()
+	if err != nil {
 		return "", fmt.Errorf("portal OpenFile: %w", err)
 	}
 	// The spec lets the returned handle differ from the handle_token path.
@@ -122,6 +131,7 @@ func removeResponseMatch(conn *dbus.Conn, path dbus.ObjectPath) {
 
 func responseMatch(path dbus.ObjectPath) []dbus.MatchOption {
 	return []dbus.MatchOption{
+		dbus.WithMatchSender(portalBusName),
 		dbus.WithMatchObjectPath(path),
 		dbus.WithMatchInterface(portalRequestIfc),
 		dbus.WithMatchMember(portalResponseSig),
@@ -156,7 +166,9 @@ func toPortalFilters(filters []FileFilter) []portalFilter {
 }
 
 // parsePortalResponse reads the (u response, a{sv} results) body of a
-// Request.Response signal. Response 1 (cancelled) and 2 (ended) yield "".
+// Request.Response signal. Response 1 (cancelled) yields "". Response 2
+// (ended in another way) is an error, because portal backends send it when
+// they fail, and the caller then falls back to the toolkit dialog.
 func parsePortalResponse(body []interface{}) (string, error) {
 	if len(body) != 2 {
 		return "", fmt.Errorf("unexpected portal response: %v", body)
@@ -165,8 +177,12 @@ func parsePortalResponse(body []interface{}) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("unexpected portal response code: %v", body[0])
 	}
-	if code != 0 {
+	switch code {
+	case 0:
+	case 1:
 		return "", nil
+	default:
+		return "", fmt.Errorf("portal ended the request with response %d", code)
 	}
 	results, ok := body[1].(map[string]dbus.Variant)
 	if !ok {

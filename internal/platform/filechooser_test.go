@@ -47,7 +47,6 @@ func TestParsePortalResponse(t *testing.T) {
 	}{
 		{"selected", []interface{}{uint32(0), results}, "/home/me/My Pictures/a+b.png"},
 		{"cancelled", []interface{}{uint32(1), map[string]dbus.Variant{}}, ""},
-		{"ended", []interface{}{uint32(2), map[string]dbus.Variant{}}, ""},
 		{"no uris", []interface{}{uint32(0), map[string]dbus.Variant{}}, ""},
 	}
 	for _, tt := range tests {
@@ -66,6 +65,9 @@ func TestParsePortalResponse(t *testing.T) {
 func TestParsePortalResponseRejectsMalformedBody(t *testing.T) {
 	if _, err := parsePortalResponse([]interface{}{uint32(0)}); err == nil {
 		t.Fatal("expected error for short body")
+	}
+	if _, err := parsePortalResponse([]interface{}{uint32(2), map[string]dbus.Variant{}}); err == nil {
+		t.Fatal("expected error for response 2, so the caller falls back")
 	}
 	if _, err := fileURIToPath("https://example.com/a.png"); err == nil {
 		t.Fatal("expected error for non-file uri")
