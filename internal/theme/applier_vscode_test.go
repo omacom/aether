@@ -34,6 +34,16 @@ func TestApplyVSCodeThemeRegistersExtension(t *testing.T) {
 	}
 }
 
+func TestApplyVSCodeThemeReturnsRegistrationError(t *testing.T) {
+	home := setupWriterTestEnv(t)
+	writeExtensionsJSON(t, filepath.Join(home, ".vscode", "extensions"), "not json")
+
+	variables := map[string]string{"theme_type": "dark"}
+	if err := ApplyVSCodeTheme(omarchyV4TestTemplates, "testdata/v4", variables); err == nil {
+		t.Fatal("ApplyVSCodeTheme() error = nil, want the extensions.json parse error")
+	}
+}
+
 func TestRegisterVSCodeExtensionPreservesExistingEntries(t *testing.T) {
 	extensionsDir := t.TempDir()
 	extensionDir := filepath.Join(extensionsDir, "local.theme-aether-1.0.0")

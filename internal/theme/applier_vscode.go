@@ -45,7 +45,7 @@ func ApplyVSCodeTheme(fsys embed.FS, templatesDir string, variables map[string]s
 	// VS Code theme hook (omarchy-theme-set-vscode) registers its bundled
 	// "local.omarchy-theme" extension the same way for the same reason.
 	if err := registerVSCodeExtension(extensionsDir, extensionDir); err != nil {
-		log.Printf("Failed to register VS Code extension in extensions.json: %v", err)
+		return fmt.Errorf("register VS Code extension: %w", err)
 	}
 
 	log.Printf("VS Code theme extension installed to: %s", extensionDir)
