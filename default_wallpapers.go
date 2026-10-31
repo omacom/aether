@@ -15,9 +15,18 @@ const defaultWallpapersDir = "assets/default-wallpapers"
 //go:embed assets/default-wallpapers/*.jpg
 var defaultWallpapers embed.FS
 
-// installDefaultWallpapers copies bundled Aether artwork without overwriting user files.
+// installDefaultWallpapers copies bundled Aether artwork into the configured
+// wallpaper folder without overwriting user files. A configured folder that is
+// missing is not created, so an unmounted drive does not get a stub directory.
 func installDefaultWallpapers() error {
-	destination := filepath.Join(platform.WallpaperDir(), "Aether")
+	folder := wallpaperFolderFromConfig(readConfigJSON("settings.json"))
+	if folder != platform.WallpaperDir() {
+		if info, err := os.Stat(folder); err != nil || !info.IsDir() {
+			return fmt.Errorf("configured wallpaper folder %q is not a directory", folder)
+		}
+	}
+
+	destination := filepath.Join(folder, "Aether")
 	if err := os.MkdirAll(destination, 0o755); err != nil {
 		return fmt.Errorf("create default wallpapers directory: %w", err)
 	}
