@@ -55,30 +55,6 @@ Permanent user data.
 
 Downloaded wallpapers are kept permanently for offline access.
 
-## Omarchy Integration
-
-On Omarchy, Aether writes a native, managed theme instead of linking its standalone output:
-
-```text
-~/.config/omarchy/themes/aether/
-|-- .aether-managed
-|-- colors.toml
-|-- backgrounds/
-|-- preview.png
-`-- supported per-app overrides
-```
-
-Theme activation runs through `omarchy theme set aether`. Omarchy remains responsible for its authoritative runtime state in `~/.local/state/omarchy/current/`, generating application configs, changing the background, reloading applications, and running hooks.
-
-The optional shell selectors are installed in:
-
-```text
-~/.config/omarchy/plugins/aether.wallpapers/
-~/.config/omarchy/plugins/aether.blueprints/
-```
-
-Aether only replaces theme and plugin directories containing its ownership marker. Existing third-party directories are left untouched.
-
 ## Cleaning Up
 
 **Safe to delete:**

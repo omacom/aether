@@ -1,6 +1,6 @@
 # Aether — agent notes
 
-Desktop theming app. **Wails 2** (Go backend) + **Svelte 5** frontend (TypeScript, Tailwind v4). Extracts color palettes from wallpapers and applies cohesive themes across a Linux desktop (Omarchy-friendly, works standalone).
+Desktop theming app. **Wails 2** (Go backend) + **Svelte 5** frontend (TypeScript, Tailwind v4). Extracts color palettes from wallpapers and applies cohesive themes across a Linux desktop (standalone).
 
 ## Detailed project docs (outside the repo)
 
@@ -45,7 +45,7 @@ internal/
 ├── template/           # per-app template engine
 ├── wallhaven/          # wallhaven.cc API client
 ├── batch/              # batch palette generation
-├── favorites/, omarchy/, platform/
+├── favorites/, platform/
 frontend/
 ├── src/
 │   ├── App.svelte              # top-level router

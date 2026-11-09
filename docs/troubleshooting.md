@@ -19,24 +19,7 @@ sudo pacman -S webkit2gtk
 
 ## Theme Not Applying
 
-On Omarchy:
-
-1. Check `~/.config/omarchy/themes/aether/` for `.aether-managed` and `colors.toml`.
-2. Check the active theme with `cat ~/.local/state/omarchy/current/theme.name`.
-3. Run `omarchy theme set aether` and inspect the reported error.
-
-Without Omarchy, check `~/.config/aether/theme/` and the integration steps in the [standalone guide](standalone.md).
-
-## Shell Selector Not Opening
-
-```bash
-omarchy plugin list
-omarchy-shell shell rescanPlugins
-omarchy plugin enable aether.wallpapers
-omarchy plugin enable aether.blueprints
-```
-
-Reinstall missing plugins with `aether-install-omarchy-plugins`.
+Check `~/.config/aether/theme/` and the integration steps in the [standalone guide](standalone.md).
 
 ## Colors Look Wrong
 
