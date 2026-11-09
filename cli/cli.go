@@ -32,6 +32,10 @@ func Run(args []string, templatesFS embed.FS) int {
 		return runImportBase16(args[1:], templatesFS)
 	case "--import-colors-toml":
 		return runImportColorsToml(args[1:], templatesFS)
+	case "--import-yozakura":
+		return runImportYozakura(args[1:])
+	case "--check-contrast":
+		return runCheckContrast(args[1:])
 	case "--handle-url":
 		return runHandleURL(args[1:], templatesFS)
 
@@ -149,6 +153,8 @@ Blueprint management:
 Import commands:
   aether --import-blueprint <url|path>      Import blueprint from URL or file
   aether --import-base16 <url|file.yaml>    Import Base16 color scheme (URL or file)
+  aether --import-yozakura <themes.json> [--force]  Import Yozakura curated themes as blueprints
+  aether --check-contrast [<name>|--all]    Check Yozakura role contrast for blueprints
     --wallpaper <url|path>                  Set wallpaper from URL or local path
     --light-mode                            Force light mode
   aether --import-colors-toml <url|file>    Import colors.toml color scheme (URL or file)
