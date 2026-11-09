@@ -103,3 +103,33 @@ func TestRunCheckContrastExitCode(t *testing.T) {
 		t.Fatalf("missing below 4.5:\n%s", out)
 	}
 }
+
+func TestImportYozakuraKeepsMalformedSettings(t *testing.T) {
+	cfg := isolate(t)
+	if err := os.MkdirAll(cfg, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	sp := filepath.Join(cfg, "settings.json")
+	orig := []byte(`{"keep": "me",, oops`)
+	os.WriteFile(sp, orig, 0o644)
+
+	oldErr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+	code, _ := capture(t, func() int { return runImportYozakura([]string{curatedFixture}) })
+	w.Close()
+	os.Stderr = oldErr
+	var eb bytes.Buffer
+	io.Copy(&eb, r)
+
+	if code != 1 {
+		t.Fatalf("exit %d", code)
+	}
+	got, _ := os.ReadFile(sp)
+	if !bytes.Equal(got, orig) {
+		t.Fatalf("settings changed: %s", got)
+	}
+	if !strings.Contains(eb.String(), "settings") {
+		t.Fatalf("stderr lacks settings mention: %s", eb.String())
+	}
+}

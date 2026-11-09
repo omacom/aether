@@ -64,7 +64,13 @@ func runImportYozakura(args []string) int {
 func setDefaultBlueprint(name string) error {
 	path := filepath.Join(platform.ConfigDir(), "settings.json")
 	cfg, err := platform.ReadJSON[map[string]interface{}](path)
-	if err != nil || cfg == nil {
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("read settings %s: %w", path, err)
+		}
+		cfg = nil
+	}
+	if cfg == nil {
 		cfg = map[string]interface{}{}
 	}
 	cfg["defaultBlueprint"] = name
