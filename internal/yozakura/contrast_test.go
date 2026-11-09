@@ -143,20 +143,22 @@ func TestEnforceRederivesInkAfterAccentNudge(t *testing.T) {
 }
 
 func TestNudgeDirectionByContrastGain(t *testing.T) {
-	th := Derive(mapRoles(defaultPalette), nil, nil, nil)
-	bg := color.OKLabToHex(color.OKLab{L: 0.62})
-	if nudgeDirection(bg) != -1 {
-		t.Fatalf("setup: expected darker direction for %s", bg)
+	// #717171 (OKLab L ~0.548): white wins (4.88 vs 4.30); the old L<0.5 rule
+	// would have picked darker.
+	bg := "#717171"
+	if nudgeDirection(bg) != 1 {
+		t.Fatalf("expected lighter direction for %s", bg)
 	}
+	th := Derive(mapRoles(defaultPalette), nil, nil, nil)
 	th.Roles["surface"] = bg
-	th.Roles["danger"] = Mix(bg, "#000000", 0.1)
+	th.Roles["danger"] = Mix(bg, "#ffffff", 0.1)
 	fg0 := th.Roles["danger"]
 	res := Enforce(&th)
 	r := pairByName(t, res, "danger/surface")
 	if r.State != "nudged" {
 		t.Errorf("state %s ratio %.2f", r.State, r.Ratio)
 	}
-	if color.HexToOKLab(th.Roles["danger"]).L >= color.HexToOKLab(fg0).L {
-		t.Errorf("did not move darker: %s -> %s", fg0, th.Roles["danger"])
+	if color.HexToOKLab(th.Roles["danger"]).L <= color.HexToOKLab(fg0).L {
+		t.Errorf("did not move lighter: %s -> %s", fg0, th.Roles["danger"])
 	}
 }
