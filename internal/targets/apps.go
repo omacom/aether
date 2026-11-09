@@ -14,9 +14,12 @@ import (
 )
 
 // templateFile renders one embedded template (relative to Context.Templates)
-// with the palette variables.
-func templateFile(name string) func(Context) (string, error) {
+// for app, through Context.Render when set.
+func templateFile(name, app string) func(Context) (string, error) {
 	return func(c Context) (string, error) {
+		if c.Render != nil {
+			return c.Render(name, app)
+		}
 		if c.Templates == nil {
 			return "", fmt.Errorf("template %s: no template filesystem", name)
 		}
@@ -96,7 +99,7 @@ func neovimTarget() Target {
 	return Target{
 		ID: "neovim", Label: "Neovim",
 		Detect: func(c Context) bool { return isDir(filepath.Join(c.Home, ".config/nvim")) },
-		Files:  []File{{Path: ".config/nvim/lua/aether/theme.lua", Render: templateFile("neovim.lua")}},
+		Files:  []File{{Path: ".config/nvim/lua/aether/theme.lua", Render: templateFile("neovim.lua", "neovim")}},
 	}
 }
 
@@ -119,7 +122,7 @@ func btopTarget() Target {
 	return Target{
 		ID: "btop", Label: "btop", Detect: requires("btop"),
 		Files: []File{
-			{Path: ".config/btop/themes/aether.theme", Render: templateFile("btop.theme")},
+			{Path: ".config/btop/themes/aether.theme", Render: templateFile("btop.theme", "btop")},
 			{Path: ".config/btop/btop.conf", Render: editInPlace(".config/btop/btop.conf", editBtopConf)},
 		},
 	}
@@ -129,22 +132,8 @@ func btopTarget() Target {
 
 const vscodeExtDir = ".vscode/extensions/local.theme-aether-1.0.0/"
 
-// vscodeFile renders an extension file; only {key} substitution applies.
 func vscodeFile(name string) func(Context) (string, error) {
-	return func(c Context) (string, error) {
-		if c.Templates == nil {
-			return "", fmt.Errorf("vscode extension: no template filesystem")
-		}
-		raw, err := fs.ReadFile(c.Templates, path.Join("vscode-extension", name))
-		if err != nil {
-			return "", err
-		}
-		out := string(raw)
-		for k, v := range c.Vars {
-			out = strings.ReplaceAll(out, "{"+k+"}", v)
-		}
-		return out, nil
-	}
+	return templateFile(path.Join("vscode-extension", name), "vscode")
 }
 
 func vscodeTarget() Target {
@@ -426,29 +415,12 @@ func starshipTarget() Target {
 	}
 }
 
-// ---- chrome -----------------------------------------------------------------------
-
-func chromeTarget() Target {
-	return Target{
-		ID: "chrome", Label: "Chromium",
-		Detect: func(c Context) bool {
-			for _, b := range []string{"chromium", "google-chrome-stable", "google-chrome", "chrome"} {
-				if c.have(b) {
-					return true
-				}
-			}
-			return false
-		},
-		Files: []File{{Path: ".config/aether/theme/chromium.theme", Render: templateFile("chromium.theme")}},
-	}
-}
-
 // ---- hyprlock ---------------------------------------------------------------------
 
 func hyprlockTarget() Target {
 	return Target{
 		ID: "hyprlock", Label: "Hyprlock", Detect: requires("hyprlock"),
-		Files:    []File{{Path: ".config/hypr/aether-hyprlock.conf", Render: templateFile("hyprlock.conf")}},
+		Files:    []File{{Path: ".config/hypr/aether-hyprlock.conf", Render: templateFile("hyprlock.conf", "hyprlock")}},
 		Includes: []Include{{Path: ".config/hypr/hyprlock.conf", Line: "source = ~/.config/hypr/aether-hyprlock.conf"}},
 	}
 }

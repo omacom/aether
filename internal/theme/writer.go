@@ -286,8 +286,7 @@ func (w *Writer) ApplyTheme(state *ThemeState, settings Settings) (*ApplyResult,
 	if _, err := prepareThemeDir(themeDir, state); err != nil {
 		return &ApplyResult{Success: false, ThemePath: themeDir}, err
 	}
-	// chromium.theme is written by its desktop target, so apply skips it here.
-	if err := w.processTemplatesSkipping(targetOwnedTemplates, variables, themeDir, settings, state.AppOverrides, state.ExtendedColors, state.IconTheme); err != nil {
+	if err := w.processTemplates(variables, themeDir, settings, state.AppOverrides, state.ExtendedColors, state.IconTheme); err != nil {
 		return &ApplyResult{Success: false, ThemePath: themeDir}, err
 	}
 	if err := HandleLightModeMarker(themeDir, state.LightMode); err != nil {
@@ -316,9 +315,17 @@ func (w *Writer) ApplyTheme(state *ThemeState, settings Settings) (*ApplyResult,
 // applyTargets writes and reloads the desktop targets from the Yozakura-derived
 // theme. Failures are reported per target and never abort the apply.
 func (w *Writer) applyTargets(state *ThemeState, variables map[string]string, settings Settings) []targets.Status {
+	failed := func(err error) []targets.Status {
+		log.Printf("Warning: desktop targets: %v", err)
+		return []targets.Status{{ID: "yozakura", Label: "Yozakura shell", State: "failed", Error: err.Error()}}
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return []targets.Status{{ID: "yozakura", Label: "Yozakura shell", State: "failed", Error: err.Error()}}
+		return failed(err)
+	}
+	sub, err := fs.Sub(w.templatesFS, w.templatesDir)
+	if err != nil {
+		return failed(fmt.Errorf("template filesystem: %w", err))
 	}
 	yoz := yozakura.Derive(state.ColorRoles, state.NativeColors, nil, nil)
 	yozakura.Enforce(&yoz)
@@ -332,8 +339,12 @@ func (w *Writer) applyTargets(state *ThemeState, variables map[string]string, se
 		Run:       w.Run,
 		Have:      w.Have,
 	}
-	if sub, err := fs.Sub(w.templatesFS, w.templatesDir); err == nil {
-		ctx.Templates = sub
+	ctx.Templates = sub
+	ctx.Render = func(templateFile, app string) (string, error) {
+		if templateFile == "neovim.lua" && settings.SelectedNeovimConfig != "" && len(state.AppOverrides[app]) == 0 {
+			return settings.SelectedNeovimConfig, nil
+		}
+		return w.renderTemplate(templateFile, app, variables, state.AppOverrides, state.ExtendedColors)
 	}
 	return targets.Apply(ctx, targets.All(), settings.TargetEnabled)
 }
@@ -511,21 +522,6 @@ func (w *Writer) processTemplates(
 	globalOverrides map[string]string,
 	iconThemes ...icontheme.Selection,
 ) error {
-	return w.processTemplatesSkipping(nil, variables, outputDir, settings, appOverrides, globalOverrides, iconThemes...)
-}
-
-// targetOwnedTemplates are written by a desktop target during ApplyTheme.
-var targetOwnedTemplates = map[string]bool{"chromium.theme": true}
-
-func (w *Writer) processTemplatesSkipping(
-	skip map[string]bool,
-	variables map[string]string,
-	outputDir string,
-	settings Settings,
-	appOverrides map[string]map[string]string,
-	globalOverrides map[string]string,
-	iconThemes ...icontheme.Selection,
-) error {
 	names, err := template.ListTemplates(w.templatesFS, w.templatesDir)
 	if err != nil {
 		return fmt.Errorf("list templates: %w", err)
@@ -533,7 +529,7 @@ func (w *Writer) processTemplatesSkipping(
 
 	for _, fileName := range names {
 		// Skip copy.json (config file).
-		if fileName == "copy.json" || skip[fileName] {
+		if fileName == "copy.json" {
 			continue
 		}
 
@@ -570,8 +566,36 @@ func (w *Writer) processTemplatesSkipping(
 	return nil
 }
 
-// processTemplate reads a single template, applies variable substitution
-// (including per-app overrides), and writes the result.
+// renderTemplate reads a template (custom override first), merges the
+// per-app and global colour overrides for app, and returns the processed text.
+// It is the single rendering path for both the aether theme dir and the
+// desktop targets.
+func (w *Writer) renderTemplate(
+	fileName string,
+	app string,
+	variables map[string]string,
+	appOverrides map[string]map[string]string,
+	globalOverrides map[string]string,
+) (string, error) {
+	// Check for custom override in ~/.config/aether/custom/ first
+	content, isCustom := template.ReadCustomOverride(fileName)
+	if !isCustom {
+		var err error
+		content, err = template.ReadTemplate(w.templatesFS, w.templatesDir, fileName)
+		if err != nil {
+			return "", fmt.Errorf("read template %s: %w", fileName, err)
+		}
+	}
+
+	overrides := appOverrides[app]
+	mergedVars := mergeTemplateVariables(variables, overrides, globalOverrides)
+	if len(overrides) > 0 {
+		log.Printf("Applied %d override(s) to %s", len(overrides), fileName)
+	}
+	return template.ProcessTemplate(content, mergedVars), nil
+}
+
+// processTemplate renders a single template and writes the result.
 func (w *Writer) processTemplate(
 	fileName string,
 	outputPath string,
@@ -579,26 +603,10 @@ func (w *Writer) processTemplate(
 	appOverrides map[string]map[string]string,
 	globalOverrides map[string]string,
 ) error {
-	// Check for custom override in ~/.config/aether/custom/ first
-	content, isCustom := template.ReadCustomOverride(fileName)
-	if !isCustom {
-		var err error
-		content, err = template.ReadTemplate(w.templatesFS, w.templatesDir, fileName)
-		if err != nil {
-			return fmt.Errorf("read template %s: %w", fileName, err)
-		}
+	processed, err := w.renderTemplate(fileName, getAppNameFromFileName(fileName), variables, appOverrides, globalOverrides)
+	if err != nil {
+		return err
 	}
-
-	// Check for app-specific overrides
-	appName := getAppNameFromFileName(fileName)
-	overrides := appOverrides[appName]
-	mergedVars := mergeTemplateVariables(variables, overrides, globalOverrides)
-	if len(overrides) > 0 {
-		log.Printf("Applied %d override(s) to %s", len(overrides), fileName)
-	}
-
-	processed := template.ProcessTemplate(content, mergedVars)
-
 	if err := platform.WriteText(outputPath, processed); err != nil {
 		return fmt.Errorf("write processed template %s: %w", fileName, err)
 	}

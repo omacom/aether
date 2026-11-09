@@ -27,6 +27,9 @@ type Context struct {
 	Have      func(bin string) bool // PATH lookup; nil uses exec.LookPath (tests inject)
 	Backups   *Backups              // one per apply run
 	Templates fs.FS                 // embedded templates root (the "templates" dir)
+	// Render renders an embedded template for an app through the override path
+	// (custom template, per-app colours); nil falls back to plain substitution.
+	Render func(templateFile, app string) (string, error)
 }
 
 // File is a generated file; Path is relative to Context.Home.

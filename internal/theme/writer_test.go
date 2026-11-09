@@ -329,7 +329,6 @@ func TestPrepareThemeDirSupportsExistingMediaSources(t *testing.T) {
 }
 
 func TestApplyThemeReturnsEditorErrorsBeforeCustomApps(t *testing.T) {
-	// VS Code moved to a desktop target; its failures are reported per target.
 	for _, editor := range []string{"zed"} {
 		t.Run(editor, func(t *testing.T) {
 			home := setupWriterTestEnv(t)
@@ -337,10 +336,6 @@ func TestApplyThemeReturnsEditorErrorsBeforeCustomApps(t *testing.T) {
 			writeWriterTestFile(t, filepath.Join(target, zedSourceFilename), "generated Zed theme")
 			block := filepath.Join(home, ".config", "zed")
 			wantError := "apply Zed theme"
-			if editor == "vscode" {
-				block = filepath.Join(home, ".vscode")
-				wantError = "apply VSCode theme"
-			}
 			writeWriterTestFile(t, block, "not a directory")
 			custom := filepath.Join(platform.CustomDir(), "test-app")
 			writeWriterTestFile(t, filepath.Join(custom, "config.json"), `{"template":"theme.ini"}`)
@@ -505,5 +500,63 @@ func TestTargetEnabledDefaultsToTrue(t *testing.T) {
 	}
 	if (Settings{IncludedApps: map[string]bool{"kitty": false}}).TargetEnabled("kitty") {
 		t.Fatal("explicit false must disable")
+	}
+}
+
+func btopTargetTheme(t *testing.T, home string) string {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join(home, ".config/btop/themes/aether.theme"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
+}
+
+func applyBtopWriter(t *testing.T, state *ThemeState) *Writer {
+	t.Helper()
+	w := newTestWriter(t)
+	w.Have = func(bin string) bool { return bin == "btop" }
+	if _, err := w.ApplyTheme(state, Settings{}); err != nil {
+		t.Fatal(err)
+	}
+	return w
+}
+
+func TestApplyThemeTargetsHonourAppOverrides(t *testing.T) {
+	home := setupWriterTestEnv(t)
+	t.Setenv("XDG_CONFIG_HOME", "")
+	state := NewThemeState()
+	state.AppOverrides = map[string]map[string]string{"btop": {"background": "#123456"}}
+	applyBtopWriter(t, state)
+	if got := btopTargetTheme(t, home); !strings.Contains(got, "#123456") {
+		t.Fatalf("override missing from btop target output: %q", got)
+	}
+}
+
+func TestApplyThemeTargetsHonourCustomTemplate(t *testing.T) {
+	home := setupWriterTestEnv(t)
+	t.Setenv("XDG_CONFIG_HOME", "")
+	writeWriterTestFile(t, filepath.Join(platform.CustomDir(), "btop.theme"), "custom {background}\n")
+	applyBtopWriter(t, NewThemeState())
+	got := btopTargetTheme(t, home)
+	if !strings.HasPrefix(got, "custom #") {
+		t.Fatalf("custom template not used: %q", got)
+	}
+}
+
+func TestApplyThemeTargetsHonourSelectedNeovimConfig(t *testing.T) {
+	home := setupWriterTestEnv(t)
+	t.Setenv("XDG_CONFIG_HOME", "")
+	if err := os.MkdirAll(filepath.Join(home, ".config/nvim"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	w := newTestWriter(t)
+	w.Have = func(string) bool { return false }
+	if _, err := w.ApplyTheme(NewThemeState(), Settings{IncludeNeovim: true, SelectedNeovimConfig: "-- picked"}); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(filepath.Join(home, ".config/nvim/lua/aether/theme.lua"))
+	if err != nil || string(b) != "-- picked" {
+		t.Fatalf("theme.lua = %q, %v", b, err)
 	}
 }

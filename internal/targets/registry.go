@@ -16,7 +16,6 @@ func All() []Target {
 		qtTarget(),
 		fishTarget(),
 		starshipTarget(),
-		chromeTarget(),
 		hyprlockTarget(),
 	}
 }

@@ -95,11 +95,6 @@ func TestGoldenStarship(t *testing.T) {
 	checkGolden(t, "starship.toml", renderOf(t, starshipTarget(), 0, ctx))
 }
 
-func TestGoldenChrome(t *testing.T) {
-	ctx, _ := ichoContext(t)
-	checkGolden(t, "chromium.theme", renderOf(t, chromeTarget(), 0, ctx))
-}
-
 func TestGoldenHyprlock(t *testing.T) {
 	ctx, _ := ichoContext(t)
 	checkGolden(t, "aether-hyprlock.conf", renderOf(t, hyprlockTarget(), 0, ctx))
@@ -348,7 +343,7 @@ func TestIncludesForRofiAndHyprlock(t *testing.T) {
 func TestAppTargetsDetectUsesInjectedLookup(t *testing.T) {
 	ctx, rec := ichoContext(t)
 	ctx.Have = func(string) bool { return false }
-	for _, tg := range []Target{rofiTarget(), btopTarget(), vscodeTarget(), qtTarget(), fishTarget(), starshipTarget(), chromeTarget(), hyprlockTarget()} {
+	for _, tg := range []Target{rofiTarget(), btopTarget(), vscodeTarget(), qtTarget(), fishTarget(), starshipTarget(), hyprlockTarget()} {
 		if s := Apply(ctx, []Target{tg}, nil)[0]; s.State != "not-found" {
 			t.Errorf("%s = %s", tg.ID, s.State)
 		}
