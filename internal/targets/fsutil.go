@@ -26,7 +26,31 @@ func WriteIfChanged(path, content string) (bool, error) {
 	return true, nil
 }
 
+// resolveLink follows symlinks (including dangling ones) so writes land on the
+// real file and the link itself is preserved.
+func resolveLink(path string) string {
+	for i := 0; i < 16; i++ {
+		st, err := os.Lstat(path)
+		if err != nil || st.Mode()&os.ModeSymlink == 0 {
+			return path
+		}
+		if r, err := filepath.EvalSymlinks(path); err == nil {
+			return r
+		}
+		dest, err := os.Readlink(path)
+		if err != nil {
+			return path
+		}
+		if !filepath.IsAbs(dest) {
+			dest = filepath.Join(filepath.Dir(path), dest)
+		}
+		path = dest
+	}
+	return path
+}
+
 func writeAtomic(path, content string, mode os.FileMode) error {
+	path = resolveLink(path)
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
@@ -110,7 +134,12 @@ func (b *Backups) Save(path string) error {
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return err
 	}
-	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, st.Mode().Perm())
+	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_EXCL, st.Mode().Perm())
+	if os.IsExist(err) {
+		// An earlier run in the same second already saved the original.
+		b.done[path] = true
+		return nil
+	}
 	if err != nil {
 		return err
 	}

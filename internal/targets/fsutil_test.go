@@ -158,3 +158,82 @@ func TestEnsureIncludeMultiLineAndAppend(t *testing.T) {
 		t.Fatalf("prepend order: %q", b)
 	}
 }
+
+func linkedFile(t *testing.T, home, linkRel, content string) (link, target string) {
+	target = filepath.Join(t.TempDir(), "dotfiles", "real.conf")
+	os.MkdirAll(filepath.Dir(target), 0o755)
+	os.WriteFile(target, []byte(content), 0o600)
+	link = filepath.Join(home, linkRel)
+	os.MkdirAll(filepath.Dir(link), 0o755)
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+	return
+}
+
+func isLink(p string) bool {
+	st, err := os.Lstat(p)
+	return err == nil && st.Mode()&os.ModeSymlink != 0
+}
+
+func TestWriteIfChangedWritesThroughSymlink(t *testing.T) {
+	home := t.TempDir()
+	link, target := linkedFile(t, home, ".config/k/k.conf", "old")
+	if ch, err := WriteIfChanged(link, "new"); err != nil || !ch {
+		t.Fatal(ch, err)
+	}
+	if !isLink(link) {
+		t.Fatal("symlink replaced")
+	}
+	if b, _ := os.ReadFile(target); string(b) != "new" {
+		t.Fatalf("target %q", b)
+	}
+	if st, _ := os.Stat(target); st.Mode().Perm() != 0o600 {
+		t.Fatalf("mode %v", st.Mode())
+	}
+	// dangling link
+	dl := filepath.Join(home, "dangling")
+	dt := filepath.Join(t.TempDir(), "gone.conf")
+	os.Symlink(dt, dl)
+	if _, err := WriteIfChanged(dl, "x"); err != nil || !isLink(dl) {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(dt); string(b) != "x" {
+		t.Fatalf("dangling target %q", b)
+	}
+}
+
+func TestEnsureIncludeWritesThroughSymlink(t *testing.T) {
+	home := t.TempDir()
+	link, target := linkedFile(t, home, ".config/k/k.conf", "orig\n")
+	ch, err := EnsureInclude(ctxFor(home), Include{Path: ".config/k/k.conf", Line: "include z"})
+	if err != nil || !ch {
+		t.Fatal(ch, err)
+	}
+	if !isLink(link) {
+		t.Fatal("symlink replaced")
+	}
+	if b, _ := os.ReadFile(target); string(b) != "include z\norig\n" {
+		t.Fatalf("target %q", b)
+	}
+	b, _ := os.ReadFile(filepath.Join(home, ".local/state/aether/backups/2000/.config/k/k.conf"))
+	if string(b) != "orig\n" {
+		t.Fatalf("backup %q", b)
+	}
+}
+
+func TestBackupsSameSecondKeepsOriginal(t *testing.T) {
+	home := t.TempDir()
+	p := filepath.Join(home, "f.conf")
+	os.WriteFile(p, []byte("original"), 0o644)
+	now := time.Unix(5000, 0)
+	NewBackups(home, now).Save(p)
+	os.WriteFile(p, []byte("modified"), 0o644)
+	if err := NewBackups(home, now).Save(p); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(filepath.Join(home, ".local/state/aether/backups/5000/f.conf"))
+	if string(b) != "original" {
+		t.Fatalf("backup %q", b)
+	}
+}
