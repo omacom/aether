@@ -15,7 +15,6 @@
         detail = '',
         isAdded = false,
         isFavorited = false,
-        applying = false,
         busy = false,
         useLabel = 'Use',
         useTitle = 'Set as wallpaper and open in editor',
@@ -33,7 +32,6 @@
         detail?: string;
         isAdded?: boolean;
         isFavorited?: boolean;
-        applying?: boolean;
         busy?: boolean;
         useLabel?: string;
         useTitle?: string;

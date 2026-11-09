@@ -5,7 +5,6 @@
         setWallpaperPath,
         addAdditionalImage,
         getAdditionalImages,
-        getIsApplying,
         getWallpaperRevision,
     } from '$lib/stores/theme.svelte';
     import {setActiveTab, showToast} from '$lib/stores/ui.svelte';
@@ -115,7 +114,6 @@
         path={image.url}
         name={image.name}
         {busy}
-        applying={getIsApplying()}
         isFavorited={isFavorite(image.url)}
         isAdded={!!localPath && getAdditionalImages().includes(localPath)}
         useLabel={busy ? 'Loading…' : 'Use'}

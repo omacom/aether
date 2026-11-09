@@ -6,7 +6,6 @@
         getAdditionalImages,
     } from '$lib/stores/theme.svelte';
     import {setActiveTab, showToast} from '$lib/stores/ui.svelte';
-    import {getIsApplying} from '$lib/stores/theme.svelte';
     import {
         getLabels,
         getLabelForPath,
@@ -446,7 +445,6 @@
                         detail={formatFileSize(wp.size)}
                         isAdded={getAdditionalImages().includes(wp.path)}
                         isFavorited={isFavorite(wp.path)}
-                        applying={getIsApplying()}
                         onuse={() => selectWallpaper(wp.path)}
                         onpreview={() => handlePreview(i)}
                         onaddextra={() => handleAddExtra(wp.path)}

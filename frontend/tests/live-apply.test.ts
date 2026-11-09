@@ -6,6 +6,9 @@ import {
     setLiveApply,
     getLiveApply,
     getLivePending,
+    getToastMessage,
+    getToastVisible,
+    dismissCurrentToast,
 } from '../src/lib/stores/ui.svelte';
 import {applyTheme, applyThemeLive} from '../src/lib/actions/themeActions';
 import {loadBlueprintIntoEditor} from '../src/lib/actions/blueprintActions';
@@ -101,6 +104,7 @@ vi.mock('../wailsjs/runtime/runtime', () => ({
 
 beforeEach(() => {
     vi.useFakeTimers();
+    while (getToastVisible()) dismissCurrentToast();
     theme.reset();
     theme.markApplied('');
     theme.setIsApplying(false);
@@ -200,6 +204,62 @@ test('OFF/ON in the same tick rejects the old timer session and schedules the un
     expect(ApplyTheme).toHaveBeenCalledTimes(1);
 });
 
+test.each(['disable', 'load blueprint'] as const)(
+    '%s while a live apply is in flight does not report it as current',
+    async change => {
+        await queueLiveApply();
+        const signature = theme.getThemeSignature();
+        const issued = deferred<typeof success>();
+        vi.mocked(ApplyTheme).mockReturnValueOnce(issued.promise);
+        await vi.advanceTimersByTimeAsync(1500);
+        await settle();
+        expect(ApplyTheme).toHaveBeenCalledTimes(1);
+        expect(theme.getIsApplying()).toBe(true);
+        if (change === 'disable') setLiveApply(false);
+        else
+            loadBlueprintIntoEditor({
+                name: 'Review',
+                timestamp: 0,
+                palette: {
+                    colors: Array(16).fill('#abcdef'),
+                    wallpaper: '/review.png',
+                },
+            });
+        flushSync();
+        issued.resolve(success);
+        await settle();
+        expect(getToastMessage()).not.toContain('Live preview applied');
+        expect(theme.getLastAppliedSignature()).toBe(signature);
+        expect(getLivePending()).toBe(false);
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(ApplyTheme).toHaveBeenCalledTimes(1);
+    }
+);
+
+test('OFF/ON while a live apply is in flight rejects the old session, and later edits still apply', async () => {
+    await queueLiveApply();
+    const signature = theme.getThemeSignature();
+    const issued = deferred<typeof success>();
+    vi.mocked(ApplyTheme).mockReturnValueOnce(issued.promise);
+    await vi.advanceTimersByTimeAsync(1500);
+    await settle();
+    expect(ApplyTheme).toHaveBeenCalledTimes(1);
+    setLiveApply(false);
+    setLiveApply(true);
+    flushSync();
+    issued.resolve(success);
+    await settle();
+    expect(getToastMessage()).not.toContain('Live preview applied');
+    expect(theme.getLastAppliedSignature()).toBe(signature);
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(ApplyTheme).toHaveBeenCalledTimes(1);
+    theme.setColor(1, '#abcdef');
+    flushSync();
+    await vi.advanceTimersByTimeAsync(1500);
+    await settle();
+    expect(ApplyTheme).toHaveBeenCalledTimes(2);
+});
+
 test('an already-issued live apply marks only its old signature and uses its own CSS mode', async () => {
     await queueLiveApply();
     theme.setLightMode(true);
@@ -266,6 +326,22 @@ test('failed live applies do not loop, and OFF/ON explicitly retries the unsent 
     await vi.advanceTimersByTimeAsync(1500);
     await settle();
     expect(ApplyTheme).toHaveBeenCalledTimes(2);
+});
+
+test('destroying App while a live apply is in flight does not report it as current or change the saved toggle preference', async () => {
+    const view = await queueLiveApply();
+    const issued = deferred<typeof success>();
+    vi.mocked(ApplyTheme).mockReturnValueOnce(issued.promise);
+    await vi.advanceTimersByTimeAsync(1500);
+    await settle();
+    expect(ApplyTheme).toHaveBeenCalledTimes(1);
+    await view.destroy();
+    issued.resolve(success);
+    await settle();
+    expect(getToastMessage()).not.toContain('Live preview applied');
+    expect(ApplyTheme).toHaveBeenCalledTimes(1);
+    expect(getLivePending()).toBe(false);
+    expect(getLiveApply()).toBe(true);
 });
 
 test('returning to an earlier successful live signature after a manual apply still applies the edit', async () => {

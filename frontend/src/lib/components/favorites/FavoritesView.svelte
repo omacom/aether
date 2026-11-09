@@ -28,7 +28,6 @@
     import CardSizeToggle from '$lib/components/shared/CardSizeToggle.svelte';
     import {getCardSize, CARD_MIN_WIDTH} from '$lib/stores/cardsize.svelte';
     import {openURL} from '$lib/utils/browser';
-    import {getIsApplying} from '$lib/stores/theme.svelte';
     import {
         getFavorites,
         getFavoritesError,
@@ -365,7 +364,6 @@
                         detail={fav.data?.resolution || ''}
                         isAdded={getAdditionalImages().includes(fav.path)}
                         isFavorited={true}
-                        applying={getIsApplying()}
                         onuse={() => handleSelect(fav)}
                         onpreview={() => handlePreview(i)}
                         onaddextra={() => handleAddExtra(fav)}

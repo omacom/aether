@@ -5,7 +5,6 @@
         getAdditionalImages,
     } from '$lib/stores/theme.svelte';
     import {setActiveTab, showToast} from '$lib/stores/ui.svelte';
-    import {getIsApplying} from '$lib/stores/theme.svelte';
     import {openURL} from '$lib/utils/browser';
     import {observeIntersection} from '$lib/utils/intersection';
     import {isFavorite, toggleFavorite} from '$lib/stores/favorites.svelte';
@@ -95,7 +94,6 @@
         name={wallpaper.id}
         {isFavorited}
         busy={isDownloading}
-        applying={getIsApplying()}
         useLabel={isDownloading ? 'Loading…' : 'Use'}
         useTitle="Download, set as wallpaper, and open in editor"
         visitTitle="Open on wallhaven.cc"
