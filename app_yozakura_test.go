@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"aether/internal/blueprint"
 	"aether/internal/theme"
 	"aether/internal/yozakura"
 	"aether/ipc"
@@ -162,5 +163,25 @@ func TestIPCApplyUsesStateGlassAndClock(t *testing.T) {
 	}
 	if got.Glass != 0.81 || got.Clock.Digits != "thin" || !strings.Contains(string(data), `"ornament": "none"`) {
 		t.Errorf("theme.json glass/clock not from state: %s", data)
+	}
+}
+
+func TestSaveBlueprintKeepsDisplayName(t *testing.T) {
+	yozTestHome(t)
+	app := NewApp()
+	if err := app.blueprints.Save("icho", blueprint.Blueprint{
+		Name: "icho", DisplayName: "Ichō", Palette: blueprint.PaletteData{Colors: yozPalette()},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := app.SaveBlueprint(SaveBlueprintRequest{Name: "icho", Palette: yozPalette()}); err != nil {
+		t.Fatal(err)
+	}
+	bp, err := app.blueprints.FindByName("icho")
+	if err != nil || bp == nil {
+		t.Fatal(err)
+	}
+	if bp.DisplayName != "Ichō" {
+		t.Errorf("DisplayName = %q, want Ichō", bp.DisplayName)
 	}
 }

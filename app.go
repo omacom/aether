@@ -585,6 +585,15 @@ func (a *App) SaveBlueprint(req SaveBlueprintRequest) error {
 	if err := bp.SetIconThemeSelection(req.IconTheme); err != nil {
 		return fmt.Errorf("iconTheme: %w", err)
 	}
+	// The request carries no display name; keep the existing blueprint's.
+	if existing, err := a.blueprints.LoadAll(); err == nil {
+		for _, e := range existing {
+			if strings.EqualFold(e.Name, req.Name) {
+				bp.DisplayName = e.DisplayName
+				break
+			}
+		}
+	}
 	return a.blueprints.Save(req.Name, bp)
 }
 

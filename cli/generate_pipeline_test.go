@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"aether/internal/blueprint"
+	"aether/internal/icontheme"
+	"aether/internal/theme"
 )
 
 //go:embed all:testdata/templates
@@ -273,4 +275,38 @@ func TestGenerateLockLastWins(t *testing.T) {
 		}
 		return nil
 	})
+}
+
+func TestGenerateKeepsMatchedBlueprintIconTheme(t *testing.T) {
+	e := newPipelineEnv(t)
+	svc := blueprint.NewService()
+	bp, err := svc.FindByName("icho")
+	if err != nil || bp == nil {
+		t.Fatal(err)
+	}
+	want := icontheme.Selection{Mode: icontheme.SelectionExplicit, ID: "Papirus"}
+	if err := bp.SetIconThemeSelection(want); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.Save(bp.Name, *bp); err != nil {
+		t.Fatal(err)
+	}
+	wp := e.wallpaper(t, "evanescia.png")
+
+	run := func(extra ...string) icontheme.Selection {
+		var got icontheme.Selection
+		d, _, se := e.deps(extractOK)
+		d.OnState = func(s *theme.ThemeState) { got = s.IconTheme }
+		if code := runGenerateWith(append([]string{wp}, extra...), pipelineTemplates, d); code != 0 {
+			t.Fatalf("exit %d: %s", code, se)
+		}
+		return got
+	}
+	if got := run(); got != want {
+		t.Errorf("without flag: icon theme = %+v, want %+v", got, want)
+	}
+	flag := icontheme.Selection{Mode: icontheme.SelectionExplicit, ID: "Adwaita"}
+	if got := run("--icon-theme", "Adwaita"); got != flag {
+		t.Errorf("with flag: icon theme = %+v, want %+v", got, flag)
+	}
 }

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strings"
 
 	"aether/internal/blueprint"
@@ -65,8 +66,10 @@ type generateDeps struct {
 	LockPath string
 	// TemplatesDir is the root inside the template FS (default "templates").
 	TemplatesDir string
-	Stdout       io.Writer
-	Stderr       io.Writer
+	// OnState, if set, observes the theme state just before it is applied.
+	OnState func(*theme.ThemeState)
+	Stdout  io.Writer
+	Stderr  io.Writer
 }
 
 func runGenerate(args []string, templatesFS embed.FS) int {
@@ -92,6 +95,7 @@ func runGenerateWith(args []string, templatesFS embed.FS, deps generateDeps) int
 			return 1
 		}
 	}
+	iconThemeSet := slices.Contains(args, "--icon-theme")
 	iconTheme, args, err := parseIconThemeOption(args)
 	if err != nil {
 		fmt.Fprintf(stderr, "Error: Invalid icon theme: %v\n", err)
@@ -234,7 +238,13 @@ func runGenerateWith(args []string, templatesFS embed.FS, deps generateDeps) int
 			fmt.Fprintf(stderr, "Warning: extraction failed (%v); falling back to default blueprint %s\n", err, def.Name)
 		}
 	}
-	state.IconTheme = iconTheme
+	// A blueprint keeps its own icon theme unless --icon-theme was given.
+	if iconThemeSet || state.ThemeID == "auto" {
+		state.IconTheme = iconTheme
+	}
+	if deps.OnState != nil {
+		deps.OnState(state)
+	}
 
 	tplDir := deps.TemplatesDir
 	if tplDir == "" {
