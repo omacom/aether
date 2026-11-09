@@ -1,0 +1,222 @@
+{
+  "_doc": "Yozakura themes, one per wallpaper. 'match' = substrings of the wallpaper filename (lowercase). Unmatched wallpapers get a matugen-generated theme with the same keys. 'glass' = opacity of bar/pill/card fills (raise it over bright wallpapers). 'term' = ANSI black, red, green, yellow, blue, magenta, cyan, white; brights are derived.",
+  "default": "icho",
+  "themes": {
+    "icho": {
+      "name": "Ichō",
+      "match": [
+        "evanescia"
+      ],
+      "glass": 0.9,
+      "clock": {
+        "digits": "bold",
+        "colon": ":",
+        "glow": 0.35,
+        "ornament": "arc"
+      },
+      "ground": "#120b18",
+      "surface": "#1b1222",
+      "surface2": "#281a31",
+      "border": "#3c2a49",
+      "accent": "#ff9ed2",
+      "accent2": "#c39cec",
+      "info": "#8ba2f1",
+      "danger": "#ff5d6c",
+      "ok": "#8fd6a8",
+      "warn": "#f2c14e",
+      "text": "#f2e7f0",
+      "muted": "#a08fa8",
+      "accentInk": "#1d0c17",
+      "term": [
+        "#281a31",
+        "#ff5d6c",
+        "#8fd6a8",
+        "#f2c14e",
+        "#8ba2f1",
+        "#ff9ed2",
+        "#86d4e6",
+        "#dacfdc"
+      ]
+    },
+    "kocho": {
+      "name": "Kochō",
+      "match": [
+        "castorice"
+      ],
+      "glass": 0.95,
+      "clock": {
+        "digits": "medium",
+        "colon": "·",
+        "glow": 0.5,
+        "ornament": "arcButterfly"
+      },
+      "ground": "#110a19",
+      "surface": "#1a1025",
+      "surface2": "#271834",
+      "border": "#3d2752",
+      "accent": "#ea8cfb",
+      "accent2": "#b98cf0",
+      "info": "#8fa6ff",
+      "danger": "#ff6b8b",
+      "ok": "#9be0b0",
+      "warn": "#f5b35a",
+      "text": "#f0e5f8",
+      "muted": "#a291b6",
+      "accentInk": "#1c0a22",
+      "term": [
+        "#271834",
+        "#ff6b8b",
+        "#9be0b0",
+        "#f5b35a",
+        "#8fa6ff",
+        "#ea8cfb",
+        "#8fd8ec",
+        "#dccfe8"
+      ]
+    },
+    "seiya": {
+      "name": "Seiya",
+      "match": [
+        "genshin"
+      ],
+      "glass": 0.88,
+      "clock": {
+        "digits": "thin",
+        "colon": "✦",
+        "glow": 0.35,
+        "ornament": "stars"
+      },
+      "ground": "#0b0820",
+      "surface": "#130f2d",
+      "surface2": "#1e193f",
+      "border": "#302959",
+      "accent": "#a99bff",
+      "accent2": "#f39ac7",
+      "info": "#8cc5fe",
+      "danger": "#ff6f91",
+      "ok": "#8fe0c0",
+      "warn": "#f0c674",
+      "text": "#e7e4fb",
+      "muted": "#938ebf",
+      "accentInk": "#0e0a28",
+      "term": [
+        "#1e193f",
+        "#ff6f91",
+        "#8fe0c0",
+        "#f0c674",
+        "#8cb0fe",
+        "#c49bff",
+        "#8cdcfe",
+        "#d5d1ef"
+      ]
+    },
+    "ushio": {
+      "name": "Ushio",
+      "match": [
+        "shorekeeper"
+      ],
+      "glass": 0.88,
+      "clock": {
+        "digits": "medium",
+        "colon": ":",
+        "glow": 0.6,
+        "ornament": "wave"
+      },
+      "ground": "#050c1a",
+      "surface": "#0b1629",
+      "surface2": "#13223c",
+      "border": "#1f3557",
+      "accent": "#5ee6fa",
+      "accent2": "#7aa6ff",
+      "info": "#a9d8ff",
+      "danger": "#ff7a8a",
+      "ok": "#6ee7b0",
+      "warn": "#f6c177",
+      "text": "#e2eefb",
+      "muted": "#8399ba",
+      "accentInk": "#03131f",
+      "term": [
+        "#13223c",
+        "#ff7a8a",
+        "#6ee7b0",
+        "#f6c177",
+        "#7aa6ff",
+        "#c9a3ff",
+        "#5ee6fa",
+        "#cfdcec"
+      ]
+    },
+    "sumi": {
+      "name": "Sumi",
+      "match": [
+        "kawaii-cat-girl"
+      ],
+      "glass": 0.92,
+      "clock": {
+        "digits": "heavy",
+        "colon": ":",
+        "glow": 0,
+        "ornament": "seal"
+      },
+      "ground": "#060606",
+      "surface": "#101010",
+      "surface2": "#1c1c1c",
+      "border": "#2e2e2e",
+      "accent": "#ececec",
+      "accent2": "#6fa4f3",
+      "info": "#6fa4f3",
+      "danger": "#ff6b6b",
+      "ok": "#9ad4a0",
+      "warn": "#e8c870",
+      "text": "#ececec",
+      "muted": "#939393",
+      "accentInk": "#060606",
+      "term": [
+        "#1c1c1c",
+        "#ff6b6b",
+        "#9ad4a0",
+        "#e8c870",
+        "#6fa4f3",
+        "#c8a2e8",
+        "#7fd8e8",
+        "#d6d6d6"
+      ]
+    },
+    "tsukiyo": {
+      "name": "Tsukiyo",
+      "match": [
+        "ram-rem"
+      ],
+      "glass": 0.9,
+      "clock": {
+        "digits": "thin",
+        "colon": "·",
+        "glow": 0.55,
+        "ornament": "arcButterfly"
+      },
+      "ground": "#050c1b",
+      "surface": "#0a1529",
+      "surface2": "#112042",
+      "border": "#1c3558",
+      "accent": "#4cc2ff",
+      "accent2": "#ff7fae",
+      "info": "#8496ff",
+      "danger": "#ff5d7a",
+      "ok": "#5fd8b0",
+      "warn": "#f0c674",
+      "text": "#dbeaff",
+      "muted": "#7f96bd",
+      "accentInk": "#04111e",
+      "term": [
+        "#112042",
+        "#ff5d7a",
+        "#5fd8b0",
+        "#f0c674",
+        "#8496ff",
+        "#ff7fae",
+        "#4cc2ff",
+        "#c8d9f0"
+      ]
+    }
+  }
+}
