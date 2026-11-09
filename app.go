@@ -578,8 +578,9 @@ func (a *App) SaveBlueprint(req SaveBlueprintRequest) error {
 			Glass:            req.Glass,
 			Clock:            req.Clock,
 		},
-		Adjustments:  req.Adjustments,
-		AppOverrides: req.AppOverrides,
+		Adjustments:     req.Adjustments,
+		AppOverrides:    req.AppOverrides,
+		MatchWallpapers: req.MatchWallpapers,
 	}
 	if err := bp.SetIconThemeSelection(req.IconTheme); err != nil {
 		return fmt.Errorf("iconTheme: %w", err)
@@ -1212,6 +1213,8 @@ type ImportResult struct {
 	Colors         []string            `json:"colors"`
 	ExtendedColors map[string]string   `json:"extendedColors"`
 	YozakuraRoles  map[string]string   `json:"yozakuraRoles"`
+	Glass          *float64            `json:"glass"`
+	Clock          *yozakura.Clock     `json:"clock"`
 	Name           string              `json:"name"`
 	Path           string              `json:"path"`
 	WallpaperPath  string              `json:"wallpaperPath"`
@@ -1311,12 +1314,16 @@ func (a *App) importFile(path, fileType string) (*ImportResult, error) {
 		return nil, fmt.Errorf("iconTheme: %w", err)
 	}
 	a.state.IconTheme = iconTheme
+	a.state.Glass = bp.Palette.Glass
+	a.state.Clock = bp.Palette.Clock
 
 	log.Printf("[import] success: %s (%d colors)", bp.Name, len(bp.Palette.Colors))
 	return &ImportResult{
 		Colors:         palette[:],
 		ExtendedColors: bp.Palette.ExtendedColors,
 		YozakuraRoles:  bp.Palette.YozakuraRoles,
+		Glass:          bp.Palette.Glass,
+		Clock:          bp.Palette.Clock,
 		Name:           bp.Name,
 		Path:           savedPath,
 		WallpaperPath:  a.state.WallpaperPath,
@@ -1473,6 +1480,8 @@ func (a *App) HandleIPC(req ipc.Request) ipc.Response {
 			AdditionalImages: a.state.AdditionalImages,
 			ExtendedColors:   a.state.ExtendedColors,
 			YozakuraRoles:    a.state.YozakuraRoles,
+			Glass:            a.state.Glass,
+			Clock:            a.state.Clock,
 			Settings:         theme.DefaultApplySettings(),
 			AppOverrides:     a.state.AppOverrides,
 			IconTheme:        a.state.IconTheme,
@@ -1561,10 +1570,18 @@ func (a *App) emitIPCStateChanged() {
 	if a.ctx == nil {
 		return
 	}
-	wailsrt.EventsEmit(a.ctx, "ipc-state-changed", map[string]interface{}{
+	wailsrt.EventsEmit(a.ctx, "ipc-state-changed", a.ipcStatePayload())
+}
+
+// ipcStatePayload is the editor snapshot pushed to the frontend after IPC
+// state changes.
+func (a *App) ipcStatePayload() map[string]interface{} {
+	return map[string]interface{}{
 		"palette":          a.state.Palette[:],
 		"extendedColors":   a.state.ExtendedColors,
 		"yozakuraRoles":    a.state.YozakuraRoles,
+		"glass":            a.state.Glass,
+		"clock":            a.state.Clock,
 		"lightMode":        a.state.LightMode,
 		"mode":             a.state.ExtractionMode,
 		"wallpaper":        a.state.WallpaperPath,
@@ -1573,7 +1590,7 @@ func (a *App) emitIPCStateChanged() {
 		"additionalImages": a.state.AdditionalImages,
 		"adjustments":      a.state.Adjustments,
 		"iconTheme":        a.state.IconTheme,
-	})
+	}
 }
 
 func (a *App) buildAdjustments(req ipc.Request) color.Adjustments {
