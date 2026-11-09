@@ -198,6 +198,7 @@ Wallpapers:
     --sorting date_added|relevance|random|views|favorites|toplist
     --order desc|asc
     --at-least 1920x1080                    Minimum resolution
+    --resolution 5120x1440                  Exact resolution (comma separated)
     --colors HEX                            Filter by wallhaven palette color
 
 Favorites:

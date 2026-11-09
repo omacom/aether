@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -250,5 +251,40 @@ func TestRemoteSourcesWithSameFilenameUseDistinctCacheEntries(t *testing.T) {
 	data, err := os.ReadFile(two)
 	if err != nil || string(data) != "/two/wall.png" {
 		t.Fatalf("wrong source bytes: %q, %v", data, err)
+	}
+}
+
+func TestSearchResolutionQuery(t *testing.T) {
+	tests := []struct {
+		name        string
+		params      SearchParams
+		wantAtLeast string
+		wantExact   string
+	}{
+		{"minimum", SearchParams{AtLeast: "3840x2160"}, "3840x2160", ""},
+		{"exact", SearchParams{Resolutions: "5120x1440"}, "", "5120x1440"},
+		{"exact list", SearchParams{Resolutions: "3440x1440,5120x1440"}, "", "3440x1440,5120x1440"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			c := NewClient()
+			var got url.Values
+			c.http.Transport = roundTripFunc(func(r *http.Request) (*http.Response, error) {
+				got = r.URL.Query()
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader(`{"data":[],"meta":{"total":0}}`)),
+				}, nil
+			})
+			if _, err := c.Search(tc.params); err != nil {
+				t.Fatal(err)
+			}
+			if value := got.Get("atleast"); value != tc.wantAtLeast {
+				t.Errorf("atleast = %q, want %q", value, tc.wantAtLeast)
+			}
+			if value := got.Get("resolutions"); value != tc.wantExact {
+				t.Errorf("resolutions = %q, want %q", value, tc.wantExact)
+			}
+		})
 	}
 }
