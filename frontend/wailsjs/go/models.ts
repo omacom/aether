@@ -925,6 +925,7 @@ export namespace wallhaven {
 	    order: string;
 	    page: number;
 	    atleast: string;
+	    resolutions: string;
 	    colors: string;
 	
 	    static createFrom(source: any = {}) {
@@ -940,6 +941,7 @@ export namespace wallhaven {
 	        this.order = source["order"];
 	        this.page = source["page"];
 	        this.atleast = source["atleast"];
+	        this.resolutions = source["resolutions"];
 	        this.colors = source["colors"];
 	    }
 	}

@@ -20,6 +20,7 @@ func runSearchWallhaven(args []string) int {
 	order, args := parseFlag(args, "--order")
 	pageStr, args := parseFlag(args, "--page")
 	atLeast, args := parseFlag(args, "--at-least")
+	resolution, args := parseFlag(args, "--resolution")
 	colors, args := parseFlag(args, "--colors")
 
 	if len(args) == 0 {
@@ -53,6 +54,9 @@ func runSearchWallhaven(args []string) int {
 	}
 	if atLeast != "" {
 		params.AtLeast = atLeast
+	}
+	if resolution != "" {
+		params.Resolutions = resolution
 	}
 	if colors != "" {
 		params.Colors = colors
@@ -91,6 +95,7 @@ func wallhavenSearchParams(args []string) (wallhaven.SearchParams, []string) {
 	order, args := parseFlag(args, "--order")
 	pageStr, args := parseFlag(args, "--page")
 	atLeast, args := parseFlag(args, "--at-least")
+	resolution, args := parseFlag(args, "--resolution")
 	colorsFlag, args := parseFlag(args, "--colors")
 
 	params := wallhaven.SearchParams{}
@@ -113,6 +118,9 @@ func wallhavenSearchParams(args []string) (wallhaven.SearchParams, []string) {
 	}
 	if atLeast != "" {
 		params.AtLeast = atLeast
+	}
+	if resolution != "" {
+		params.Resolutions = resolution
 	}
 	if colorsFlag != "" {
 		params.Colors = colorsFlag

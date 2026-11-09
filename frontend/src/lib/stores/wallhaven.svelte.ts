@@ -13,6 +13,7 @@ let sorting = $state('date_added');
 let order = $state('desc');
 let page = $state(1);
 let atleast = $state('1920x1080');
+let resolutionExact = $state(false);
 let colorFilter = $state('');
 let apiKey = $state('');
 
@@ -43,7 +44,8 @@ async function loadConfigFromFile() {
             if (config.categories) categories = config.categories;
             if (config.purity) purity = config.purity;
             if (config.sorting) sorting = config.sorting;
-            if (config.resolutions) atleast = config.resolutions;
+            if (typeof config.resolutions === 'string') atleast = config.resolutions;
+            if (config.resolutionExact) resolutionExact = true;
             if (config.order) order = config.order;
         }
     } catch {}
@@ -60,6 +62,7 @@ function persist() {
                 sorting,
                 order,
                 resolutions: atleast,
+                resolutionExact,
                 purityControlsEnabled: true,
             });
         })
@@ -82,8 +85,10 @@ export function getSorting(): string {
 export function getOrder(): string {
     return order;
 }
-export function getAtleast(): string {
-    return atleast;
+export function getResolutionSelection(): string {
+    // The <select> needs one value that encodes both controls; persistence
+    // keeps them separate for backwards compatibility.
+    return resolutionExact && atleast ? `exact:${atleast}` : atleast;
 }
 export function getColorFilter(): string {
     return colorFilter;
@@ -122,8 +127,14 @@ export function setOrder(o: string): void {
     order = o;
     persist();
 }
-export function setAtleast(a: string): void {
-    atleast = a;
+export function setResolution(value: string): void {
+    if (value.startsWith('exact:')) {
+        atleast = value.slice('exact:'.length);
+        resolutionExact = true;
+    } else {
+        atleast = value;
+        resolutionExact = false;
+    }
     persist();
 }
 export function setColorFilter(c: string): void {
@@ -190,6 +201,9 @@ async function doSearch(append: boolean): Promise<void> {
     try {
         await configReady;
         if (request !== searchRequest) return;
+        // An exact selection uses Wallhaven's `resolutions` parameter instead
+        // of `atleast`, so ultrawide screens are not forced into a 16:9 match.
+        const exactResolution = resolutionExact ? atleast : '';
         const params =
             append && lastSearchParams
                 ? {...lastSearchParams, page: page + 1}
@@ -200,7 +214,8 @@ async function doSearch(append: boolean): Promise<void> {
                       sorting,
                       order,
                       page: 1,
-                      atleast,
+                      atleast: exactResolution ? '' : atleast,
+                      resolutions: exactResolution,
                       colors: colorFilter,
                   };
         const {SearchWallhaven} = await import('../../../wailsjs/go/main/App');
