@@ -181,9 +181,8 @@ func runWallhavenThumbs(args []string) int {
 
 	for i, wp := range result.Data {
 		// Prefer "large" (~800px wide) over "original" (~300px) or "small"
-		// (300x200). The downstream omarchy-menu-images thumbnailer rescales
-		// to 1536x864, so feeding it a small source produces visibly blurry
-		// cards; "large" gives it enough pixels to look sharp.
+		// (300x200). Downstream consumers rescale thumbnails upward, so a small
+		// source produces visibly blurry cards; "large" gives them enough pixels.
 		thumbURL := wp.Thumbs["large"]
 		if thumbURL == "" {
 			thumbURL = wp.Thumbs["original"]

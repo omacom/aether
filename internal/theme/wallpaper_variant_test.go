@@ -25,13 +25,10 @@ func TestGenerateWallpaperVariantPreservesSourceAndRestoresCache(t *testing.T) {
 	state := NewThemeState()
 	state.WallpaperPath = source
 	state.WallpaperBlur = true
-	writer := NewWriter(omarchyV4TestTemplates, "testdata/v4")
-	for _, native := range []bool{false, true} {
+	writer := NewWriter(testTemplates, "testdata/v4")
+	{
 		output := t.TempDir()
 		generate := writer.GenerateOnly
-		if native {
-			generate = writer.GenerateOmarchyV4Only
-		}
 		for i := 0; i < 2; i++ {
 			if err := generate(state, DefaultApplySettings(), output); err != nil {
 				t.Fatal(err)

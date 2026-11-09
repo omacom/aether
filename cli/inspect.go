@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"sort"
 
+	"aether/internal/colorstoml"
 	"aether/internal/extraction"
-	"aether/internal/omarchy"
 	"aether/internal/platform"
 	"aether/internal/template"
 	"aether/internal/theme"
@@ -183,7 +183,7 @@ func runCurrentTheme(args []string) int {
 		return 1
 	}
 
-	colors, bg, fg, _ := omarchy.ParseColorsToml(string(data))
+	colors, bg, fg, _ := colorstoml.ParseColorsToml(string(data))
 
 	if jsonOut {
 		colorSlice := colors[:]

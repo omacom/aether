@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	"aether/internal/omarchy"
+	"aether/internal/colorstoml"
 	"aether/internal/platform"
 
 	wailsrt "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -36,7 +36,6 @@ var semanticOrder = [16]string{
 }
 
 // ThemeWatcher polls colors.toml and emits a Wails event on change.
-// Prefers the active omarchy theme and falls back to Aether's own.
 type ThemeWatcher struct {
 	paths    []string
 	lastPath string
@@ -52,12 +51,7 @@ func NewThemeWatcher() *ThemeWatcher {
 }
 
 func candidatePaths() []string {
-	paths := []string{}
-	if home, err := os.UserHomeDir(); err == nil {
-		paths = append(paths, filepath.Join(home, ".local", "state", "omarchy", "current", "theme", "colors.toml"))
-		paths = append(paths, filepath.Join(home, ".config", "omarchy", "current", "theme", "colors.toml"))
-	}
-	return append(paths, filepath.Join(platform.ThemeDir(), "colors.toml"))
+	return []string{filepath.Join(platform.ThemeDir(), "colors.toml")}
 }
 
 // resolveAndStat returns the first candidate path that exists along
@@ -132,11 +126,11 @@ func parseColorsTOML(path string) map[string]string {
 		return nil
 	}
 
-	colors := omarchy.ParseColorsKV(string(data))
+	colors := colorstoml.ParseColorsKV(string(data))
 
 	// Bridge naming conventions so consumers can read either form regardless
-	// of how the source colors.toml was written: new omarchy themes use
-	// semantic names only (no colorN), Aether/legacy themes use colorN.
+	// of how the source colors.toml was written: semantic-only
+	// files have no colorN, Aether/legacy files use colorN.
 	alias := func(a, b string) {
 		if colors[a] == "" && colors[b] != "" {
 			colors[a] = colors[b]

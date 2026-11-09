@@ -1,4 +1,4 @@
-package omarchy
+package colorstoml
 
 import (
 	"testing"
@@ -64,7 +64,7 @@ color15 = "#c0caf5"
 	}
 }
 
-// A colors.toml in omarchy's semantic form: no color0-15 slots, slot 8 named
+// A colors.toml in compact semantic form: no color0-15 slots, slot 8 named
 // "muted", and a fg/bg shade ramp. The parser must still reconstruct a full
 // 16-slot palette by falling back across the names.
 func TestParseColorsTomlSemantic(t *testing.T) {
@@ -187,22 +187,6 @@ func TestParseColorsTomlMode(t *testing.T) {
 		if got != tc.want {
 			t.Errorf("%s: mode = %q, want %q", name, got, tc.want)
 		}
-	}
-}
-
-func TestValidateNativeColorsRejectsReservedKeys(t *testing.T) {
-	for _, key := range []string{"mode", "background", "color4", "purple", "bright_purple", "selection_foreground"} {
-		t.Run(key, func(t *testing.T) {
-			if err := ValidateNativeColors(map[string]string{key: "#112233"}); err == nil {
-				t.Fatalf("ValidateNativeColors() accepted reserved key %q", key)
-			}
-		})
-	}
-	if err := ValidateNativeColors(map[string]string{
-		"hyprland_active_border": "45deg #112233 #445566",
-		"custom_ratio":           "rgb(17,34,51)/50%",
-	}); err != nil {
-		t.Fatalf("ValidateNativeColors() rejected extension key: %v", err)
 	}
 }
 

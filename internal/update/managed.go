@@ -38,8 +38,8 @@ func ManagedUpgradeError() error {
 }
 
 // detectPackageUpdateCommand returns an update command when pacman owns the
-// running executable. Omarchy and AUR helpers also update AUR packages, so
-// they come before plain pacman.
+// running executable. AUR helpers also update AUR packages, so they come
+// before plain pacman.
 func detectPackageUpdateCommand() string {
 	if runtime.GOOS != "linux" || !commandExists("pacman") {
 		return ""
@@ -55,9 +55,6 @@ func detectPackageUpdateCommand() string {
 	defer cancel()
 	if exec.CommandContext(ctx, "pacman", "-Qqo", executable).Run() != nil {
 		return ""
-	}
-	if commandExists("omarchy-update") {
-		return "omarchy-update"
 	}
 	for _, helper := range []string{"yay", "paru"} {
 		if commandExists(helper) {

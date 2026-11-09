@@ -13,10 +13,7 @@ func TestGenerateIconThemeMatrix(t *testing.T) {
 
 	generators := map[string]func(*ThemeState, Settings, string) error{
 		"standalone": func(state *ThemeState, settings Settings, output string) error {
-			return NewWriter(omarchyV4TestTemplates, "testdata/v4").GenerateOnly(state, settings, output)
-		},
-		"omarchy v4": func(state *ThemeState, settings Settings, output string) error {
-			return NewWriter(omarchyV4TestTemplates, "testdata/v4").GenerateOmarchyV4Only(state, settings, output)
+			return NewWriter(testTemplates, "testdata/v4").GenerateOnly(state, settings, output)
 		},
 	}
 
@@ -107,7 +104,7 @@ func TestGenerateOnlyRejectsUnsafeExplicitIconThemeWithoutOutput(t *testing.T) {
 	state := NewThemeState()
 	state.IconTheme = icontheme.Selection{Mode: icontheme.SelectionExplicit, ID: "../escape"}
 	output := t.TempDir()
-	err := NewWriter(omarchyV4TestTemplates, "testdata/v4").GenerateOnly(
+	err := NewWriter(testTemplates, "testdata/v4").GenerateOnly(
 		state,
 		Settings{IncludedApps: map[string]bool{"icons": true}},
 		output,
@@ -124,7 +121,7 @@ func TestGenerateOnlyRejectsUnsafeExplicitIconThemeWithoutOutput(t *testing.T) {
 	}
 }
 
-func TestGenerateOmarchyV4OnlyUsesLegacyDefaultIconTarget(t *testing.T) {
+func TestGenerateOnlyUsesLegacyDefaultIconTarget(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
 	state := NewThemeState()
@@ -134,7 +131,7 @@ func TestGenerateOmarchyV4OnlyUsesLegacyDefaultIconTarget(t *testing.T) {
 		ID:   "Missing-But-Safe",
 	}
 	output := t.TempDir()
-	if err := NewWriter(omarchyV4TestTemplates, "testdata/v4").GenerateOmarchyV4Only(
+	if err := NewWriter(testTemplates, "testdata/v4").GenerateOnly(
 		state,
 		DefaultApplySettings(),
 		output,
@@ -156,10 +153,7 @@ func TestDisabledIconTargetCannotBeReenabledByTemplateOverrides(t *testing.T) {
 
 	generators := map[string]func(*ThemeState, Settings, string) error{
 		"standalone": func(state *ThemeState, settings Settings, output string) error {
-			return NewWriter(omarchyV4TestTemplates, "testdata/v4").GenerateOnly(state, settings, output)
-		},
-		"omarchy v4": func(state *ThemeState, settings Settings, output string) error {
-			return NewWriter(omarchyV4TestTemplates, "testdata/v4").GenerateOmarchyV4Only(state, settings, output)
+			return NewWriter(testTemplates, "testdata/v4").GenerateOnly(state, settings, output)
 		},
 	}
 

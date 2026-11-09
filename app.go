@@ -19,7 +19,6 @@ import (
 	"aether/internal/favorites"
 	"aether/internal/githubsource"
 	"aether/internal/icontheme"
-	"aether/internal/omarchy"
 	"aether/internal/platform"
 	"aether/internal/template"
 	"aether/internal/theme"
@@ -446,23 +445,13 @@ func (a *App) SaveAndApplyTheme(req SaveAndApplyThemeRequest) (*theme.ApplyResul
 		state.AppOverrides = make(map[string]map[string]string)
 	}
 
-	isOmarchy := theme.IsOmarchyInstalled()
 	targetDir := filepath.Join(platform.SavedThemesDir(), name)
-	if isOmarchy {
-		targetDir = filepath.Join(omarchy.UserThemesDir(), name)
-		if !req.UpdateExisting && omarchy.ThemeExists(name) {
-			return nil, fmt.Errorf("Omarchy theme %q already exists", name)
-		}
-	}
 	if _, err := os.Stat(targetDir); err == nil {
 		if !req.UpdateExisting {
 			return nil, fmt.Errorf("theme folder %q already exists", name)
 		}
 	} else if !os.IsNotExist(err) {
 		return nil, fmt.Errorf("check theme folder: %w", err)
-	}
-	if isOmarchy {
-		return a.writer.SaveAndApplyOmarchyTheme(state, req.Settings, name)
 	}
 	if err := a.writer.GenerateOnly(state, req.Settings, targetDir); err != nil {
 		return nil, fmt.Errorf("save theme: %w", err)
@@ -473,14 +462,10 @@ func (a *App) SaveAndApplyTheme(req SaveAndApplyThemeRequest) (*theme.ApplyResul
 // ThemeFolderExists checks the output adapter's destination for a saved theme.
 func (a *App) ThemeFolderExists(name string) bool {
 	name = strings.ToLower(strings.TrimSpace(name))
-	if !theme.ValidOmarchyThemeName(name) {
+	if !theme.ValidThemeName(name) {
 		return false
 	}
-	root := platform.SavedThemesDir()
-	if omarchy.IsInstalled() {
-		root = omarchy.UserThemesDir()
-	}
-	info, err := os.Stat(filepath.Join(root, name))
+	info, err := os.Stat(filepath.Join(platform.SavedThemesDir(), name))
 	return err == nil && info.IsDir()
 }
 
@@ -497,18 +482,6 @@ func (a *App) GetGitHubThumbnail(rawURL string) (*githubsource.ThumbnailResult, 
 // BlurWallpaper prepares a cached preview of the derived wallpaper.
 func (a *App) BlurWallpaper(path string) (string, error) {
 	return wallpaper.CreateBlurredVariant(path, platform.BlurDir())
-}
-
-// ApplyWallpaperOnly preserves the active theme and changes its background.
-func (a *App) ApplyWallpaperOnly(path string) error {
-	info, err := os.Stat(path)
-	if err != nil || !info.Mode().IsRegular() {
-		return fmt.Errorf("wallpaper must be a readable regular file")
-	}
-	if err := wallpaper.ValidateImageFile(path); err != nil {
-		return err
-	}
-	return omarchy.SetBackground(path)
 }
 
 // ClearTheme removes the Aether theme and reverts to the default.
@@ -1001,34 +974,6 @@ func (a *App) IsPreviewCached(path string) bool {
 }
 
 // ---------------------------------------------------------------------------
-// Omarchy Themes
-// ---------------------------------------------------------------------------
-
-// LoadOmarchyThemes discovers all installed Omarchy themes.
-func (a *App) LoadOmarchyThemes() ([]omarchy.Theme, error) {
-	return omarchy.LoadAllThemes()
-}
-
-// ApplyOmarchyThemeByName activates an existing theme through Omarchy without
-// processing it through Aether templates.
-func (a *App) ApplyOmarchyThemeByName(name string) error {
-	if !omarchy.ThemeExists(name) {
-		return fmt.Errorf("Omarchy theme %q is available for editing only", name)
-	}
-	return omarchy.ActivateTheme(name, "")
-}
-
-// IsOmarchyInstalled returns true if the current system has Omarchy.
-func (a *App) IsOmarchyInstalled() bool {
-	return omarchy.IsInstalled()
-}
-
-// GetOmarchyCapabilities returns native Omarchy availability and state.
-func (a *App) GetOmarchyCapabilities() omarchy.Capabilities {
-	return omarchy.DetectCapabilities()
-}
-
-// ---------------------------------------------------------------------------
 // Batch Processing
 // ---------------------------------------------------------------------------
 
@@ -1156,7 +1101,6 @@ type ExportThemeRequest struct {
 	AdditionalImages []string                     `json:"additionalImages"`
 	ExtendedColors   map[string]string            `json:"extendedColors"`
 	NativeColors     map[string]string            `json:"nativeColors"`
-	InstallToOmarchy bool                         `json:"installToOmarchy"`
 	AppOverrides     map[string]map[string]string `json:"appOverrides"`
 	IconTheme        icontheme.Selection          `json:"iconTheme"`
 }
@@ -1172,11 +1116,8 @@ var allExportableApps = map[string]bool{
 
 // ExportTheme exports the current theme to a user-chosen directory.
 func (a *App) ExportTheme(req ExportThemeRequest) (string, error) {
-	// Sanitize the user-typed name. Omarchy's menu chokes on spaces and
-	// punctuation when selecting an entry, so the directory and symlink
-	// names need to be a slug regardless of installToOmarchy — the
-	// resulting export folder is also more portable that way.
-	slug := omarchy.SlugifyThemeName(req.Name)
+	// Sanitize the user-typed name so the export folder is portable.
+	slug := theme.SlugifyThemeName(req.Name)
 	if slug == "" {
 		return "", fmt.Errorf("theme name must contain letters or digits")
 	}
@@ -1187,20 +1128,6 @@ func (a *App) ExportTheme(req ExportThemeRequest) (string, error) {
 	if err != nil || dir == "" {
 		return "", fmt.Errorf("export cancelled")
 	}
-	isOmarchy := theme.IsOmarchyInstalled()
-	linkPath := ""
-	if req.InstallToOmarchy && isOmarchy {
-		if omarchy.ThemeExists(slug) {
-			return "", fmt.Errorf("Omarchy theme %q already exists", slug)
-		}
-		linkPath = filepath.Join(platform.OmarchyThemesDir(), slug)
-		if _, err := os.Lstat(linkPath); err == nil {
-			return "", fmt.Errorf("Omarchy theme %q already exists", slug)
-		} else if !os.IsNotExist(err) {
-			return "", fmt.Errorf("inspect Omarchy theme %q: %w", slug, err)
-		}
-	}
-
 	// Build theme state from the frontend's current palette
 	palette, roles := buildColorRoles(req.Palette, req.ExtendedColors)
 
@@ -1243,25 +1170,9 @@ func (a *App) ExportTheme(req ExportThemeRequest) (string, error) {
 		ExcludedApps:  excluded,
 	}
 
-	exportDir := filepath.Join(dir, "omarchy-"+slug+"-theme")
-	var exportErr error
-	if isOmarchy {
-		exportErr = a.writer.GenerateOmarchyV4Only(state, settings, exportDir)
-	} else {
-		exportErr = a.writer.GenerateOnly(state, settings, exportDir)
-	}
-	if exportErr != nil {
-		return "", fmt.Errorf("export failed: %w", exportErr)
-	}
-
-	if req.InstallToOmarchy && isOmarchy {
-		if err := platform.EnsureDir(filepath.Dir(linkPath)); err != nil {
-			return "", fmt.Errorf("create Omarchy themes directory: %w", err)
-		}
-		if err := os.Symlink(exportDir, linkPath); err != nil {
-			return "", fmt.Errorf("install Omarchy theme: %w", err)
-		}
-		log.Printf("Installed as Omarchy theme: %s -> %s", linkPath, exportDir)
+	exportDir := filepath.Join(dir, "aether-"+slug+"-theme")
+	if err := a.writer.GenerateOnly(state, settings, exportDir); err != nil {
+		return "", fmt.Errorf("export failed: %w", err)
 	}
 
 	return exportDir, nil
@@ -1412,9 +1323,6 @@ func (a *App) GetTemplateColors() map[string][]string {
 
 	for _, f := range files {
 		appName := theme.GetAppNameFromFileName(f)
-		if omarchy.IsInstalled() && !theme.SupportsOmarchyOverride(appName) {
-			continue
-		}
 		content, err := template.ReadTemplate(EmbeddedTemplates, "templates", f)
 		if err != nil {
 			continue

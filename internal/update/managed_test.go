@@ -26,9 +26,8 @@ func TestDetectPackageUpdateCommand(t *testing.T) {
 		commands []string
 		want     string
 	}{
-		{"no pacman", -1, []string{"omarchy-update"}, ""},
-		{"not owned by a package", 1, []string{"omarchy-update"}, ""},
-		{"omarchy", 0, []string{"omarchy-update", "yay"}, "omarchy-update"},
+		{"no pacman", -1, []string{"yay"}, ""},
+		{"not owned by a package", 1, []string{"yay"}, ""},
 		{"aur helper", 0, []string{"paru", "yay"}, "yay -Syu"},
 		{"plain pacman", 0, nil, "sudo pacman -Syu"},
 	}

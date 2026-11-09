@@ -34,7 +34,6 @@ type ExternalImportPreview struct {
 	ThemeName        string   `json:"theme_name,omitempty"`
 	Mode             string   `json:"mode,omitempty"` // "light" | "dark" | ""
 	Edit             bool     `json:"edit"`           // load into the editor without applying (aether://...&edit=true)
-	OmarchyThemeName string   `json:"omarchy_theme_name,omitempty"`
 }
 
 // loadPendingImport reads the staged file, stores it in memory, and emits
@@ -73,7 +72,6 @@ func (a *App) buildPreview(imp *pending.Import) ExternalImportPreview {
 		Wallpaper:        imp.Wallpaper,
 		Mode:             imp.Mode,
 		Edit:             imp.Edit,
-		OmarchyThemeName: imp.OmarchyThemeName,
 	}
 
 	if imp.ExternalTheme != "" {
@@ -141,14 +139,6 @@ func (a *App) stageImportIntoState(expectedSourceURL string) (*pending.Import, e
 	if err != nil {
 		return nil, fmt.Errorf("parse import: %w", err)
 	}
-	if bp == nil && imp.OmarchyThemeName != "" {
-		if current, loadErr := blueprint.ImportCurrentColorsToml(); loadErr == nil {
-			bp = current
-		} else {
-			return nil, fmt.Errorf("load current palette for wallpaper-only install: %w", loadErr)
-		}
-	}
-
 	if bp != nil {
 		// Merge extended colors before SetPalette so buildColorRoles uses the
 		// imported accent/cursor/selection instead of re-deriving them.
@@ -209,20 +199,12 @@ func (a *App) stageImportIntoState(expectedSourceURL string) (*pending.Import, e
 	return imp, nil
 }
 
-// ConfirmExternalImport stages the pending assets, then applies them or installs
-// the requested named Omarchy theme. Used by the confirmation dialog.
+// ConfirmExternalImport stages the pending assets, then applies them. Used by
+// the confirmation dialog.
 func (a *App) ConfirmExternalImport(expectedSourceURL string) error {
-	imp, err := a.stageImportIntoState(expectedSourceURL)
+	_, err := a.stageImportIntoState(expectedSourceURL)
 	if err != nil {
 		return err
-	}
-
-	if imp.OmarchyThemeName != "" {
-		if err := a.writer.InstallOmarchyTheme(a.state, theme.DefaultApplySettings(), imp.OmarchyThemeName); err != nil {
-			return fmt.Errorf("install Omarchy theme: %w", err)
-		}
-		a.emitIPCStateChanged()
-		return nil
 	}
 
 	result, err := a.writer.ApplyTheme(a.state, theme.DefaultApplySettings())

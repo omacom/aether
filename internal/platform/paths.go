@@ -66,16 +66,6 @@ func CustomDir() string {
 	return filepath.Join(ConfigDir(), "custom")
 }
 
-// OmarchyThemesDir returns Omarchy's native ~/.config/omarchy/themes path.
-func OmarchyThemesDir() string {
-	return filepath.Join(homeDir(), ".config", "omarchy", "themes")
-}
-
-// OmarchyThemeDir returns ~/.config/omarchy/themes/aether.
-func OmarchyThemeDir() string {
-	return filepath.Join(OmarchyThemesDir(), "aether")
-}
-
 // WallpaperDir returns ~/Wallpapers, the default local scan directory.
 func WallpaperDir() string {
 	return filepath.Join(homeDir(), "Wallpapers")

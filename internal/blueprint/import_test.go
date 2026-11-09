@@ -42,39 +42,19 @@ func TestImportJSONRemovesLegacyGTKState(t *testing.T) {
 	}
 }
 
-func TestValidateBlueprintRejectsReservedNativeColor(t *testing.T) {
-	colors := make([]string, 16)
-	for i := range colors {
-		colors[i] = "#112233"
-	}
-	bp := &Blueprint{Palette: PaletteData{
-		Colors:       colors,
-		NativeColors: map[string]string{"background": "#445566"},
-	}}
-	if err := validateBlueprint(bp); err == nil {
-		t.Fatal("validateBlueprint() accepted a reserved native color")
-	}
-}
-
-func TestImportCurrentColorsTomlPrefersActiveOmarchyTheme(t *testing.T) {
+func TestImportCurrentColorsTomlReadsStandaloneTheme(t *testing.T) {
 	home := t.TempDir()
-	binDir := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
-	t.Setenv("PATH", binDir)
-	if err := os.WriteFile(filepath.Join(binDir, "omarchy"), []byte("#!/bin/sh\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
 
-	writeTestColorsToml(t, filepath.Join(home, ".local", "state", "omarchy", "current", "theme", "colors.toml"), "#111111")
 	writeTestColorsToml(t, filepath.Join(home, ".config", "aether", "theme", "colors.toml"), "#eeeeee")
 
 	bp, err := ImportCurrentColorsToml()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := bp.Palette.Colors[1]; got != "#111111" {
-		t.Fatalf("active red = %q, want native #111111", got)
+	if got := bp.Palette.Colors[1]; got != "#eeeeee" {
+		t.Fatalf("red = %q, want #eeeeee", got)
 	}
 }
 

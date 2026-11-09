@@ -9,7 +9,7 @@ import (
 	"aether/internal/update"
 )
 
-// Run with -ldflags '-X aether/internal/update.packageUpdateCommand=omarchy-update'.
+// Run with -ldflags '-X aether/internal/update.packageUpdateCommand=pacman-update'.
 func TestManagedUpgradeBeforeDevVersion(t *testing.T) {
 	if update.UpdateCommand() == "" {
 		t.Skip("run with the package update linker flag")

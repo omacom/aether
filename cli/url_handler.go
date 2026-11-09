@@ -69,13 +69,6 @@ func runHandleURL(args []string, templatesFS embed.FS) int {
 	if v := strings.ToLower(q.Get("edit")); v == "true" || v == "1" || v == "yes" {
 		imp.Edit = true
 	}
-	if v := q.Get("as_omarchy_theme"); v != "" {
-		if !theme.ValidOmarchyThemeName(v) {
-			fmt.Fprintf(os.Stderr, "Error: as_omarchy_theme must match [A-Za-z0-9][A-Za-z0-9_.-]* (got %q)\n", v)
-			return 1
-		}
-		imp.OmarchyThemeName = strings.ToLower(v)
-	}
 	if q.Get("external_theme") != "" && q.Get("colors") != "" {
 		fmt.Fprintln(os.Stderr, "Error: external_theme and colors cannot be combined")
 		return 1
@@ -174,15 +167,6 @@ func runSilentURLApply(imp *pending.Import, templatesFS embed.FS) int {
 	}
 
 	writer := theme.NewWriter(templatesFS, "templates")
-	if imp.OmarchyThemeName != "" {
-		if err := writer.InstallOmarchyTheme(state, theme.DefaultApplySettings(), imp.OmarchyThemeName); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: install Omarchy theme: %v\n", err)
-			return 1
-		}
-		fmt.Printf("Installed and activated Omarchy theme %q\n", imp.OmarchyThemeName)
-		return 0
-	}
-
 	result, err := writer.ApplyTheme(state, theme.DefaultApplySettings())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: apply theme: %v\n", err)

@@ -79,7 +79,7 @@ cd aether && make build
 
 ### Package-managed installs
 
-When pacman owns the `aether` binary, Aether does not check for releases or upgrade itself. `aether upgrade` prints the update command instead: `omarchy-update`, `yay -Syu`, `paru -Syu` or `sudo pacman -Syu`.
+When pacman owns the `aether` binary, Aether does not check for releases or upgrade itself. `aether upgrade` prints the update command instead: `yay -Syu`, `paru -Syu` or `sudo pacman -Syu`.
 
 To set this behavior in other packages, give the update command at build time:
 
@@ -152,7 +152,6 @@ From `frontend/`, run `npm ci`, `npm run check`, `npm test`, and `npm run build`
 | [File System](docs/filesystem.md) | Where Aether stores files |
 | [Remote Control](docs/remote-control.md) | IPC commands and AI integration |
 | [Protocol Handler](docs/protocol-handler.md) | Register `aether://` links |
-| [Omarchy Shell Plugins](docs/quickshell.md) | Native wallpaper and blueprint selectors |
 | [Standalone](docs/standalone.md) | Using Aether without Omarchy |
 | [Troubleshooting](docs/troubleshooting.md) | Common issues |
 

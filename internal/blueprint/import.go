@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"aether/internal/omarchy"
+	"aether/internal/colorstoml"
 	"aether/internal/platform"
 	"aether/internal/wallpaper"
 )
@@ -184,26 +184,9 @@ func ImportColorsTomlFromURL(url string) (*Blueprint, error) {
 	return bp, nil
 }
 
-// ImportCurrentColorsToml loads the active Omarchy palette when available,
-// falling back to Aether's standalone output.
+// ImportCurrentColorsToml loads Aether's standalone colors.toml output.
 func ImportCurrentColorsToml() (*Blueprint, error) {
-	var nativeErr error
-	if omarchy.IsInstalled() {
-		bp, err := ImportColorsToml(omarchy.CurrentThemeColorsPath())
-		if err == nil {
-			return bp, nil
-		}
-		nativeErr = err
-	}
-
-	bp, err := ImportColorsToml(filepath.Join(platform.ThemeDir(), "colors.toml"))
-	if err == nil {
-		return bp, nil
-	}
-	if nativeErr != nil {
-		return nil, fmt.Errorf("load active Omarchy palette: %v; load standalone palette: %w", nativeErr, err)
-	}
-	return nil, err
+	return ImportColorsToml(filepath.Join(platform.ThemeDir(), "colors.toml"))
 }
 
 // ImportColorsToml parses a colors.toml file into a blueprint.
@@ -213,7 +196,7 @@ func ImportColorsToml(filePath string) (*Blueprint, error) {
 		return nil, fmt.Errorf("read file: %w", err)
 	}
 
-	colors, bg, fg, parsedMode, extended := omarchy.ParseColorsTomlFull(string(data))
+	colors, bg, fg, parsedMode, extended := colorstoml.ParseColorsTomlFull(string(data))
 
 	// Fill empty slots: use bg for dark colors (0,8), fg for light colors (7,15)
 	if bg == "" {
@@ -256,7 +239,7 @@ func ImportColorsToml(filePath string) (*Blueprint, error) {
 		Palette: PaletteData{
 			Colors:         colors[:],
 			ExtendedColors: ext,
-			NativeColors:   omarchy.ParseNativeColors(string(data)),
+			NativeColors:   colorstoml.ParseNativeColors(string(data)),
 			LightMode:      parsedMode == "light",
 			Mode:           parsedMode,
 		},

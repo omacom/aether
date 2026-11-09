@@ -44,7 +44,7 @@ func (transport *failingTransport) RoundTrip(*http.Request) (*http.Response, err
 
 func TestManagedCheckSkipsHTTP(t *testing.T) {
 	previousCommand := packageUpdateCommand
-	packageUpdateCommand = "omarchy-update"
+	packageUpdateCommand = "sudo pacman -Syu"
 	t.Cleanup(func() { packageUpdateCommand = previousCommand })
 	transport := &failingTransport{}
 	previous := http.DefaultTransport
@@ -58,7 +58,7 @@ func TestManagedCheckSkipsHTTP(t *testing.T) {
 	if transport.called {
 		t.Fatal("managed check made an HTTP request")
 	}
-	if release.CurrentVersion != "4.30.0" || release.UpdateCommand != "omarchy-update" || release.UpdateAvailable || release.LatestVersion != "" {
+	if release.CurrentVersion != "4.30.0" || release.UpdateCommand != "sudo pacman -Syu" || release.UpdateAvailable || release.LatestVersion != "" {
 		t.Errorf("managed release = %+v", release)
 	}
 }

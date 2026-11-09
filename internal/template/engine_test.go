@@ -360,7 +360,7 @@ func TestBuildVariablesOverrides(t *testing.T) {
 	}
 }
 
-func TestBuildVariablesDerivesOmarchySelection(t *testing.T) {
+func TestBuildVariablesDerivesInvertedSelection(t *testing.T) {
 	roles := sampleRoles()
 	roles.SelectionForeground = roles.Background
 	roles.SelectionBackground = roles.Foreground

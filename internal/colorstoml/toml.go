@@ -1,13 +1,11 @@
-package omarchy
+package colorstoml
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
 )
 
-// slotChains lists the native semantic key before legacy ANSI aliases. This
-// matches Omarchy's own resolver when a theme contains both forms.
+// slotChains lists the native semantic key before legacy ANSI aliases.
 var slotChains = [16][]string{
 	0:  {"background", "bg", "color0", "black"},
 	1:  {"red", "color1"},
@@ -63,27 +61,6 @@ var nativePaletteKeys = map[string]bool{
 }
 
 var ansiColorKeyPattern = regexp.MustCompile(`^color(?:[0-9]|1[0-5])$`)
-var nativeColorKeyPattern = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
-var nativeColorValuePattern = regexp.MustCompile(`^[A-Za-z0-9#(),.%+/_ -]+$`)
-
-// ValidateNativeColors rejects malformed or Aether-owned native color keys.
-func ValidateNativeColors(colors map[string]string) error {
-	for key, value := range colors {
-		if !nativeColorKeyPattern.MatchString(key) {
-			return fmt.Errorf("native Omarchy color key %q is invalid", key)
-		}
-		if nativePaletteKeys[key] || ansiColorKeyPattern.MatchString(key) {
-			return fmt.Errorf("native Omarchy color key %q is reserved", key)
-		}
-		if _, editable := editableColorKeys[key]; editable {
-			return fmt.Errorf("native Omarchy color key %q is reserved", key)
-		}
-		if value == "" || !nativeColorValuePattern.MatchString(value) {
-			return fmt.Errorf("native Omarchy color %q has an invalid value", key)
-		}
-	}
-	return nil
-}
 
 // ParseColorsKV extracts key="value" pairs from a colors.toml, stripping
 // inline comments and surrounding quotes. Empty values are dropped. It is the
@@ -171,9 +148,9 @@ func ParseColorsToml(content string) (colors [16]string, bg, fg, mode string) {
 // selection_background) when present.
 //
 // It accepts the legacy color0-15 form, the standard semantic form (black,
-// red, …, bright_white) and omarchy's semantic form (bg, fg, muted,
+// red, …, bright_white) and a compact semantic form (bg, fg, muted,
 // the fg/bg shade ramp), falling back across them per slot via slotChains so a
-// colorN-free omarchy theme still reconstructs a full palette.
+// colorN-free theme still reconstructs a full palette.
 //
 // The `mode` return is "light" / "dark" when the file declares it; empty when
 // silent, so callers can distinguish "publisher didn't say" from an explicit
@@ -253,59 +230,4 @@ func ParseNativeColors(content string) map[string]string {
 		native[key] = value
 	}
 	return native
-}
-
-// ParseKittyConf parses a kitty.conf for color definitions.
-func ParseKittyConf(content string) (colors [16]string, bg, fg string) {
-	for _, line := range strings.Split(content, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		fields := strings.Fields(line)
-		if len(fields) < 2 {
-			continue
-		}
-		key, val := fields[0], fields[1]
-
-		switch key {
-		case "background":
-			bg = val
-		case "foreground":
-			fg = val
-		case "color0":
-			colors[0] = val
-		case "color1":
-			colors[1] = val
-		case "color2":
-			colors[2] = val
-		case "color3":
-			colors[3] = val
-		case "color4":
-			colors[4] = val
-		case "color5":
-			colors[5] = val
-		case "color6":
-			colors[6] = val
-		case "color7":
-			colors[7] = val
-		case "color8":
-			colors[8] = val
-		case "color9":
-			colors[9] = val
-		case "color10":
-			colors[10] = val
-		case "color11":
-			colors[11] = val
-		case "color12":
-			colors[12] = val
-		case "color13":
-			colors[13] = val
-		case "color14":
-			colors[14] = val
-		case "color15":
-			colors[15] = val
-		}
-	}
-	return
 }

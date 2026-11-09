@@ -82,8 +82,8 @@ func rolesMap(roles ColorRoles) map[string]string {
 }
 
 func selectionColor(vars map[string]string, lightMode bool) string {
-	// The legacy default is an inverted selection pair. Omarchy v4 only has a
-	// selection background token and supplies its own foreground, so derive a
+	// The legacy default is an inverted selection pair. Templates that use a
+	// single selection background token supply their own foreground, so derive a
 	// nearby surface color instead of exporting the normal foreground as a fill.
 	if vars["selection_foreground"] == vars["background"] &&
 		vars["selection_background"] == vars["foreground"] {
@@ -126,8 +126,8 @@ func BuildVariables(roles ColorRoles, lightMode bool, overrides map[string]strin
 		vars[fmt.Sprintf("color%d", i)] = vars[name]
 	}
 
-	// Theme type for VSCode and other templates. `mode` is the name omarchy's
-	// colors.toml uses; `theme_type` is kept as an alias for existing templates.
+	// Theme type for VSCode and other templates. `mode` is the name colors.toml
+	// uses; `theme_type` is kept as an alias for existing templates.
 	if lightMode {
 		vars["theme_type"] = "light"
 	} else {
@@ -135,7 +135,7 @@ func BuildVariables(roles ColorRoles, lightMode bool, overrides map[string]strin
 	}
 	vars["mode"] = vars["theme_type"]
 
-	// Derived shade variables (matches omarchy-theme-set-templates)
+	// Derived shade variables (bg/fg aliases and shade ramp)
 	vars["bg"] = vars["background"]
 	vars["fg"] = vars["foreground"]
 	vars["dark_bg"] = color.DarkenRGB(vars["background"], 75)

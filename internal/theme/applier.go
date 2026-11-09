@@ -6,15 +6,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"aether/internal/omarchy"
 	"aether/internal/platform"
 	"aether/internal/wallpaper"
 )
-
-// IsOmarchyInstalled reports whether the public Omarchy CLI is available.
-func IsOmarchyInstalled() bool {
-	return omarchy.IsInstalled()
-}
 
 // HandleLightModeMarker creates or removes the light.mode marker file in
 // the theme directory. The presence of this file signals light mode to
@@ -51,8 +45,7 @@ func IsImageFile(path string) bool {
 	return wallpaper.IsImageFile(path)
 }
 
-// ClearTheme removes Aether's standalone override and restores the last native
-// Omarchy theme that was active before an Aether-managed theme.
+// ClearTheme removes Aether's standalone override.
 func ClearTheme() error {
 	if err := RetireLegacyGTKStylesheets(); err != nil {
 		return fmt.Errorf("retire legacy GTK stylesheets: %w", err)
@@ -64,8 +57,5 @@ func ClearTheme() error {
 		log.Printf("Warning: could not delete theme override CSS: %v", err)
 	}
 
-	if !IsOmarchyInstalled() {
-		return nil
-	}
-	return omarchy.RevertTheme()
+	return nil
 }

@@ -1,4 +1,4 @@
-package omarchy
+package theme
 
 import "testing"
 

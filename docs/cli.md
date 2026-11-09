@@ -187,17 +187,6 @@ color1 = "#ff6188"
 color15 = "#ffcead"
 ```
 
-### Omarchy Shell Selectors
-
-Wallpaper and blueprint selectors run as native `omarchy-shell` plugins rather than CLI widget modes:
-
-```bash
-omarchy-shell shell toggle aether.wallpapers '{}'
-omarchy-shell shell toggle aether.blueprints '{}'
-```
-
-See [Omarchy shell plugins](quickshell.md) for installation and controls.
-
 ### Open with Tab
 
 Launch GUI with a specific tab focused:

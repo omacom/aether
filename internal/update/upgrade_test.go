@@ -11,20 +11,20 @@ import (
 
 func TestManagedUpgradeGuards(t *testing.T) {
 	previousCommand := packageUpdateCommand
-	packageUpdateCommand = "omarchy-update"
+	packageUpdateCommand = "sudo pacman -Syu"
 	t.Cleanup(func() { packageUpdateCommand = previousCommand })
 	t.Setenv("PATH", t.TempDir())
 	for _, available := range []bool{false, true} {
 		var stdout, stderr bytes.Buffer
 		err := Upgrade(context.Background(), Release{CurrentVersion: "4.30.0", UpdateAvailable: available}, &stdout, &stderr)
-		if err == nil || !strings.Contains(err.Error(), "run: omarchy-update") {
+		if err == nil || !strings.Contains(err.Error(), "run: sudo pacman -Syu") {
 			t.Errorf("Upgrade(available=%t) error = %v", available, err)
 		}
 		if stdout.Len() != 0 || stderr.Len() != 0 {
 			t.Errorf("Upgrade(available=%t) wrote output", available)
 		}
 	}
-	if err := OpenUpgradeTerminal("/missing/aether"); err == nil || !strings.Contains(err.Error(), "run: omarchy-update") {
+	if err := OpenUpgradeTerminal("/missing/aether"); err == nil || !strings.Contains(err.Error(), "run: sudo pacman -Syu") {
 		t.Errorf("OpenUpgradeTerminal error = %v", err)
 	}
 }

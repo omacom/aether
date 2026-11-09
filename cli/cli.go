@@ -159,7 +159,6 @@ Import commands:
                                               aether://apply?colors=URL
                                               aether://apply?wallpaper=URL
                                               aether://apply?mode=light|dark
-                                              aether://apply?as_omarchy_theme=NAME
 
 Color utilities:
   aether --color-info <hex>                 Show all color representations
