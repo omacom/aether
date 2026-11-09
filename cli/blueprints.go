@@ -110,50 +110,13 @@ func runApplyBlueprint(args []string, templatesFS embed.FS) int {
 		return 1
 	}
 
-	// Build palette array
-	var palette [16]string
-	for i := 0; i < 16 && i < len(bp.Palette.Colors); i++ {
-		palette[i] = bp.Palette.Colors[i]
-	}
-
-	colorRoles := MapColorsToRoles(palette)
-
-	if v := bp.Palette.ExtendedColors["accent"]; v != "" {
-		colorRoles.Accent = v
-	}
-	if v := bp.Palette.ExtendedColors["cursor"]; v != "" {
-		colorRoles.Cursor = v
-	}
-	if v := bp.Palette.ExtendedColors["selection_foreground"]; v != "" {
-		colorRoles.SelectionForeground = v
-	}
-	if v := bp.Palette.ExtendedColors["selection_background"]; v != "" {
-		colorRoles.SelectionBackground = v
-	}
-
-	lightMode := bp.Palette.LightMode
 	wallpaperPath := resolveWallpaperCLI(bp.Palette)
-
-	writer := theme.NewWriter(templatesFS, "templates")
-	iconTheme, err := bp.IconThemeSelection()
+	state, err := stateFromBlueprint(bp, wallpaperPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: Blueprint iconTheme: %v\n", err)
 		return 1
 	}
-	state := &theme.ThemeState{
-		Palette:          palette,
-		WallpaperPath:    wallpaperPath,
-		WallpaperBlur:    bp.Palette.WallpaperBlur,
-		LightMode:        lightMode,
-		ColorRoles:       colorRoles,
-		ExtendedColors:   bp.Palette.ExtendedColors,
-		YozakuraRoles:    bp.Palette.YozakuraRoles,
-		Glass:            bp.Palette.Glass,
-		Clock:            bp.Palette.Clock,
-		AppOverrides:     bp.AppOverrides,
-		AdditionalImages: bp.Palette.AdditionalImages,
-		IconTheme:        iconTheme,
-	}
+	writer := theme.NewWriter(templatesFS, "templates")
 
 	settings := theme.DefaultApplySettings()
 	fmt.Printf("Applying blueprint: %s\n", bp.Name)
@@ -187,4 +150,54 @@ func resolveWallpaperCLI(palette blueprint.PaletteData) string {
 		return localPath
 	}
 	return ""
+}
+
+// stateFromBlueprint builds the theme state a blueprint applies, using
+// wallpaperPath as the wallpaper (callers decide: the blueprint's own or the
+// one being matched). The blueprint slug becomes the theme id and its display
+// name (falling back to the slug) the theme name.
+func stateFromBlueprint(bp *blueprint.Blueprint, wallpaperPath string) (*theme.ThemeState, error) {
+	var palette [16]string
+	for i := 0; i < 16 && i < len(bp.Palette.Colors); i++ {
+		palette[i] = bp.Palette.Colors[i]
+	}
+
+	colorRoles := MapColorsToRoles(palette)
+	if v := bp.Palette.ExtendedColors["accent"]; v != "" {
+		colorRoles.Accent = v
+	}
+	if v := bp.Palette.ExtendedColors["cursor"]; v != "" {
+		colorRoles.Cursor = v
+	}
+	if v := bp.Palette.ExtendedColors["selection_foreground"]; v != "" {
+		colorRoles.SelectionForeground = v
+	}
+	if v := bp.Palette.ExtendedColors["selection_background"]; v != "" {
+		colorRoles.SelectionBackground = v
+	}
+
+	iconTheme, err := bp.IconThemeSelection()
+	if err != nil {
+		return nil, err
+	}
+	name := bp.DisplayName
+	if name == "" {
+		name = bp.Name
+	}
+	return &theme.ThemeState{
+		Palette:          palette,
+		WallpaperPath:    wallpaperPath,
+		WallpaperBlur:    bp.Palette.WallpaperBlur,
+		LightMode:        bp.Palette.LightMode,
+		ColorRoles:       colorRoles,
+		ExtendedColors:   bp.Palette.ExtendedColors,
+		YozakuraRoles:    bp.Palette.YozakuraRoles,
+		Glass:            bp.Palette.Glass,
+		Clock:            bp.Palette.Clock,
+		AppOverrides:     bp.AppOverrides,
+		AdditionalImages: bp.Palette.AdditionalImages,
+		IconTheme:        iconTheme,
+		ThemeName:        name,
+		ThemeID:          bp.Name,
+	}, nil
 }
