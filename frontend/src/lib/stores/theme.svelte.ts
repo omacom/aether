@@ -48,7 +48,10 @@ let isExtracting = $state<boolean>(false);
 let isApplying = $state<boolean>(false);
 let additionalImages = $state<string[]>([]);
 let appOverrides = $state<Record<string, Record<string, string>>>({});
-let nativeColors = $state<Record<string, string>>({});
+let yozakuraRoles = $state<Record<string, string>>({});
+let glass = $state<number | null>(null);
+let clock = $state<YozakuraClock | null>(null);
+let matchWallpapers = $state<string[]>([]);
 let iconTheme = $state<IconThemeSelection>({...AUTOMATIC_ICON_THEME});
 let paletteCurvePoints = $state<[number, number][]>([]);
 // Source path of the most recently extracted palette. Used to decide
@@ -276,8 +279,27 @@ export function getAdditionalImages(): string[] {
 export function getExtendedColors(): Record<string, string> {
     return extendedColors;
 }
-export function getNativeColors(): Record<string, string> {
-    return nativeColors;
+export interface YozakuraClock {
+    digits: string;
+    colon: string;
+    glow: number;
+    ornament: string;
+}
+
+export function getGlass(): number | null {
+    return glass;
+}
+
+export function getClock(): YozakuraClock | null {
+    return clock;
+}
+
+export function getMatchWallpapers(): string[] {
+    return matchWallpapers;
+}
+
+export function getYozakuraRoles(): Record<string, string> {
+    return yozakuraRoles;
 }
 export function getIconTheme(): IconThemeSelection {
     return iconTheme;
@@ -464,7 +486,9 @@ export function getThemeSnapshot(): {
     wallpaperBlur: boolean;
     lightMode: boolean;
     extendedColors: Record<string, string>;
-    nativeColors: Record<string, string>;
+    yozakuraRoles: Record<string, string>;
+    glass: number | null;
+    clock: YozakuraClock | null;
     appOverrides: Record<string, Record<string, string>>;
     additionalImages: string[];
     iconTheme: IconThemeSelection;
@@ -475,7 +499,9 @@ export function getThemeSnapshot(): {
         wallpaperBlur,
         lightMode,
         extendedColors: {...extendedColors},
-        nativeColors: {...nativeColors},
+        yozakuraRoles: {...yozakuraRoles},
+        glass,
+        clock: clock ? {...clock} : null,
         appOverrides: Object.fromEntries(
             Object.entries(appOverrides).map(([app, colors]) => [
                 app,
@@ -496,7 +522,9 @@ export function getThemeSignature(snapshot = getThemeSnapshot()): string {
         snapshot.wallpaperBlur,
         snapshot.lightMode,
         snapshot.extendedColors,
-        snapshot.nativeColors,
+        snapshot.yozakuraRoles,
+        snapshot.glass,
+        snapshot.clock,
         snapshot.appOverrides,
         snapshot.additionalImages,
         snapshot.iconTheme,
@@ -602,7 +630,9 @@ export function setPaletteFromExtraction(path: string, colors: string[]): void {
         appOverrides = {};
     }
     lastExtractedPath = path;
-    nativeColors = {};
+    yozakuraRoles = {};
+    glass = null;
+    clock = null;
     setPalette(colors);
 }
 
@@ -633,8 +663,22 @@ export function setExtendedColors(colors: Record<string, string>): void {
     baseExtendedColors = {...next};
 }
 
-export function setNativeColors(colors: Record<string, string>): void {
-    nativeColors = colors ? {...colors} : {};
+export function setYozakuraRoles(colors: Record<string, string>): void {
+    yozakuraRoles = colors ? {...colors} : {};
+}
+
+export function setGlass(value: number | null | undefined): void {
+    glass = typeof value === 'number' ? value : null;
+}
+
+export function setClock(value: YozakuraClock | null | undefined): void {
+    clock = value ? {...value} : null;
+}
+
+export function setMatchWallpapers(
+    patterns: string[] | null | undefined
+): void {
+    matchWallpapers = patterns ? [...patterns] : [];
 }
 
 // Window after the last edit during which subsequent edits are folded
@@ -796,7 +840,9 @@ export function swapMainWithAdditional(path: string): void {
 export interface BackendStatePayload {
     palette?: string[];
     extendedColors?: Record<string, string>;
-    nativeColors?: Record<string, string>;
+    yozakuraRoles?: Record<string, string>;
+    glass?: number | null;
+    clock?: YozakuraClock | null;
     iconTheme?: {mode?: string; id?: string};
     lightMode?: boolean;
     mode?: string;
@@ -825,11 +871,13 @@ export function applyBackendState(state: BackendStatePayload): void {
         setExtendedColors(state.extendedColors);
     }
     if (
-        state.nativeColors &&
-        !sameSerialized(state.nativeColors, nativeColors)
+        state.yozakuraRoles &&
+        !sameSerialized(state.yozakuraRoles, yozakuraRoles)
     ) {
-        setNativeColors(state.nativeColors);
+        setYozakuraRoles(state.yozakuraRoles);
     }
+    if (state.glass !== undefined) setGlass(state.glass);
+    if (state.clock !== undefined) setClock(state.clock);
     if (state.iconTheme) setIconTheme(state.iconTheme, true);
     if (state.lightMode !== undefined) setLightMode(state.lightMode);
     if (state.mode) setExtractionMode(state.mode);
@@ -907,7 +955,7 @@ export function reset(): void {
     extendedColors = {...ext};
     baseExtendedColors = {...ext};
     appOverrides = {};
-    nativeColors = {};
+    yozakuraRoles = {};
     iconTheme = {...AUTOMATIC_ICON_THEME};
     paletteCurvePoints = [];
     lastExtractedPath = '';

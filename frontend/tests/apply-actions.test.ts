@@ -42,7 +42,7 @@ test.each(['apply', 'save'] as const)(
         theme.setLightMode(true);
         theme.setAdditionalImages(['/extra.png']);
         theme.setExtendedColor('accent', '#123456');
-        theme.setNativeColors({outline: '#112233'});
+        theme.setYozakuraRoles({outline: '#112233'});
         theme.setIconTheme({mode: 'explicit', id: 'Original-Icons'}, true);
         theme.setAppOverride('kitty', 'background', '#123456');
         updateSettings({includedApps: {kitty: true}});
@@ -62,7 +62,7 @@ test.each(['apply', 'save'] as const)(
         theme.setWallpaperPath('/review.png');
         theme.setAdditionalImages(['/new-extra.png']);
         theme.setExtendedColor('accent', '#ffffff');
-        theme.setNativeColors({outline: '#ffffff'});
+        theme.setYozakuraRoles({outline: '#ffffff'});
         theme.setIconTheme({mode: 'explicit', id: 'Later-Icons'}, true);
         theme.setAppOverride('kitty', 'background', '#ffffff');
         getSettings().includedApps!.kitty = false;

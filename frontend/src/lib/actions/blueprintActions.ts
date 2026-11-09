@@ -3,7 +3,10 @@ import {setActiveTab, setLiveApply, showToast} from '$lib/stores/ui.svelte';
 import {
     setPalette,
     setExtendedColors,
-    setNativeColors,
+    setYozakuraRoles,
+    setGlass,
+    setClock,
+    setMatchWallpapers,
     setIconTheme,
     setLightMode,
     setWallpaperPath,
@@ -29,7 +32,10 @@ export function loadBlueprintIntoEditor(bp: Blueprint): void {
     setLiveApply(false);
     setPalette(colors);
     setExtendedColors(bp.palette.extendedColors ?? {});
-    setNativeColors(bp.palette.nativeColors ?? {});
+    setYozakuraRoles(bp.palette.yozakuraRoles ?? {});
+    setGlass(bp.palette.glass);
+    setClock(bp.palette.clock);
+    setMatchWallpapers(bp.matchWallpapers);
     setIconTheme(bp.iconTheme, true);
     setLightMode(
         bp.palette.mode ? bp.palette.mode === 'light' : !!bp.palette.lightMode

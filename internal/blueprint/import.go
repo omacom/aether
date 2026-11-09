@@ -239,7 +239,6 @@ func ImportColorsToml(filePath string) (*Blueprint, error) {
 		Palette: PaletteData{
 			Colors:         colors[:],
 			ExtendedColors: ext,
-			NativeColors:   colorstoml.ParseNativeColors(string(data)),
 			LightMode:      parsedMode == "light",
 			Mode:           parsedMode,
 		},

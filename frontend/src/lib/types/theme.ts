@@ -68,7 +68,9 @@ export interface BlueprintPaletteData {
     mode?: 'light' | 'dark' | '';
     lockedColors?: number[];
     extendedColors?: Record<string, string>;
-    nativeColors?: Record<string, string>;
+    yozakuraRoles?: Record<string, string>;
+    glass?: number;
+    clock?: {digits: string; colon: string; glow: number; ornament: string};
     additionalImages?: string[];
     wallpaperSource?: string;
 }
@@ -80,6 +82,7 @@ export interface Blueprint {
     appOverrides?: Record<string, Record<string, string>>;
     settings?: Record<string, unknown>;
     iconTheme?: IconThemeSelection;
+    matchWallpapers?: string[];
     timestamp: number;
     path?: string;
     filename?: string;

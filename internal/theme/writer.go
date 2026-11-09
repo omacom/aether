@@ -327,7 +327,7 @@ func (w *Writer) applyTargets(state *ThemeState, variables map[string]string, se
 	if err != nil {
 		return failed(fmt.Errorf("template filesystem: %w", err))
 	}
-	yoz := yozakura.Derive(state.ColorRoles, state.NativeColors, nil, nil)
+	yoz := yozakura.Derive(state.ColorRoles, state.YozakuraRoles, state.Glass, state.Clock)
 	yozakura.Enforce(&yoz)
 	ctx := targets.Context{
 		Name:      "Aether",

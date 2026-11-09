@@ -255,7 +255,7 @@ test('an identical backend state echo does not re-dispatch SyncState', async () 
     (echo as (payload: unknown) => void)({
         palette: theme.getPalette(),
         extendedColors: theme.getExtendedColors(),
-        nativeColors: theme.getNativeColors(),
+        yozakuraRoles: theme.getYozakuraRoles(),
         lightMode: theme.getLightMode(),
         mode: theme.getExtractionMode(),
         wallpaper: theme.getWallpaperPath(),

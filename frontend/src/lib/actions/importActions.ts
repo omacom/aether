@@ -2,7 +2,9 @@ import {showToast} from '$lib/stores/ui.svelte';
 import {
     setPalette,
     setExtendedColors,
-    setNativeColors,
+    setYozakuraRoles,
+    setGlass,
+    setClock,
     setIconTheme,
     setWallpaperPath,
     setWallpaperBlur,
@@ -25,7 +27,9 @@ export async function importThemeFile(
         }
         setPalette(result.colors);
         setExtendedColors(result.extendedColors ?? {});
-        setNativeColors(result.nativeColors ?? {});
+        setYozakuraRoles(result.yozakuraRoles ?? {});
+        setGlass(result.glass);
+        setClock(result.clock);
         setIconTheme(result.iconTheme, true);
         if (result.wallpaperPath) setWallpaperPath(result.wallpaperPath);
         setWallpaperBlur(!!result.wallpaperBlur, true);

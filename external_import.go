@@ -146,10 +146,9 @@ func (a *App) stageImportIntoState(expectedSourceURL string) (*pending.Import, e
 		for k, v := range bp.Palette.ExtendedColors {
 			a.state.ExtendedColors[k] = v
 		}
-		a.state.NativeColors = make(map[string]string, len(bp.Palette.NativeColors))
-		for k, v := range bp.Palette.NativeColors {
-			a.state.NativeColors[k] = v
-		}
+		a.state.YozakuraRoles = map[string]string{}
+		a.state.Glass = nil
+		a.state.Clock = nil
 
 		var palette [16]string
 		for i := 0; i < 16 && i < len(bp.Palette.Colors); i++ {

@@ -50,7 +50,4 @@ func TestBuildURLImportState(t *testing.T) {
 	if state.WallpaperPath != "/tmp/wallpaper.jpg" {
 		t.Errorf("wallpaper = %q; want /tmp/wallpaper.jpg", state.WallpaperPath)
 	}
-	if got := state.NativeColors["hyprland_active_border"]; got != "45deg #112233 #445566" {
-		t.Errorf("native color = %q; want preserved border", got)
-	}
 }

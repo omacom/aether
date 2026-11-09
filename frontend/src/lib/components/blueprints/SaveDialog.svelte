@@ -9,7 +9,10 @@
         getLightMode,
         getAdditionalImages,
         getExtendedColors,
-        getNativeColors,
+        getYozakuraRoles,
+        getGlass,
+        getClock,
+        getMatchWallpapers,
         getIconTheme,
         getAppOverrides,
         getAdjustments,
@@ -83,7 +86,10 @@
             additionalImages: [...getAdditionalImages()],
             lockedColors: [],
             extendedColors: {...getExtendedColors()},
-            nativeColors: {...getNativeColors()},
+            yozakuraRoles: {...getYozakuraRoles()},
+            glass: getGlass(),
+            clock: getClock(),
+            matchWallpapers: [...getMatchWallpapers()],
             iconTheme: {...getIconTheme()},
             appOverrides: Object.fromEntries(
                 Object.entries(getAppOverrides()).map(([app, colors]) => [

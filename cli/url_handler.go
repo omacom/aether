@@ -201,9 +201,6 @@ func buildURLImportState(imp *pending.Import) (*theme.ThemeState, error) {
 	for key, value := range bp.Palette.ExtendedColors {
 		state.ExtendedColors[key] = value
 	}
-	for key, value := range bp.Palette.NativeColors {
-		state.NativeColors[key] = value
-	}
 	var palette [16]string
 	copy(palette[:], bp.Palette.Colors)
 	state.SetPalette(palette)

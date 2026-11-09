@@ -25,6 +25,7 @@ import (
 	"aether/internal/update"
 	"aether/internal/wallhaven"
 	"aether/internal/wallpaper"
+	"aether/internal/yozakura"
 	"aether/ipc"
 
 	wailsrt "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -181,7 +182,7 @@ func (a *App) ExtractColors(path string, lightMode bool, mode string) ([16]strin
 		return palette, err
 	}
 	a.state.SetPalette(palette)
-	a.state.NativeColors = map[string]string{}
+	a.state.YozakuraRoles = map[string]string{}
 	if a.state.WallpaperPath != path {
 		a.state.WallpaperBlur = false
 	}
@@ -217,7 +218,7 @@ func (a *App) ExtractColorsFromImages(paths []string, lightMode bool, mode strin
 		return ExtractFromImagesResult{}, err
 	}
 	a.state.SetPalette(palette)
-	a.state.NativeColors = map[string]string{}
+	a.state.YozakuraRoles = map[string]string{}
 	a.state.LightMode = lightMode
 	a.state.ExtractionMode = mode
 	return ExtractFromImagesResult{
@@ -255,7 +256,9 @@ type SyncStateRequest struct {
 	WallpaperBlur    bool                         `json:"wallpaperBlur"`
 	LightMode        bool                         `json:"lightMode"`
 	ExtendedColors   map[string]string            `json:"extendedColors"`
-	NativeColors     map[string]string            `json:"nativeColors"`
+	YozakuraRoles    map[string]string            `json:"yozakuraRoles"`
+	Glass            *float64                     `json:"glass"`
+	Clock            *yozakura.Clock              `json:"clock"`
 	AppOverrides     map[string]map[string]string `json:"appOverrides"`
 	AdditionalImages []string                     `json:"additionalImages"`
 	IconTheme        icontheme.Selection          `json:"iconTheme"`
@@ -282,9 +285,11 @@ func (a *App) SyncState(req SyncStateRequest) error {
 	if req.ExtendedColors != nil {
 		a.state.ExtendedColors = req.ExtendedColors
 	}
-	if req.NativeColors != nil {
-		a.state.NativeColors = req.NativeColors
+	if req.YozakuraRoles != nil {
+		a.state.YozakuraRoles = req.YozakuraRoles
 	}
+	a.state.Glass = req.Glass
+	a.state.Clock = req.Clock
 	if req.AppOverrides != nil {
 		a.state.AppOverrides = req.AppOverrides
 	}
@@ -368,7 +373,9 @@ type ApplyThemeRequest struct {
 	LightMode        bool                         `json:"lightMode"`
 	AdditionalImages []string                     `json:"additionalImages"`
 	ExtendedColors   map[string]string            `json:"extendedColors"`
-	NativeColors     map[string]string            `json:"nativeColors"`
+	YozakuraRoles    map[string]string            `json:"yozakuraRoles"`
+	Glass            *float64                     `json:"glass"`
+	Clock            *yozakura.Clock              `json:"clock"`
 	Settings         theme.Settings               `json:"settings"`
 	AppOverrides     map[string]map[string]string `json:"appOverrides"`
 	IconTheme        icontheme.Selection          `json:"iconTheme"`
@@ -390,7 +397,9 @@ func (a *App) ApplyTheme(req ApplyThemeRequest) (*theme.ApplyResult, error) {
 		LightMode:        req.LightMode,
 		ColorRoles:       roles,
 		ExtendedColors:   req.ExtendedColors,
-		NativeColors:     req.NativeColors,
+		YozakuraRoles:    req.YozakuraRoles,
+		Glass:            req.Glass,
+		Clock:            req.Clock,
 		AdditionalImages: req.AdditionalImages,
 		AppOverrides:     appOverrides,
 		IconTheme:        req.IconTheme,
@@ -410,7 +419,9 @@ type SaveAndApplyThemeRequest struct {
 	LightMode        bool                         `json:"lightMode"`
 	AdditionalImages []string                     `json:"additionalImages"`
 	ExtendedColors   map[string]string            `json:"extendedColors"`
-	NativeColors     map[string]string            `json:"nativeColors"`
+	YozakuraRoles    map[string]string            `json:"yozakuraRoles"`
+	Glass            *float64                     `json:"glass"`
+	Clock            *yozakura.Clock              `json:"clock"`
 	Settings         theme.Settings               `json:"settings"`
 	AppOverrides     map[string]map[string]string `json:"appOverrides"`
 	IconTheme        icontheme.Selection          `json:"iconTheme"`
@@ -436,7 +447,9 @@ func (a *App) SaveAndApplyTheme(req SaveAndApplyThemeRequest) (*theme.ApplyResul
 		LightMode:        req.LightMode,
 		ColorRoles:       roles,
 		ExtendedColors:   req.ExtendedColors,
-		NativeColors:     req.NativeColors,
+		YozakuraRoles:    req.YozakuraRoles,
+		Glass:            req.Glass,
+		Clock:            req.Clock,
 		AdditionalImages: req.AdditionalImages,
 		AppOverrides:     req.AppOverrides,
 		IconTheme:        req.IconTheme,
@@ -517,12 +530,15 @@ func (a *App) ListBlueprints() ([]map[string]interface{}, error) {
 				"mode":             bp.Palette.Mode,
 				"lockedColors":     bp.Palette.LockedColors,
 				"extendedColors":   bp.Palette.ExtendedColors,
-				"nativeColors":     bp.Palette.NativeColors,
+				"yozakuraRoles":    bp.Palette.YozakuraRoles,
+				"glass":            bp.Palette.Glass,
+				"clock":            bp.Palette.Clock,
 				"additionalImages": bp.Palette.AdditionalImages,
 			},
-			"adjustments":  bp.Adjustments,
-			"appOverrides": bp.AppOverrides,
-			"iconTheme":    iconTheme,
+			"adjustments":     bp.Adjustments,
+			"appOverrides":    bp.AppOverrides,
+			"iconTheme":       iconTheme,
+			"matchWallpapers": bp.MatchWallpapers,
 		}
 	}
 	return result, nil
@@ -539,10 +555,13 @@ type SaveBlueprintRequest struct {
 	AdditionalImages []string                     `json:"additionalImages"`
 	LockedColors     []int                        `json:"lockedColors"`
 	ExtendedColors   map[string]string            `json:"extendedColors"`
-	NativeColors     map[string]string            `json:"nativeColors"`
+	YozakuraRoles    map[string]string            `json:"yozakuraRoles"`
+	Glass            *float64                     `json:"glass"`
+	Clock            *yozakura.Clock              `json:"clock"`
 	AppOverrides     map[string]map[string]string `json:"appOverrides"`
 	Adjustments      map[string]float64           `json:"adjustments"`
 	IconTheme        icontheme.Selection          `json:"iconTheme"`
+	MatchWallpapers  []string                     `json:"matchWallpapers"`
 }
 
 func (a *App) SaveBlueprint(req SaveBlueprintRequest) error {
@@ -555,7 +574,9 @@ func (a *App) SaveBlueprint(req SaveBlueprintRequest) error {
 			AdditionalImages: req.AdditionalImages,
 			LockedColors:     req.LockedColors,
 			ExtendedColors:   req.ExtendedColors,
-			NativeColors:     req.NativeColors,
+			YozakuraRoles:    req.YozakuraRoles,
+			Glass:            req.Glass,
+			Clock:            req.Clock,
 		},
 		Adjustments:  req.Adjustments,
 		AppOverrides: req.AppOverrides,
@@ -611,11 +632,13 @@ func (a *App) LoadBlueprint(name string) error {
 	} else {
 		a.state.ExtendedColors = map[string]string{}
 	}
-	if bp.Palette.NativeColors != nil {
-		a.state.NativeColors = bp.Palette.NativeColors
+	if bp.Palette.YozakuraRoles != nil {
+		a.state.YozakuraRoles = bp.Palette.YozakuraRoles
 	} else {
-		a.state.NativeColors = map[string]string{}
+		a.state.YozakuraRoles = map[string]string{}
 	}
+	a.state.Glass = bp.Palette.Glass
+	a.state.Clock = bp.Palette.Clock
 
 	a.state.SetPalette(palette)
 	a.state.WallpaperPath = a.resolveWallpaper(bp.Palette)
@@ -656,11 +679,13 @@ func (a *App) ApplyBlueprint(name string) (*theme.ApplyResult, error) {
 	} else {
 		a.state.ExtendedColors = map[string]string{}
 	}
-	if bp.Palette.NativeColors != nil {
-		a.state.NativeColors = bp.Palette.NativeColors
+	if bp.Palette.YozakuraRoles != nil {
+		a.state.YozakuraRoles = bp.Palette.YozakuraRoles
 	} else {
-		a.state.NativeColors = map[string]string{}
+		a.state.YozakuraRoles = map[string]string{}
 	}
+	a.state.Glass = bp.Palette.Glass
+	a.state.Clock = bp.Palette.Clock
 
 	a.state.SetPalette(palette)
 	a.state.WallpaperPath = a.resolveWallpaper(bp.Palette)
@@ -1100,7 +1125,9 @@ type ExportThemeRequest struct {
 	LightMode        bool                         `json:"lightMode"`
 	AdditionalImages []string                     `json:"additionalImages"`
 	ExtendedColors   map[string]string            `json:"extendedColors"`
-	NativeColors     map[string]string            `json:"nativeColors"`
+	YozakuraRoles    map[string]string            `json:"yozakuraRoles"`
+	Glass            *float64                     `json:"glass"`
+	Clock            *yozakura.Clock              `json:"clock"`
 	AppOverrides     map[string]map[string]string `json:"appOverrides"`
 	IconTheme        icontheme.Selection          `json:"iconTheme"`
 }
@@ -1143,7 +1170,9 @@ func (a *App) ExportTheme(req ExportThemeRequest) (string, error) {
 		LightMode:        req.LightMode,
 		ColorRoles:       roles,
 		ExtendedColors:   req.ExtendedColors,
-		NativeColors:     req.NativeColors,
+		YozakuraRoles:    req.YozakuraRoles,
+		Glass:            req.Glass,
+		Clock:            req.Clock,
 		AdditionalImages: req.AdditionalImages,
 		AppOverrides:     exportOverrides,
 		IconTheme:        req.IconTheme,
@@ -1182,7 +1211,7 @@ func (a *App) ExportTheme(req ExportThemeRequest) (string, error) {
 type ImportResult struct {
 	Colors         []string            `json:"colors"`
 	ExtendedColors map[string]string   `json:"extendedColors"`
-	NativeColors   map[string]string   `json:"nativeColors"`
+	YozakuraRoles  map[string]string   `json:"yozakuraRoles"`
 	Name           string              `json:"name"`
 	Path           string              `json:"path"`
 	WallpaperPath  string              `json:"wallpaperPath"`
@@ -1270,7 +1299,9 @@ func (a *App) importFile(path, fileType string) (*ImportResult, error) {
 	}
 	a.history.Push(*a.state)
 	a.state.ExtendedColors = bp.Palette.ExtendedColors
-	a.state.NativeColors = bp.Palette.NativeColors
+	a.state.YozakuraRoles = bp.Palette.YozakuraRoles
+	a.state.Glass = bp.Palette.Glass
+	a.state.Clock = bp.Palette.Clock
 	a.state.SetPalette(palette)
 	a.state.WallpaperPath = a.resolveWallpaper(bp.Palette)
 	a.state.WallpaperBlur = bp.Palette.WallpaperBlur
@@ -1285,7 +1316,7 @@ func (a *App) importFile(path, fileType string) (*ImportResult, error) {
 	return &ImportResult{
 		Colors:         palette[:],
 		ExtendedColors: bp.Palette.ExtendedColors,
-		NativeColors:   bp.Palette.NativeColors,
+		YozakuraRoles:  bp.Palette.YozakuraRoles,
 		Name:           bp.Name,
 		Path:           savedPath,
 		WallpaperPath:  a.state.WallpaperPath,
@@ -1441,7 +1472,7 @@ func (a *App) HandleIPC(req ipc.Request) ipc.Response {
 			LightMode:        a.state.LightMode,
 			AdditionalImages: a.state.AdditionalImages,
 			ExtendedColors:   a.state.ExtendedColors,
-			NativeColors:     a.state.NativeColors,
+			YozakuraRoles:    a.state.YozakuraRoles,
 			Settings:         theme.DefaultApplySettings(),
 			AppOverrides:     a.state.AppOverrides,
 			IconTheme:        a.state.IconTheme,
@@ -1533,7 +1564,7 @@ func (a *App) emitIPCStateChanged() {
 	wailsrt.EventsEmit(a.ctx, "ipc-state-changed", map[string]interface{}{
 		"palette":          a.state.Palette[:],
 		"extendedColors":   a.state.ExtendedColors,
-		"nativeColors":     a.state.NativeColors,
+		"yozakuraRoles":    a.state.YozakuraRoles,
 		"lightMode":        a.state.LightMode,
 		"mode":             a.state.ExtractionMode,
 		"wallpaper":        a.state.WallpaperPath,

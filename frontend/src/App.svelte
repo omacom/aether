@@ -60,7 +60,9 @@
         setWallpaperBlur,
         setPalette,
         setExtendedColors,
-        setNativeColors,
+        setYozakuraRoles,
+        setGlass,
+        setClock,
         setIconTheme,
         setColor,
         setExtendedColor,
@@ -310,9 +312,11 @@
             if (s?.extendedColors) {
                 setExtendedColors(s.extendedColors);
             }
-            if (s?.nativeColors) {
-                setNativeColors(s.nativeColors);
+            if (s?.yozakuraRoles) {
+                setYozakuraRoles(s.yozakuraRoles);
             }
+            setGlass(s?.glass);
+            setClock(s?.clock);
             setIconTheme(s?.iconTheme, true);
             if (s?.wallpaperPath) {
                 setWallpaperPath(s.wallpaperPath);

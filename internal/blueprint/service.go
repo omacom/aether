@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -14,7 +15,8 @@ import (
 
 // Service manages blueprint persistence.
 type Service struct {
-	dir string
+	dir          string
+	settingsPath string
 }
 
 // NewService creates a new blueprint service.
@@ -23,7 +25,7 @@ func NewService() *Service {
 	if err := platform.EnsureDir(dir); err != nil {
 		log.Printf("[blueprint] ensure dir %s: %v", dir, err)
 	}
-	return &Service{dir: dir}
+	return &Service{dir: dir, settingsPath: filepath.Join(platform.ConfigDir(), "settings.json")}
 }
 
 // LoadAll reads all blueprints from the blueprints directory.
@@ -149,4 +151,57 @@ func (s *Service) loadFromFile(path, filename string) (Blueprint, error) {
 	}
 
 	return bp, nil
+}
+
+// FindForWallpaper returns the first blueprint (name ascending, then filename)
+// whose matchWallpapers pattern is a case-insensitive substring of the
+// wallpaper's base name. It returns nil, nil when none match.
+func (s *Service) FindForWallpaper(path string) (*Blueprint, error) {
+	blueprints, err := s.LoadAll()
+	if err != nil {
+		return nil, err
+	}
+	sort.SliceStable(blueprints, func(i, j int) bool {
+		a, b := strings.ToLower(blueprints[i].Name), strings.ToLower(blueprints[j].Name)
+		if a != b {
+			return a < b
+		}
+		return blueprints[i].Filename < blueprints[j].Filename
+	})
+	base := strings.ToLower(filepath.Base(path))
+	for i := range blueprints {
+		for _, pat := range blueprints[i].MatchWallpapers {
+			pat = strings.ToLower(strings.TrimSpace(pat))
+			if pat != "" && strings.Contains(base, pat) {
+				return &blueprints[i], nil
+			}
+		}
+	}
+	return nil, nil
+}
+
+// Default returns the blueprint named by "defaultBlueprint" in settings.json,
+// or nil, nil when unset or when the named blueprint does not exist.
+func (s *Service) Default() (*Blueprint, error) {
+	cfg, err := platform.ReadJSON[map[string]interface{}](s.settingsPath)
+	if err != nil {
+		return nil, nil
+	}
+	name, _ := cfg["defaultBlueprint"].(string)
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, nil
+	}
+	blueprints, err := s.LoadAll()
+	if err != nil {
+		return nil, err
+	}
+	lower := strings.ToLower(name)
+	for i := range blueprints {
+		if strings.ToLower(blueprints[i].Name) == lower {
+			return &blueprints[i], nil
+		}
+	}
+	log.Printf("[blueprint] defaultBlueprint %q not found", name)
+	return nil, nil
 }

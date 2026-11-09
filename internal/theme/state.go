@@ -4,6 +4,7 @@ import (
 	"aether/internal/color"
 	"aether/internal/icontheme"
 	"aether/internal/template"
+	"aether/internal/yozakura"
 )
 
 // ThemeState holds all mutable state for the current theme.
@@ -22,7 +23,9 @@ type ThemeState struct {
 	Adjustments           color.Adjustments            `json:"adjustments"`
 	ColorRoles            template.ColorRoles          `json:"colorRoles"`
 	ExtendedColors        map[string]string            `json:"extendedColors"`
-	NativeColors          map[string]string            `json:"nativeColors"`
+	YozakuraRoles         map[string]string            `json:"yozakuraRoles"`
+	Glass                 *float64                     `json:"glass"`
+	Clock                 *yozakura.Clock              `json:"clock"`
 	ExtractionMode        string                       `json:"extractionMode"`
 	AdditionalImages      []string                     `json:"additionalImages"`
 	AppOverrides          map[string]map[string]string `json:"appOverrides"`
@@ -57,7 +60,7 @@ func NewThemeState() *ThemeState {
 		LockedColors:     make(map[int]bool),
 		Adjustments:      color.DefaultAdjustments(),
 		ExtendedColors:   make(map[string]string),
-		NativeColors:     make(map[string]string),
+		YozakuraRoles:    make(map[string]string),
 		ExtractionMode:   "auto",
 		AdditionalImages: []string{},
 		AppOverrides:     make(map[string]map[string]string),
@@ -100,7 +103,9 @@ type StateSnapshot struct {
 	LockedColors     map[int]bool                 `json:"lockedColors"`
 	ColorRoles       template.ColorRoles          `json:"colorRoles"`
 	ExtendedColors   map[string]string            `json:"extendedColors"`
-	NativeColors     map[string]string            `json:"nativeColors"`
+	YozakuraRoles    map[string]string            `json:"yozakuraRoles"`
+	Glass            *float64                     `json:"glass"`
+	Clock            *yozakura.Clock              `json:"clock"`
 	ExtractionMode   string                       `json:"extractionMode"`
 	AdditionalImages []string                     `json:"additionalImages"`
 	AppOverrides     map[string]map[string]string `json:"appOverrides"`
@@ -118,8 +123,8 @@ func (s *ThemeState) Snapshot() StateSnapshot {
 	for k, v := range s.ExtendedColors {
 		ext[k] = v
 	}
-	native := make(map[string]string, len(s.NativeColors))
-	for k, v := range s.NativeColors {
+	native := make(map[string]string, len(s.YozakuraRoles))
+	for k, v := range s.YozakuraRoles {
 		native[k] = v
 	}
 
@@ -143,7 +148,9 @@ func (s *ThemeState) Snapshot() StateSnapshot {
 		LockedColors:     locked,
 		ColorRoles:       s.ColorRoles,
 		ExtendedColors:   ext,
-		NativeColors:     native,
+		YozakuraRoles:    native,
+		Glass:            s.Glass,
+		Clock:            s.Clock,
 		ExtractionMode:   s.ExtractionMode,
 		AdditionalImages: images,
 		AppOverrides:     overrides,

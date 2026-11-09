@@ -304,7 +304,9 @@ export namespace main {
 	    lightMode: boolean;
 	    additionalImages: string[];
 	    extendedColors: Record<string, string>;
-	    nativeColors: Record<string, string>;
+	    yozakuraRoles: Record<string, string>;
+	    glass?: number;
+	    clock?: yozakura.Clock;
 	    settings: theme.Settings;
 	    appOverrides: Record<string, any>;
 	    iconTheme: icontheme.Selection;
@@ -321,7 +323,9 @@ export namespace main {
 	        this.lightMode = source["lightMode"];
 	        this.additionalImages = source["additionalImages"];
 	        this.extendedColors = source["extendedColors"];
-	        this.nativeColors = source["nativeColors"];
+	        this.yozakuraRoles = source["yozakuraRoles"];
+	        this.glass = source["glass"];
+	        this.clock = this.convertValues(source["clock"], yozakura.Clock);
 	        this.settings = this.convertValues(source["settings"], theme.Settings);
 	        this.appOverrides = source["appOverrides"];
 	        this.iconTheme = this.convertValues(source["iconTheme"], icontheme.Selection);
@@ -366,7 +370,9 @@ export namespace main {
 	    lightMode: boolean;
 	    additionalImages: string[];
 	    extendedColors: Record<string, string>;
-	    nativeColors: Record<string, string>;
+	    yozakuraRoles: Record<string, string>;
+	    glass?: number;
+	    clock?: yozakura.Clock;
 	    appOverrides: Record<string, any>;
 	    iconTheme: icontheme.Selection;
 	
@@ -384,7 +390,9 @@ export namespace main {
 	        this.lightMode = source["lightMode"];
 	        this.additionalImages = source["additionalImages"];
 	        this.extendedColors = source["extendedColors"];
-	        this.nativeColors = source["nativeColors"];
+	        this.yozakuraRoles = source["yozakuraRoles"];
+	        this.glass = source["glass"];
+	        this.clock = this.convertValues(source["clock"], yozakura.Clock);
 	        this.appOverrides = source["appOverrides"];
 	        this.iconTheme = this.convertValues(source["iconTheme"], icontheme.Selection);
 	    }
@@ -452,7 +460,9 @@ export namespace main {
 	export class ImportResult {
 	    colors: string[];
 	    extendedColors: Record<string, string>;
-	    nativeColors: Record<string, string>;
+	    yozakuraRoles: Record<string, string>;
+	    glass?: number;
+	    clock?: yozakura.Clock;
 	    name: string;
 	    path: string;
 	    wallpaperPath: string;
@@ -468,7 +478,9 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.colors = source["colors"];
 	        this.extendedColors = source["extendedColors"];
-	        this.nativeColors = source["nativeColors"];
+	        this.yozakuraRoles = source["yozakuraRoles"];
+	        this.glass = source["glass"];
+	        this.clock = this.convertValues(source["clock"], yozakura.Clock);
 	        this.name = source["name"];
 	        this.path = source["path"];
 	        this.wallpaperPath = source["wallpaperPath"];
@@ -504,7 +516,9 @@ export namespace main {
 	    lightMode: boolean;
 	    additionalImages: string[];
 	    extendedColors: Record<string, string>;
-	    nativeColors: Record<string, string>;
+	    yozakuraRoles: Record<string, string>;
+	    glass?: number;
+	    clock?: yozakura.Clock;
 	    settings: theme.Settings;
 	    appOverrides: Record<string, any>;
 	    iconTheme: icontheme.Selection;
@@ -523,7 +537,9 @@ export namespace main {
 	        this.lightMode = source["lightMode"];
 	        this.additionalImages = source["additionalImages"];
 	        this.extendedColors = source["extendedColors"];
-	        this.nativeColors = source["nativeColors"];
+	        this.yozakuraRoles = source["yozakuraRoles"];
+	        this.glass = source["glass"];
+	        this.clock = this.convertValues(source["clock"], yozakura.Clock);
 	        this.settings = this.convertValues(source["settings"], theme.Settings);
 	        this.appOverrides = source["appOverrides"];
 	        this.iconTheme = this.convertValues(source["iconTheme"], icontheme.Selection);
@@ -556,10 +572,13 @@ export namespace main {
 	    additionalImages: string[];
 	    lockedColors: number[];
 	    extendedColors: Record<string, string>;
-	    nativeColors: Record<string, string>;
+	    yozakuraRoles: Record<string, string>;
+	    glass?: number;
+	    clock?: yozakura.Clock;
 	    appOverrides: Record<string, any>;
 	    adjustments: Record<string, number>;
 	    iconTheme: icontheme.Selection;
+	    matchWallpapers?: string[];
 	
 	    static createFrom(source: any = {}) {
 	        return new SaveBlueprintRequest(source);
@@ -575,10 +594,13 @@ export namespace main {
 	        this.additionalImages = source["additionalImages"];
 	        this.lockedColors = source["lockedColors"];
 	        this.extendedColors = source["extendedColors"];
-	        this.nativeColors = source["nativeColors"];
+	        this.yozakuraRoles = source["yozakuraRoles"];
+	        this.glass = source["glass"];
+	        this.clock = this.convertValues(source["clock"], yozakura.Clock);
 	        this.appOverrides = source["appOverrides"];
 	        this.adjustments = source["adjustments"];
 	        this.iconTheme = this.convertValues(source["iconTheme"], icontheme.Selection);
+	        this.matchWallpapers = source["matchWallpapers"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -605,7 +627,9 @@ export namespace main {
 	    wallpaperBlur: boolean;
 	    lightMode: boolean;
 	    extendedColors: Record<string, string>;
-	    nativeColors: Record<string, string>;
+	    yozakuraRoles: Record<string, string>;
+	    glass?: number;
+	    clock?: yozakura.Clock;
 	    appOverrides: Record<string, any>;
 	    additionalImages: string[];
 	    iconTheme: icontheme.Selection;
@@ -621,7 +645,9 @@ export namespace main {
 	        this.wallpaperBlur = source["wallpaperBlur"];
 	        this.lightMode = source["lightMode"];
 	        this.extendedColors = source["extendedColors"];
-	        this.nativeColors = source["nativeColors"];
+	        this.yozakuraRoles = source["yozakuraRoles"];
+	        this.glass = source["glass"];
+	        this.clock = this.convertValues(source["clock"], yozakura.Clock);
 	        this.appOverrides = source["appOverrides"];
 	        this.additionalImages = source["additionalImages"];
 	        this.iconTheme = this.convertValues(source["iconTheme"], icontheme.Selection);
@@ -773,7 +799,9 @@ export namespace theme {
 	    lockedColors: Record<number, boolean>;
 	    colorRoles: template.ColorRoles;
 	    extendedColors: Record<string, string>;
-	    nativeColors: Record<string, string>;
+	    yozakuraRoles: Record<string, string>;
+	    glass?: number;
+	    clock?: yozakura.Clock;
 	    extractionMode: string;
 	    additionalImages: string[];
 	    appOverrides: Record<string, any>;
@@ -792,7 +820,9 @@ export namespace theme {
 	        this.lockedColors = source["lockedColors"];
 	        this.colorRoles = this.convertValues(source["colorRoles"], template.ColorRoles);
 	        this.extendedColors = source["extendedColors"];
-	        this.nativeColors = source["nativeColors"];
+	        this.yozakuraRoles = source["yozakuraRoles"];
+	        this.glass = source["glass"];
+	        this.clock = this.convertValues(source["clock"], yozakura.Clock);
 	        this.extractionMode = source["extractionMode"];
 	        this.additionalImages = source["additionalImages"];
 	        this.appOverrides = source["appOverrides"];
@@ -970,6 +1000,29 @@ export namespace targets {
 	        this.state = source["state"];
 	        this.path = source["path"];
 	        this.error = source["error"];
+	    }
+	}
+
+}
+
+export namespace yozakura {
+	
+	export class Clock {
+	    digits: string;
+	    colon: string;
+	    glow: number;
+	    ornament: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Clock(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.digits = source["digits"];
+	        this.colon = source["colon"];
+	        this.glow = source["glow"];
+	        this.ornament = source["ornament"];
 	    }
 	}
 

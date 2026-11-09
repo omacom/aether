@@ -21,7 +21,7 @@ const blueprint = {
         colors: [...DEFAULT_PALETTE],
         wallpaper: '/forest.png',
         extendedColors: {accent: '#abcdef'},
-        nativeColors: {orange: '#ed9121'},
+        yozakuraRoles: {orange: '#ed9121'},
         lockedColors: [1, 7],
         mode: 'light' as const,
     },
@@ -94,7 +94,7 @@ test('keyboard search loads a saved blueprint into the editor without applying i
     expect(theme.getBasePalette()).toEqual(blueprint.palette.colors);
     expect(theme.getAdjustments()).toEqual(DEFAULT_ADJUSTMENTS);
     expect(theme.getExtendedColors().accent).toBe('#abcdef');
-    expect(theme.getNativeColors()).toEqual(blueprint.palette.nativeColors);
+    expect(theme.getYozakuraRoles()).toEqual(blueprint.palette.yozakuraRoles);
     expect(theme.getAppOverrides()).toEqual(blueprint.appOverrides);
     expect(theme.getIconTheme()).toEqual(blueprint.iconTheme);
     expect(theme.getWallpaperPath()).toBe('/forest.png');
