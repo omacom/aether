@@ -63,14 +63,20 @@ func inGamutKeepHue(lch color.OKLCH) string {
 	return hex
 }
 
+// nudgeDirection returns +1 (lighter) or -1 (darker): toward whichever
+// extreme gives more contrast against bg.
+func nudgeDirection(bg string) float64 {
+	if color.ContrastRatio("#000000", bg) > color.ContrastRatio("#ffffff", bg) {
+		return -1
+	}
+	return 1
+}
+
 // nudge steps the foreground's OKLab L away from the background's until the
 // pair meets min, giving up after nudgeMaxSteps or once gamut clamping stops
 // changing the colour. It returns the (possibly unchanged) foreground.
 func nudge(fg, bg string, min float64) string {
-	dir := -1.0
-	if color.HexToOKLab(bg).L < 0.5 {
-		dir = 1.0
-	}
+	dir := nudgeDirection(bg)
 	cur := fg
 	lch := color.HexToOKLCH(fg)
 	for i := 0; i < nudgeMaxSteps && color.ContrastRatio(cur, bg) < min; i++ {
@@ -92,6 +98,9 @@ func Enforce(t *Theme) []PairResult {
 		orig[k] = v
 	}
 	for _, p := range contrastPairs {
+		if p.fg == "accentInk" && !t.Explicit["accentInk"] && t.Roles["accent"] != orig["accent"] {
+			t.Roles["accentInk"] = accentInk(t.Roles["accent"])
+		}
 		if t.Explicit[p.fg] {
 			continue
 		}

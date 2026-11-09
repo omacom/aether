@@ -119,3 +119,44 @@ func TestCheckCuratedThemes(t *testing.T) {
 		}
 	}
 }
+
+func TestEnforceRederivesInkAfterAccentNudge(t *testing.T) {
+	th := Derive(mapRoles(defaultPalette), nil, nil, nil)
+	// Mid-tone surface: a light accent is nudged darker, so the dark ink
+	// derived from the pre-nudge accent must flip to a light one.
+	th.Roles["surface"] = color.OKLabToHex(color.OKLab{L: 0.62})
+	acc := color.OKLCHToHex(color.OKLCH{L: 0.66, C: 0.1, H: 280})
+	th.Roles["accent"] = acc
+	th.Roles["accentInk"] = accentInk(acc)
+	origInk := th.Roles["accentInk"]
+	res := Enforce(&th)
+	if th.Roles["accent"] == acc {
+		t.Fatal("setup: accent not nudged")
+	}
+	if color.ContrastRatio(origInk, th.Roles["accent"]) >= 7.0 {
+		t.Fatal("setup: original ink still passes")
+	}
+	r := pairByName(t, res, "accentInk/accent")
+	if r.State != "nudged" || color.ContrastRatio(th.Roles["accentInk"], th.Roles["accent"]) < 7.0 {
+		t.Errorf("accent %s->%s ink %s->%s: %+v", acc, th.Roles["accent"], origInk, th.Roles["accentInk"], r)
+	}
+}
+
+func TestNudgeDirectionByContrastGain(t *testing.T) {
+	th := Derive(mapRoles(defaultPalette), nil, nil, nil)
+	bg := color.OKLabToHex(color.OKLab{L: 0.62})
+	if nudgeDirection(bg) != -1 {
+		t.Fatalf("setup: expected darker direction for %s", bg)
+	}
+	th.Roles["surface"] = bg
+	th.Roles["danger"] = Mix(bg, "#000000", 0.1)
+	fg0 := th.Roles["danger"]
+	res := Enforce(&th)
+	r := pairByName(t, res, "danger/surface")
+	if r.State != "nudged" {
+		t.Errorf("state %s ratio %.2f", r.State, r.Ratio)
+	}
+	if color.HexToOKLab(th.Roles["danger"]).L >= color.HexToOKLab(fg0).L {
+		t.Errorf("did not move darker: %s -> %s", fg0, th.Roles["danger"])
+	}
+}
