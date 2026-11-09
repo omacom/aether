@@ -1,0 +1,35 @@
+{
+ "name": "Ichō",
+ "glass": 0.9,
+ "clock": {
+  "digits": "bold",
+  "colon": ":",
+  "glow": 0.35,
+  "ornament": "arc"
+ },
+ "ground": "#120b18",
+ "surface": "#1b1222",
+ "surface2": "#281a31",
+ "border": "#3c2a49",
+ "accent": "#ff9ed2",
+ "accent2": "#c39cec",
+ "info": "#8ba2f1",
+ "danger": "#ff5d6c",
+ "ok": "#8fd6a8",
+ "warn": "#f2c14e",
+ "text": "#f2e7f0",
+ "muted": "#a08fa8",
+ "accentInk": "#1d0c17",
+ "term": [
+  "#281a31",
+  "#ff5d6c",
+  "#8fd6a8",
+  "#f2c14e",
+  "#8ba2f1",
+  "#ff9ed2",
+  "#86d4e6",
+  "#dacfdc"
+ ],
+ "id": "icho",
+ "wallpaper": "/home/test/Pictures/evanescia.png"
+}

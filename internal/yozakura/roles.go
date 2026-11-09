@@ -65,9 +65,12 @@ func Mix(a, b string, t float64) string {
 }
 
 // mixSRGB blends a toward b by t in sRGB space (parity with the old term16).
+// Channels round half-to-even like Python's round(), so exact .5 results
+// (e.g. 234.5 -> 234) match yozakura-theme.py byte for byte.
 func mixSRGB(a, b string, t float64) string {
 	ra, rb := color.HexToRGB(a), color.HexToRGB(b)
-	return color.RGBToHex(ra.R+(rb.R-ra.R)*t, ra.G+(rb.G-ra.G)*t, ra.B+(rb.B-ra.B)*t)
+	ch := func(x, y float64) float64 { return math.RoundToEven(x + (y-x)*t) }
+	return color.RGBToHex(ch(ra.R, rb.R), ch(ra.G, rb.G), ch(ra.B, rb.B))
 }
 
 // AccentCandidates returns ANSI 1-6 and 9-14 ranked by OKLCH chroma

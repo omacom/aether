@@ -12,8 +12,9 @@ import (
 	"aether/internal/yozakura"
 )
 
-// Runner runs an external command and returns its stderr.
-type Runner func(name string, args ...string) (stderr string, err error)
+// Runner runs an external command and returns its output (stdout and stderr
+// combined; used as the failure message when err != nil).
+type Runner func(name string, args ...string) (output string, err error)
 
 type Context struct {
 	Name      string // theme display name
@@ -23,8 +24,9 @@ type Context struct {
 	Yoz       yozakura.Theme    // after Enforce
 	Home      string
 	Run       Runner
-	Backups   *Backups // one per apply run
-	Templates fs.FS    // embedded templates root (the "templates" dir)
+	Have      func(bin string) bool // PATH lookup; nil uses exec.LookPath (tests inject)
+	Backups   *Backups              // one per apply run
+	Templates fs.FS                 // embedded templates root (the "templates" dir)
 }
 
 // File is a generated file; Path is relative to Context.Home.

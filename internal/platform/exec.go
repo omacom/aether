@@ -36,6 +36,14 @@ func RunSyncEnv(extraEnv map[string]string, name string, args ...string) (string
 	return output.String(), nil
 }
 
+// Command returns an exec.Cmd for name with the filtered environment
+// (LD_PRELOAD removed), for callers that need to control stdio themselves.
+func Command(name string, args ...string) *exec.Cmd {
+	cmd := exec.Command(name, args...)
+	cmd.Env = filteredEnv()
+	return cmd
+}
+
 // RunAsync starts a command detached in the background and returns immediately.
 // LD_PRELOAD is stripped from the environment to prevent layer-shell conflicts.
 func RunAsync(name string, args ...string) error {

@@ -66,6 +66,8 @@ func TestSaveAndApplyThemeWritesStandaloneTheme(t *testing.T) {
 	t.Setenv("XDG_STATE_HOME", filepath.Join(home, ".local", "state"))
 	source := writeTestImage(t, t.TempDir(), "source.png", 16, 16)
 	app := NewApp()
+	app.writer.Run = func(string, ...string) (string, error) { return "", nil }
+	app.writer.Have = func(string) bool { return false }
 	result, err := app.SaveAndApplyTheme(SaveAndApplyThemeRequest{Name: "blur-theme", Palette: theme.DefaultPalette[:], WallpaperPath: source, WallpaperBlur: true})
 	if err != nil || result == nil || !result.Success {
 		t.Fatalf("save and apply: %+v, %v", result, err)

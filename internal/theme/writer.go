@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"log"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
@@ -13,7 +14,9 @@ import (
 	"aether/internal/color"
 	"aether/internal/icontheme"
 	"aether/internal/platform"
+	"aether/internal/targets"
 	"aether/internal/template"
+	"aether/internal/yozakura"
 )
 
 // templateAppNameMap maps template file names to standardised app names,
@@ -93,6 +96,15 @@ func (s Settings) includesApp(app string) bool {
 	}
 }
 
+// TargetEnabled reports whether a desktop target (see targets.All) should run.
+// Every target is enabled unless IncludedApps explicitly sets it to false.
+func (s Settings) TargetEnabled(id string) bool {
+	if enabled, ok := s.IncludedApps[id]; ok {
+		return enabled
+	}
+	return true
+}
+
 // DefaultApplySettings returns the same defaults `aether --generate` uses.
 // Use this anywhere the user is applying a theme without picking per-app
 // toggles explicitly so a bare `Settings{}` does not silently drop editor
@@ -107,14 +119,33 @@ func DefaultApplySettings() Settings {
 
 // ApplyResult is returned by ApplyTheme with the outcome of theme application.
 type ApplyResult struct {
-	Success   bool   `json:"success"`
-	ThemePath string `json:"themePath"`
+	Success   bool             `json:"success"`
+	ThemePath string           `json:"themePath"`
+	Targets   []targets.Status `json:"targets"`
 }
 
 // Writer processes templates from an embed.FS and generates theme files.
 type Writer struct {
 	templatesFS  embed.FS
 	templatesDir string // root directory name inside the embed.FS (e.g. "templates")
+
+	// Run executes external commands (reloads, queries) for desktop targets.
+	// NewWriter sets a real exec-based runner; tests must replace it.
+	Run targets.Runner
+	// Have reports whether a binary is on PATH; nil uses exec.LookPath.
+	Have func(bin string) bool
+}
+
+// execRunner is the production targets.Runner: it returns combined output.
+// pkill exits 1 when nothing matched, which is not a failure for a reload.
+func execRunner(name string, args ...string) (string, error) {
+	out, err := platform.Command(name, args...).CombinedOutput()
+	if err != nil && name == "pkill" {
+		if ee, ok := err.(*exec.ExitError); ok && ee.ExitCode() == 1 {
+			return string(out), nil
+		}
+	}
+	return string(out), err
 }
 
 // NewWriter creates a Writer that reads templates from the given embed.FS.
@@ -123,6 +154,7 @@ func NewWriter(fsys embed.FS, dir string) *Writer {
 	return &Writer{
 		templatesFS:  fsys,
 		templatesDir: dir,
+		Run:          execRunner,
 	}
 }
 
@@ -278,7 +310,36 @@ func (w *Writer) ApplyTheme(state *ThemeState, settings Settings) (*ApplyResult,
 	if err := template.ProcessCustomApps(themeDir, variables); err != nil {
 		return &ApplyResult{Success: false, ThemePath: themeDir}, fmt.Errorf("process custom apps: %w", err)
 	}
-	return &ApplyResult{Success: true, ThemePath: themeDir}, nil
+	statuses := w.applyTargets(state, variables, settings)
+	success := true
+	for _, st := range statuses {
+		if st.State == "failed" && (st.ID == "yozakura" || st.ID == "hyprland") {
+			success = false
+		}
+	}
+	return &ApplyResult{Success: success, ThemePath: themeDir, Targets: statuses}, nil
+}
+
+// applyTargets writes and reloads the desktop targets from the Yozakura-derived
+// theme. Failures are reported per target and never abort the apply.
+func (w *Writer) applyTargets(state *ThemeState, variables map[string]string, settings Settings) []targets.Status {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return []targets.Status{{ID: "yozakura", Label: "Yozakura shell", State: "failed", Error: err.Error()}}
+	}
+	yoz := yozakura.Derive(state.ColorRoles, state.NativeColors, nil, nil)
+	yozakura.Enforce(&yoz)
+	ctx := targets.Context{
+		Name:      "Aether",
+		ID:        "auto",
+		Wallpaper: state.WallpaperPath,
+		Vars:      variables,
+		Yoz:       yoz,
+		Home:      home,
+		Run:       w.Run,
+		Have:      w.Have,
+	}
+	return targets.Apply(ctx, targets.All(), settings.TargetEnabled)
 }
 
 // GenerateOnly generates theme files to the specified output path without

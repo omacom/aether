@@ -345,7 +345,7 @@ func TestApplyThemeReturnsEditorErrorsBeforeCustomApps(t *testing.T) {
 			writeWriterTestFile(t, filepath.Join(custom, "config.json"), `{"template":"theme.ini"}`)
 			writeWriterTestFile(t, filepath.Join(custom, "theme.ini"), "{background}")
 
-			writer := NewWriter(testTemplates, "testdata/v4")
+			writer := newTestWriter(t)
 			result, err := writer.ApplyTheme(NewThemeState(), Settings{IncludedApps: map[string]bool{editor: true}})
 			if err == nil || !strings.Contains(err.Error(), wantError) || result == nil || result.Success {
 				t.Fatalf("ApplyTheme() = %+v, %v; want %q error", result, err, wantError)
@@ -360,7 +360,7 @@ func TestApplyThemeReturnsEditorErrorsBeforeCustomApps(t *testing.T) {
 func TestApplyThemeReturnsCustomAppError(t *testing.T) {
 	setupWriterTestEnv(t)
 	writeWriterTestFile(t, filepath.Join(platform.CustomDir(), "broken", "config.json"), "invalid json")
-	writer := NewWriter(testTemplates, "testdata/v4")
+	writer := newTestWriter(t)
 	result, err := writer.ApplyTheme(NewThemeState(), Settings{})
 	if err == nil || !strings.Contains(err.Error(), "process custom apps") || !strings.Contains(err.Error(), "broken") || result == nil || result.Success {
 		t.Fatalf("ApplyTheme() = %+v, %v; want custom app error", result, err)
@@ -411,7 +411,7 @@ func TestStandaloneWriterReturnsGenerationErrors(t *testing.T) {
 				if err := os.WriteFile(filepath.Join(os.Getenv("PATH"), "bash"), []byte("#!/bin/sh\nprintf hook > \"$AETHER_TEST_HOOK\"\n"), 0o755); err != nil {
 					t.Fatal(err)
 				}
-				writer := NewWriter(testTemplates, "testdata/v4")
+				writer := newTestWriter(t)
 				if tc.name == "missing templates" {
 					writer.templatesDir = "missing"
 				}
@@ -437,5 +437,71 @@ func TestStandaloneWriterReturnsGenerationErrors(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// newTestWriter returns a Writer whose commands never reach the real system:
+// every Run is recorded (not executed) and no binary is considered installed.
+func newTestWriter(t *testing.T) *Writer {
+	t.Helper()
+	w := NewWriter(testTemplates, "testdata/v4")
+	w.Run = func(string, ...string) (string, error) { return "", nil }
+	w.Have = func(string) bool { return false }
+	return w
+}
+
+func TestApplyThemeReturnsTargets(t *testing.T) {
+	home := setupWriterTestEnv(t)
+	t.Setenv("XDG_CONFIG_HOME", "")
+	var calls [][]string
+	w := newTestWriter(t)
+	w.Have = func(string) bool { return true }
+	w.Run = func(name string, args ...string) (string, error) {
+		calls = append(calls, append([]string{name}, args...))
+		return "", nil
+	}
+	result, err := w.ApplyTheme(NewThemeState(), Settings{})
+	if err != nil || result == nil || !result.Success {
+		t.Fatalf("ApplyTheme() = %+v, %v", result, err)
+	}
+	byID := map[string]string{}
+	for _, st := range result.Targets {
+		byID[st.ID] = st.State
+	}
+	if byID["yozakura"] != "written" || byID["hyprland"] != "reloaded" {
+		t.Fatalf("targets = %+v", result.Targets)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".local/state/yozakura/theme.json")); err != nil {
+		t.Fatal(err)
+	}
+	if len(calls) == 0 {
+		t.Fatal("expected reload commands through the injected runner")
+	}
+}
+
+func TestApplyThemeHonoursDisabledTarget(t *testing.T) {
+	home := setupWriterTestEnv(t)
+	t.Setenv("XDG_CONFIG_HOME", "")
+	w := newTestWriter(t)
+	result, err := w.ApplyTheme(NewThemeState(), Settings{IncludedApps: map[string]bool{"yozakura": false}})
+	if err != nil || result == nil {
+		t.Fatal(result, err)
+	}
+	for _, st := range result.Targets {
+		if st.ID == "yozakura" && st.State != "skipped" {
+			t.Fatalf("yozakura = %+v", st)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(home, ".local/state/yozakura/theme.json")); err == nil {
+		t.Fatal("disabled target wrote its file")
+	}
+}
+
+func TestTargetEnabledDefaultsToTrue(t *testing.T) {
+	if !(Settings{}).TargetEnabled("kitty") || !(Settings{IncludedApps: map[string]bool{"kitty": true}}).TargetEnabled("kitty") {
+		t.Fatal("targets should default to enabled")
+	}
+	if (Settings{IncludedApps: map[string]bool{"kitty": false}}).TargetEnabled("kitty") {
+		t.Fatal("explicit false must disable")
 	}
 }
