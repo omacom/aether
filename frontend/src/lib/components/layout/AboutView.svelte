@@ -20,11 +20,6 @@
             url: 'https://github.com/omacom/aether/releases/latest',
             description: 'Latest release notes and downloads',
         },
-        {
-            label: 'Omarchy',
-            url: 'https://omarchy.org',
-            description: 'The Linux desktop Aether is built for',
-        },
     ];
     const AUTHOR_URL = 'https://x.com/iamdothash';
 </script>

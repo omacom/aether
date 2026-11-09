@@ -12,11 +12,6 @@ vi.mock('../wailsjs/go/main/App', () => ({
     GetSettings: vi.fn().mockResolvedValue({}),
     SaveSettings: vi.fn().mockResolvedValue(undefined),
 }));
-vi.mock('../src/lib/stores/omarchy.svelte', () => ({
-    initOmarchyCapabilities: vi.fn().mockResolvedValue(undefined),
-    getOmarchyAvailable: () => true,
-    getOmarchyCapabilities: () => ({overrideApps: ['kitty']}),
-}));
 
 beforeEach(() => {
     theme.reset();
@@ -25,7 +20,6 @@ beforeEach(() => {
     vi.mocked(ThemeFolderExists).mockReset().mockResolvedValue(false);
     vi.mocked(SaveAndApplyTheme).mockReset().mockResolvedValue({
         success: true,
-        isOmarchy: true,
         themePath: '/theme',
     });
 });

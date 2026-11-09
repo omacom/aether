@@ -19,11 +19,6 @@ vi.mock('../wailsjs/go/main/App', () => ({
     GetThumbnail: vi.fn().mockResolvedValue('/thumbnail.png'),
     ReadImageAsDataURL: vi.fn().mockResolvedValue('data:image/png;base64,AA=='),
 }));
-vi.mock('../src/lib/stores/omarchy.svelte', () => ({
-    getOmarchyAvailable: () => true,
-    getOmarchyCapabilities: () => ({overrideApps: []}),
-    initOmarchyCapabilities: vi.fn().mockResolvedValue(undefined),
-}));
 
 const remote = 'https://example.com/wallpaper.png';
 const wallpaper = {path: remote, id: 'sample', thumbs: {small: remote}};

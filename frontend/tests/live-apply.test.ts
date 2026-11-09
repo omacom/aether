@@ -9,12 +9,11 @@ import {
 } from '../src/lib/stores/ui.svelte';
 import {applyTheme, applyThemeLive} from '../src/lib/actions/themeActions';
 import {loadBlueprintIntoEditor} from '../src/lib/actions/blueprintActions';
-import {initOmarchyCapabilities} from '../src/lib/stores/omarchy.svelte';
 import {ApplyTheme, GetInitialState} from '../wailsjs/go/main/App';
 import {theme as backendTheme} from '../wailsjs/go/models';
 import {deferred, render, settle} from './setup';
 
-const success = {success: true, isOmarchy: false, themePath: '/theme'};
+const success = {success: true, themePath: '/theme'};
 
 // Keep the real App effects and stores; unrelated panels and all Wails IO are mocked.
 vi.mock(
@@ -47,10 +46,6 @@ vi.mock(
 );
 vi.mock(
     '../src/lib/components/blueprints/BlueprintsView.svelte',
-    () => import('./Empty.svelte')
-);
-vi.mock(
-    '../src/lib/components/blueprints/OmarchyThemes.svelte',
     () => import('./Empty.svelte')
 );
 vi.mock(
@@ -89,11 +84,6 @@ vi.mock('../src/lib/utils/keyboard', () => ({
     initKeyboardShortcuts: vi.fn(),
     registerShortcut: vi.fn(),
 }));
-vi.mock('../src/lib/stores/omarchy.svelte', () => ({
-    initOmarchyCapabilities: vi.fn().mockResolvedValue(undefined),
-    getOmarchyAvailable: () => false,
-    getOmarchyCapabilities: () => ({overrideApps: []}),
-}));
 vi.mock('../wailsjs/go/main/App', () => ({
     GetInitialState: vi.fn().mockResolvedValue({}),
     GetFocusTab: vi.fn().mockResolvedValue(''),
@@ -120,7 +110,6 @@ beforeEach(() => {
     vi.mocked(GetInitialState)
         .mockReset()
         .mockResolvedValue(new backendTheme.StateSnapshot());
-    vi.mocked(initOmarchyCapabilities).mockReset().mockResolvedValue();
 });
 
 async function queueLiveApply() {
@@ -170,7 +159,6 @@ test('destroying App cancels pending Live Apply', async () => {
 test('the live action itself refuses to apply when disabled', async () => {
     await applyThemeLive();
     expect(ApplyTheme).not.toHaveBeenCalled();
-    expect(initOmarchyCapabilities).not.toHaveBeenCalled();
 });
 
 test('mounting with Live Apply already enabled records the hydrated state without applying', async () => {
@@ -207,53 +195,6 @@ test('OFF/ON in the same tick rejects the old timer session and schedules the un
     vi.advanceTimersByTime(1500);
     expect(ApplyTheme).not.toHaveBeenCalled();
     flushSync();
-    await vi.advanceTimersByTimeAsync(1500);
-    await settle();
-    expect(ApplyTheme).toHaveBeenCalledTimes(1);
-});
-
-test.each(['disable', 'load blueprint'] as const)(
-    '%s during preflight cannot dispatch a live apply',
-    async change => {
-        await queueLiveApply();
-        const preflight = deferred<void>();
-        vi.mocked(initOmarchyCapabilities).mockReturnValueOnce(
-            preflight.promise
-        );
-        await vi.advanceTimersByTimeAsync(1500);
-        await settle();
-        expect(theme.getIsApplying()).toBe(true);
-        if (change === 'disable') setLiveApply(false);
-        else
-            loadBlueprintIntoEditor({
-                name: 'Review',
-                timestamp: 0,
-                palette: {
-                    colors: Array(16).fill('#abcdef'),
-                    wallpaper: '/review.png',
-                },
-            });
-        flushSync();
-        preflight.resolve();
-        await settle();
-        expect(ApplyTheme).not.toHaveBeenCalled();
-        expect(theme.getLastAppliedSignature()).toBe('');
-        expect(getLivePending()).toBe(false);
-    }
-);
-
-test('OFF/ON during preflight rejects the old session but retries the unchanged edit', async () => {
-    await queueLiveApply();
-    const preflight = deferred<void>();
-    vi.mocked(initOmarchyCapabilities).mockReturnValueOnce(preflight.promise);
-    await vi.advanceTimersByTimeAsync(1500);
-    await settle();
-    setLiveApply(false);
-    setLiveApply(true);
-    flushSync();
-    preflight.resolve();
-    await settle();
-    expect(ApplyTheme).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(1500);
     await settle();
     expect(ApplyTheme).toHaveBeenCalledTimes(1);
@@ -325,20 +266,6 @@ test('failed live applies do not loop, and OFF/ON explicitly retries the unsent 
     await vi.advanceTimersByTimeAsync(1500);
     await settle();
     expect(ApplyTheme).toHaveBeenCalledTimes(2);
-});
-
-test('destroying App also invalidates live preflight without changing the saved toggle preference', async () => {
-    const view = await queueLiveApply();
-    const preflight = deferred<void>();
-    vi.mocked(initOmarchyCapabilities).mockReturnValueOnce(preflight.promise);
-    await vi.advanceTimersByTimeAsync(1500);
-    await settle();
-    await view.destroy();
-    preflight.resolve();
-    await settle();
-    expect(ApplyTheme).not.toHaveBeenCalled();
-    expect(getLivePending()).toBe(false);
-    expect(getLiveApply()).toBe(true);
 });
 
 test('returning to an earlier successful live signature after a manual apply still applies the edit', async () => {

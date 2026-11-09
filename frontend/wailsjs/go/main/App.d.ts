@@ -6,7 +6,6 @@ import {main} from '../models';
 import {favorites} from '../models';
 import {githubsource} from '../models';
 import {icontheme} from '../models';
-import {omarchy} from '../models';
 import {ipc} from '../models';
 import {wallpaper} from '../models';
 import {wallhaven} from '../models';
@@ -15,11 +14,9 @@ export function AdjustPaletteColors(arg1:Array<string>,arg2:color.Adjustments):P
 
 export function ApplyBlueprint(arg1:string):Promise<theme.ApplyResult>;
 
-export function ApplyOmarchyThemeByName(arg1:string):Promise<void>;
 
 export function ApplyTheme(arg1:main.ApplyThemeRequest):Promise<theme.ApplyResult>;
 
-export function ApplyWallpaperOnly(arg1:string):Promise<void>;
 
 export function BlueprintExists(arg1:string):Promise<boolean>;
 
@@ -69,7 +66,6 @@ export function GetIconThemePreview(arg1:string):Promise<icontheme.ThemePreview>
 
 export function GetInitialState():Promise<theme.StateSnapshot>;
 
-export function GetOmarchyCapabilities():Promise<omarchy.Capabilities>;
 
 export function GetPendingExternalImport():Promise<main.ExternalImportPreview>;
 
@@ -101,7 +97,6 @@ export function IsFavoritesExportRunning():Promise<boolean>;
 
 export function IsMacOS():Promise<boolean>;
 
-export function IsOmarchyInstalled():Promise<boolean>;
 
 export function IsPreviewCached(arg1:string):Promise<boolean>;
 
@@ -113,7 +108,6 @@ export function ListInstalledIconThemes():Promise<Array<icontheme.ThemeSummary>>
 
 export function LoadBlueprint(arg1:string):Promise<void>;
 
-export function LoadOmarchyThemes():Promise<Array<omarchy.Theme>>;
 
 export function OpenExternalImportInEditor(arg1:string):Promise<void>;
 

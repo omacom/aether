@@ -11,16 +11,9 @@
     import Kbd from '$lib/components/shared/Kbd.svelte';
     import ReleaseIndicator from '$lib/components/layout/ReleaseIndicator.svelte';
     import aetherLogo from '../../../assets/aether-logo.png';
-    import {
-        getOmarchyAvailable,
-        initOmarchyCapabilities,
-    } from '$lib/stores/omarchy.svelte';
 
     let activeTab = $derived(getActiveTab());
     let isMac = $state(false);
-    let omarchyAvailable = $derived(getOmarchyAvailable());
-
-    initOmarchyCapabilities();
 
     onMount(async () => {
         try {
@@ -65,16 +58,7 @@
             // Layers
             icon: '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
         },
-        {
-            id: 'system',
-            label: 'Omarchy',
-            // Paintbrush / Brush
-            icon: '<path d="M18.37 2.63a2.12 2.12 0 0 1 3 3L14 13l-4 1 1-4z"/><path d="M9 14.5A3.5 3.5 0 0 0 5.5 18c-1.2 0-2.5.7-2.5 2 2 0 4.5-1 5.5-3.5"/>',
-        },
     ];
-    let visibleTabs = $derived(
-        tabs.filter(tab => tab.id !== 'system' || omarchyAvailable)
-    );
 </script>
 
 {#snippet iconButton(
@@ -124,7 +108,7 @@
         aria-label="Main navigation"
         style="--wails-draggable:no-drag"
     >
-        {#each visibleTabs as tab}
+        {#each tabs as tab}
             <button
                 type="button"
                 class="flex shrink-0 items-center gap-[7px] px-3 text-[12px] font-medium transition-colors duration-100

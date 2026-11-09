@@ -17,11 +17,6 @@ vi.mock('../wailsjs/go/main/App', () => ({
         .fn()
         .mockResolvedValue({background: '#000000', foreground: '#ffffff'}),
 }));
-vi.mock('../src/lib/stores/omarchy.svelte', () => ({
-    getOmarchyAvailable: () => true,
-    getOmarchyCapabilities: () => ({overrideApps: ['kitty']}),
-    initOmarchyCapabilities: vi.fn().mockResolvedValue(undefined),
-}));
 
 beforeEach(() => {
     theme.reset();
@@ -90,7 +85,7 @@ test('a subthreshold movement remains a normal picker click', () => {
     expect(source.onclick).toHaveBeenCalledTimes(1);
 });
 
-test('a drop creates one reversible Omarchy app override', async () => {
+test('a drop creates one reversible app override', async () => {
     theme.setAppOverride('kitty', 'background', '#abcdef');
     const before = theme.getHistorySnapshot();
     const source = swatch();

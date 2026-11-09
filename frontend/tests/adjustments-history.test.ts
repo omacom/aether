@@ -13,11 +13,6 @@ vi.mock('../wailsjs/go/main/App', () => ({
     AdjustPaletteColors: vi.fn(),
     GetWallhavenConfig: vi.fn().mockResolvedValue({}),
 }));
-vi.mock('../src/lib/stores/omarchy.svelte', () => ({
-    initOmarchyCapabilities: vi.fn().mockResolvedValue(undefined),
-    getOmarchyAvailable: () => false,
-    getOmarchyCapabilities: () => ({overrideApps: []}),
-}));
 
 const base = Array(16).fill('#123456');
 const adjusted = Array(16).fill('#345678');

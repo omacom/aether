@@ -38,28 +38,6 @@ import {
     pushUndo,
 } from '$lib/stores/history.svelte';
 import {STORAGE_KEYS} from '$lib/constants/storage';
-import {
-    getOmarchyCapabilities,
-    getOmarchyAvailable,
-    initOmarchyCapabilities,
-} from '$lib/stores/omarchy.svelte';
-
-export function getNativeAppOverrides(): Record<
-    string,
-    Record<string, string>
-> {
-    const overrides = getAppOverrides();
-    return filterNativeAppOverrides(overrides);
-}
-
-function filterNativeAppOverrides(
-    overrides: Record<string, Record<string, string>>
-) {
-    const supported = new Set(getOmarchyCapabilities().overrideApps);
-    return Object.fromEntries(
-        Object.entries(overrides).filter(([app]) => supported.has(app))
-    );
-}
 
 export function captureApplyRequest() {
     const settings = getSettings();
@@ -73,11 +51,6 @@ function countTargetedApps(
     settings: Settings,
     appOverrides: Record<string, Record<string, string>>
 ): number {
-    if (getOmarchyAvailable()) {
-        return Object.values(appOverrides).filter(
-            overrides => Object.keys(overrides).length > 0
-        ).length;
-    }
     const targeted = new Set(
         Object.entries(settings.includedApps ?? {})
             .filter(([, included]) => included)
@@ -98,16 +71,12 @@ async function runApply(
     } = {}
 ): Promise<{success: boolean; count: number} | null> {
     const signature = getThemeSignature(request);
-    await initOmarchyCapabilities();
     const {ApplyTheme, SaveAndApplyTheme} = await import(
         '../../../wailsjs/go/main/App'
     );
     if (options.isCurrent && !options.isCurrent()) return null;
-    const appOverrides = getOmarchyAvailable()
-        ? filterNativeAppOverrides(request.appOverrides)
-        : request.appOverrides;
-    const payload = {...request, appOverrides};
-    const count = countTargetedApps(request.settings, appOverrides);
+    const payload = {...request};
+    const count = countTargetedApps(request.settings, request.appOverrides);
     const result =
         options.name !== undefined
             ? await SaveAndApplyTheme({
@@ -214,44 +183,6 @@ export async function saveAndApplyTheme(
                   : 'Could not save and apply the theme'
         );
         return false;
-    } finally {
-        setIsApplying(false);
-    }
-}
-
-// Change the background without replacing the active Omarchy theme.
-export async function applyWallpaperOnly(originalPath: string): Promise<void> {
-    if (getIsApplying() || !originalPath) return;
-    const originalRevision = getWallpaperRevision();
-    let path = originalPath;
-    setIsApplying(true);
-    try {
-        if (
-            originalPath.startsWith('http://') ||
-            originalPath.startsWith('https://')
-        ) {
-            showToast('Downloading wallpaper…');
-            const {DownloadWallpaper} = await import(
-                '../../../wailsjs/go/main/App'
-            );
-            path = await DownloadWallpaper(originalPath);
-        }
-        if (getWallpaperRevision() !== originalRevision) return;
-        const {ApplyWallpaperOnly} = await import(
-            '../../../wailsjs/go/main/App'
-        );
-        if (getWallpaperRevision() !== originalRevision) return;
-        await ApplyWallpaperOnly(path);
-        if (getWallpaperRevision() === originalRevision) setWallpaperPath(path);
-        showToast('Wallpaper applied');
-    } catch (error: unknown) {
-        showToast(
-            typeof error === 'string'
-                ? error
-                : error instanceof Error
-                  ? error.message
-                  : 'Could not apply the wallpaper'
-        );
     } finally {
         setIsApplying(false);
     }

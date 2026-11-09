@@ -1,8 +1,8 @@
 <script lang="ts" module>
     import type {CardSize} from '$lib/stores/cardsize.svelte';
 
-    // Minimum column width (px) per card size for theme grids (Blueprints,
-    // Omarchy themes). Theme cards carry a text body, so they stay narrower
+    // Minimum column width (px) per card size for theme grids (Blueprints).
+    // Theme cards carry a text body, so they stay narrower
     // than wallpaper cards at M and L.
     export const THEME_CARD_MIN_WIDTH: Record<CardSize, number> = {
         small: 220,

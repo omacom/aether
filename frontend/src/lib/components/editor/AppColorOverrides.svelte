@@ -16,8 +16,6 @@
     import {isLightColor, copyColor} from '$lib/utils/color';
     import ContextMenu from '$lib/components/shared/ContextMenu.svelte';
     import {appLabel} from '$lib/constants/apps';
-    import {getNativeAppOverrides} from '$lib/actions/themeActions';
-    import {getOmarchyAvailable} from '$lib/stores/omarchy.svelte';
 
     let selectedApp = $state('');
     let templateColors = $state<Record<string, string[]>>({});
@@ -42,9 +40,7 @@
     let palette = $derived(getPalette());
     let extColors = $derived(getExtendedColors());
     let lightMode = $derived(getLightMode());
-    let overrides = $derived(
-        getOmarchyAvailable() ? getNativeAppOverrides() : getAppOverrides()
-    );
+    let overrides = $derived(getAppOverrides());
     let appOverrides = $derived(
         selectedApp ? overrides[selectedApp] || {} : {}
     );

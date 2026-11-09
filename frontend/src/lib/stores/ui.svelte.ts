@@ -7,7 +7,6 @@ export type Tab =
     | 'local'
     | 'favorites'
     | 'blueprints'
-    | 'system'
     | 'settings'
     | 'about';
 

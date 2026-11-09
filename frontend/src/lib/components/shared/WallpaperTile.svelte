@@ -21,7 +21,6 @@
         useTitle = 'Set as wallpaper and open in editor',
         visitTitle = 'Open source page',
         onuse,
-        onwallpaperonly,
         onpreview,
         onaddextra,
         onfavorite,
@@ -40,7 +39,6 @@
         useTitle?: string;
         visitTitle?: string;
         onuse: () => void;
-        onwallpaperonly: () => void;
         onpreview: () => void;
         onaddextra: () => void;
         onfavorite?: () => void;
@@ -176,15 +174,6 @@
                 >
                     <button
                         class={TOOL}
-                        onclick={onwallpaperonly}
-                        disabled={applying || busy}
-                        aria-label="Apply as wallpaper only"
-                        title="Apply this wallpaper without changing the current palette"
-                    >
-                        {@render icon('M3 4h18v12H3z M8 20h8 M12 16v4')}
-                    </button>
-                    <button
-                        class="{TOOL} shadow-[inset_1px_0_0_rgba(255,255,255,0.1)]"
                         onclick={onpreview}
                         aria-label="Preview full-size"
                         title="Preview wallpaper full-size"

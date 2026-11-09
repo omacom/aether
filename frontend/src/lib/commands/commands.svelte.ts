@@ -24,7 +24,6 @@ import {
     extractColors,
     saveThemeAsNew,
 } from '$lib/actions/themeActions';
-import {getOmarchyAvailable} from '$lib/stores/omarchy.svelte';
 
 export type Command = {
     id: string;
@@ -82,14 +81,6 @@ export function buildCommands(): Command[] {
             category: 'Navigate',
             keywords: 'saved themes presets',
             run: () => setActiveTab('blueprints'),
-        },
-        {
-            id: 'nav.system',
-            label: 'Go to Omarchy',
-            category: 'Navigate',
-            keywords: 'themes omarchy',
-            run: () => setActiveTab('system'),
-            visible: getOmarchyAvailable,
         },
         {
             id: 'nav.settings',

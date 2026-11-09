@@ -8,12 +8,11 @@ import {
     showToast,
 } from '../src/lib/stores/ui.svelte';
 import {loadBlueprintIntoEditor} from '../src/lib/actions/blueprintActions';
-import {initOmarchyCapabilities} from '$lib/stores/omarchy.svelte';
 import {ApplyTheme, GetInitialState, SyncState} from '../wailsjs/go/main/App';
 import {theme as backendTheme} from '../wailsjs/go/models';
 import {render, settle} from './setup';
 
-const success = {success: true, isOmarchy: false, themePath: '/theme'};
+const success = {success: true, themePath: '/theme'};
 
 // App installs the IPC listener on mount, so the harness records the callbacks
 // to replay a backend `ipc-state-changed` echo.
@@ -55,10 +54,6 @@ vi.mock(
     () => import('./Empty.svelte')
 );
 vi.mock(
-    '../src/lib/components/blueprints/OmarchyThemes.svelte',
-    () => import('./Empty.svelte')
-);
-vi.mock(
     '../src/lib/components/settings/SettingsView.svelte',
     () => import('./Empty.svelte')
 );
@@ -93,11 +88,6 @@ vi.mock('../src/lib/utils/browser', () => ({prefersReducedMotion: () => true}));
 vi.mock('../src/lib/utils/keyboard', () => ({
     initKeyboardShortcuts: vi.fn(),
     registerShortcut: vi.fn(),
-}));
-vi.mock('../src/lib/stores/omarchy.svelte', () => ({
-    initOmarchyCapabilities: vi.fn().mockResolvedValue(undefined),
-    getOmarchyAvailable: () => false,
-    getOmarchyCapabilities: () => ({overrideApps: []}),
 }));
 vi.mock('../wailsjs/go/main/App', () => ({
     GetInitialState: vi.fn().mockResolvedValue({}),
@@ -134,7 +124,6 @@ beforeEach(() => {
     vi.mocked(GetInitialState)
         .mockReset()
         .mockResolvedValue(new backendTheme.StateSnapshot());
-    vi.mocked(initOmarchyCapabilities).mockReset().mockResolvedValue();
 });
 
 test('importing a blueprint drops duplicated paths and shared basenames', () => {

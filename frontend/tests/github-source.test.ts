@@ -18,11 +18,6 @@ import {deferred, render, settle} from './setup';
 vi.mock('../src/lib/components/layout/ReleaseIndicator.svelte', async () => ({
     default: (await import('./Empty.svelte')).default,
 }));
-vi.mock('../src/lib/stores/omarchy.svelte', () => ({
-    getOmarchyAvailable: () => true,
-    getOmarchyCapabilities: () => ({overrideApps: ['kitty']}),
-    initOmarchyCapabilities: vi.fn().mockResolvedValue(undefined),
-}));
 vi.mock('../wailsjs/go/main/App', () => ({
     ListGitHubImages: vi.fn(),
     GetGitHubThumbnail: vi.fn(),

@@ -367,7 +367,6 @@ export namespace main {
 	    additionalImages: string[];
 	    extendedColors: Record<string, string>;
 	    nativeColors: Record<string, string>;
-	    installToOmarchy: boolean;
 	    appOverrides: Record<string, any>;
 	    iconTheme: icontheme.Selection;
 	
@@ -386,7 +385,6 @@ export namespace main {
 	        this.additionalImages = source["additionalImages"];
 	        this.extendedColors = source["extendedColors"];
 	        this.nativeColors = source["nativeColors"];
-	        this.installToOmarchy = source["installToOmarchy"];
 	        this.appOverrides = source["appOverrides"];
 	        this.iconTheme = this.convertValues(source["iconTheme"], icontheme.Selection);
 	    }
@@ -419,7 +417,6 @@ export namespace main {
 	    theme_name?: string;
 	    mode?: string;
 	    edit: boolean;
-	    omarchy_theme_name?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ExternalImportPreview(source);
@@ -436,7 +433,6 @@ export namespace main {
 	        this.theme_name = source["theme_name"];
 	        this.mode = source["mode"];
 	        this.edit = source["edit"];
-	        this.omarchy_theme_name = source["omarchy_theme_name"];
 	    }
 	}
 	export class ExtractFromImagesResult {
@@ -652,97 +648,6 @@ export namespace main {
 
 }
 
-export namespace omarchy {
-	
-	export class Capabilities {
-	    available: boolean;
-	    version: string;
-	    themesDir: string;
-	    stateDir: string;
-	    currentTheme: string;
-	    overrideApps: string[];
-	
-	    static createFrom(source: any = {}) {
-	        return new Capabilities(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.available = source["available"];
-	        this.version = source["version"];
-	        this.themesDir = source["themesDir"];
-	        this.stateDir = source["stateDir"];
-	        this.currentTheme = source["currentTheme"];
-	        this.overrideApps = source["overrideApps"];
-	    }
-	}
-	export class Theme {
-	    name: string;
-	    path: string;
-	    sources: string[];
-	    colors: string[];
-	    extendedColors: Record<string, string>;
-	    nativeColors: Record<string, string>;
-	    iconTheme: icontheme.Selection;
-	    background: string;
-	    foreground: string;
-	    mode: string;
-	    preview: string;
-	    wallpapers: string[];
-	    isSymlink: boolean;
-	    isOverlay: boolean;
-	    isUserTheme: boolean;
-	    canApply: boolean;
-	    isCurrentTheme: boolean;
-	    isAetherGenerated: boolean;
-	
-	    static createFrom(source: any = {}) {
-	        return new Theme(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.name = source["name"];
-	        this.path = source["path"];
-	        this.sources = source["sources"];
-	        this.colors = source["colors"];
-	        this.extendedColors = source["extendedColors"];
-	        this.nativeColors = source["nativeColors"];
-	        this.iconTheme = this.convertValues(source["iconTheme"], icontheme.Selection);
-	        this.background = source["background"];
-	        this.foreground = source["foreground"];
-	        this.mode = source["mode"];
-	        this.preview = source["preview"];
-	        this.wallpapers = source["wallpapers"];
-	        this.isSymlink = source["isSymlink"];
-	        this.isOverlay = source["isOverlay"];
-	        this.isUserTheme = source["isUserTheme"];
-	        this.canApply = source["canApply"];
-	        this.isCurrentTheme = source["isCurrentTheme"];
-	        this.isAetherGenerated = source["isAetherGenerated"];
-	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
-	}
-
-}
-
 export namespace template {
 	
 	export class ColorRoles {
@@ -806,7 +711,6 @@ export namespace theme {
 	
 	export class ApplyResult {
 	    success: boolean;
-	    isOmarchy: boolean;
 	    themePath: string;
 	
 	    static createFrom(source: any = {}) {
@@ -816,7 +720,6 @@ export namespace theme {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.success = source["success"];
-	        this.isOmarchy = source["isOmarchy"];
 	        this.themePath = source["themePath"];
 	    }
 	}

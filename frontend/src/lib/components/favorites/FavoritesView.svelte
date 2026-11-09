@@ -27,7 +27,6 @@
     import ViewHeader from '$lib/components/shared/ViewHeader.svelte';
     import CardSizeToggle from '$lib/components/shared/CardSizeToggle.svelte';
     import {getCardSize, CARD_MIN_WIDTH} from '$lib/stores/cardsize.svelte';
-    import {applyWallpaperOnly} from '$lib/actions/themeActions';
     import {openURL} from '$lib/utils/browser';
     import {getIsApplying} from '$lib/stores/theme.svelte';
     import {
@@ -368,7 +367,6 @@
                         isFavorited={true}
                         applying={getIsApplying()}
                         onuse={() => handleSelect(fav)}
-                        onwallpaperonly={() => applyWallpaperOnly(fav.path)}
                         onpreview={() => handlePreview(i)}
                         onaddextra={() => handleAddExtra(fav)}
                         onfavorite={() => handleRemove(fav)}

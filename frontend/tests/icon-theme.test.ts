@@ -1,6 +1,5 @@
 import {beforeEach, expect, test, vi} from 'vitest';
 import IconThemePicker from '../src/lib/components/sidebar/IconThemePicker.svelte';
-import OmarchyThemes from '../src/lib/components/blueprints/OmarchyThemes.svelte';
 import * as theme from '../src/lib/stores/theme.svelte';
 import {isAppIncluded, setAppIncluded} from '../src/lib/stores/settings.svelte';
 import {
@@ -13,7 +12,6 @@ import {
     GetIconThemePreview,
     ListInstalledIconThemes,
     RefreshInstalledIconThemes,
-    LoadOmarchyThemes,
 } from '../wailsjs/go/main/App';
 import {render, settle} from './setup';
 
@@ -23,13 +21,6 @@ vi.mock('../wailsjs/go/main/App', () => ({
     ListInstalledIconThemes: vi.fn(),
     RefreshInstalledIconThemes: vi.fn(),
     GetIconThemePreview: vi.fn().mockResolvedValue({samples: []}),
-    LoadOmarchyThemes: vi.fn().mockResolvedValue([]),
-}));
-vi.mock('../src/lib/stores/omarchy.svelte', () => ({
-    getOmarchyAvailable: () => true,
-    getOmarchyCapabilities: () => ({overrideApps: ['kitty']}),
-    initOmarchyCapabilities: vi.fn().mockResolvedValue(undefined),
-    refreshOmarchyCapabilities: vi.fn().mockResolvedValue(undefined),
 }));
 
 const ocean = {id: 'Ocean', name: 'Ocean', origin: 'user', hasPreview: true};
@@ -46,7 +37,6 @@ beforeEach(async () => {
     vi.mocked(GetIconThemePreview)
         .mockReset()
         .mockResolvedValue({themeId: 'Ocean', samples: []});
-    vi.mocked(LoadOmarchyThemes).mockReset().mockResolvedValue([]);
     vi.stubGlobal(
         'IntersectionObserver',
         class {
@@ -111,27 +101,6 @@ test('extraction preserves the icon choice and reset restores automatic', () => 
     expect(theme.getIconTheme()).toEqual({mode: 'explicit', id: 'Ocean'});
     theme.reset();
     expect(theme.getIconTheme()).toEqual({mode: 'automatic'});
-});
-
-test('an Omarchy theme import replaces the previous icon selection', async () => {
-    theme.setIconTheme({mode: 'explicit', id: 'Previous'}, true);
-    vi.mocked(LoadOmarchyThemes).mockResolvedValue([
-        {
-            name: 'Native',
-            colors: [...DEFAULT_PALETTE],
-            wallpapers: [],
-            iconTheme: {mode: 'explicit', id: 'Native-Icons'},
-        },
-    ]);
-    const {target} = render(OmarchyThemes, {});
-    await settle();
-    [...target.querySelectorAll('button')]
-        .find(button => button.textContent?.trim() === 'Import')!
-        .click();
-    expect(theme.getIconTheme()).toEqual({
-        mode: 'explicit',
-        id: 'Native-Icons',
-    });
 });
 
 test('the chooser selects an installed theme and preserves it while Icons is disabled', async () => {

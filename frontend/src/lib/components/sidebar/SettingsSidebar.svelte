@@ -11,20 +11,13 @@
     import SectionLabel from '$lib/components/shared/SectionLabel.svelte';
     import Segmented from '$lib/components/shared/Segmented.svelte';
     import {getLightMode, setLightMode} from '$lib/stores/theme.svelte';
-    import {
-        getOmarchyAvailable,
-        initOmarchyCapabilities,
-    } from '$lib/stores/omarchy.svelte';
 
     let lightMode = $derived(getLightMode());
-    let isOmarchy = $derived(getOmarchyAvailable());
 
     const paletteModes = [
         {value: 'dark', label: 'Dark', title: 'Generate a dark palette'},
         {value: 'light', label: 'Light', title: 'Generate a light palette'},
     ] as const;
-
-    void initOmarchyCapabilities();
 </script>
 
 <!-- Each section component renders its own bordered <section>. -->
@@ -56,7 +49,5 @@
 
     <SectionLabel label="Targets" />
     <NeovimThemes />
-    {#if !isOmarchy}
-        <TemplateToggles />
-    {/if}
+    <TemplateToggles />
 </div>

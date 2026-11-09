@@ -25,7 +25,6 @@
         theme_name?: string;
         mode?: string;
         edit?: boolean;
-        omarchy_theme_name?: string;
     };
 
     let preview = $state<Preview | null>(null);
@@ -33,7 +32,6 @@
     let isApplying = $state(false);
     // edit=true imports load into the editor instead of applying.
     let isEdit = $derived(!!preview?.edit);
-    let isOmarchyInstall = $derived(!isEdit && !!preview?.omarchy_theme_name);
 
     onMount(() => {
         // The backend emits this on startup when a staged file is present,
@@ -100,7 +98,6 @@
     async function handleConfirm() {
         if (!preview) return;
         const edit = isEdit; // snapshot before the await nulls preview
-        const omarchyInstall = isOmarchyInstall;
         const sourceUrl = preview.source_url;
         isApplying = true;
         try {
@@ -110,9 +107,7 @@
                 showToast('Loaded into editor');
             } else {
                 await ConfirmExternalImport(sourceUrl);
-                showToast(
-                    omarchyInstall ? 'Omarchy theme installed' : 'Applied'
-                );
+                showToast('Applied');
             }
             if (preview?.source_url === sourceUrl) preview = null;
         } catch (err) {
@@ -155,9 +150,7 @@
                 <h3 class="text-fg-primary text-[14px] font-semibold">
                     {isEdit
                         ? 'Open theme from web in editor?'
-                        : isOmarchyInstall
-                          ? 'Install Omarchy theme from web?'
-                          : 'Apply theme from web?'}
+                        : 'Apply theme from web?'}
                 </h3>
             </div>
 
@@ -183,22 +176,14 @@
                 </div>
             {/if}
 
-            {#if preview.theme_name || isOmarchyInstall}
+            {#if preview.theme_name}
                 <dl
                     class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-[12px]"
                 >
-                    {#if preview.theme_name}
-                        <dt class="text-fg-dimmed">Name</dt>
-                        <dd class="text-fg-primary truncate">
-                            {preview.theme_name}
-                        </dd>
-                    {/if}
-                    {#if isOmarchyInstall}
-                        <dt class="text-fg-dimmed">Install as</dt>
-                        <dd class="text-fg-primary truncate">
-                            {preview.omarchy_theme_name}
-                        </dd>
-                    {/if}
+                    <dt class="text-fg-dimmed">Name</dt>
+                    <dd class="text-fg-primary truncate">
+                        {preview.theme_name}
+                    </dd>
                 </dl>
             {/if}
 
@@ -212,9 +197,6 @@
                 {#if isEdit}
                     Aether will load these colors and wallpaper into the editor.
                     Nothing is applied until you click Apply.
-                {:else if isOmarchyInstall}
-                    Aether will create and activate this named Omarchy theme. An
-                    existing theme with the same name will not be overwritten.
                 {:else}
                     Aether will replace your palette and background. Only apply
                     from sources you trust.
@@ -239,8 +221,6 @@
             >
                 {#if isEdit}
                     {isApplying ? 'Opening...' : 'Open in editor'}
-                {:else if isOmarchyInstall}
-                    {isApplying ? 'Installing...' : 'Install and apply'}
                 {:else}
                     {isApplying ? 'Applying...' : 'Apply'}
                 {/if}

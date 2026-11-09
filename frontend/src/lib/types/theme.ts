@@ -91,8 +91,7 @@ export interface Settings {
     includeVscode: boolean;
     includeNeovim: boolean;
     selectedNeovimConfig: string;
-    // App templates explicitly included as overrides. Omarchy generates its
-    // standard app configs from colors.toml when an app is not included here.
+    // App templates explicitly included as overrides.
     includedApps?: Record<string, boolean>;
 }
 

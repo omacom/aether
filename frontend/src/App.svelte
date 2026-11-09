@@ -10,7 +10,6 @@
     import LocalBrowser from '$lib/components/local/LocalBrowser.svelte';
     import FavoritesView from '$lib/components/favorites/FavoritesView.svelte';
     import BlueprintsView from '$lib/components/blueprints/BlueprintsView.svelte';
-    import OmarchyThemes from '$lib/components/blueprints/OmarchyThemes.svelte';
     import SettingsView from '$lib/components/settings/SettingsView.svelte';
     import AboutView from '$lib/components/layout/AboutView.svelte';
     import ExportProgress from '$lib/components/favorites/ExportProgress.svelte';
@@ -51,7 +50,6 @@
         'local',
         'favorites',
         'blueprints',
-        'system',
         'settings',
         'about',
     ] as const;
@@ -109,16 +107,9 @@
     import {prefersReducedMotion} from '$lib/utils/browser';
     import {buildCommands} from '$lib/commands/commands.svelte';
     import type {main} from '../wailsjs/go/models';
-    import {
-        getOmarchyAvailable,
-        initOmarchyCapabilities,
-    } from '$lib/stores/omarchy.svelte';
 
     let activeTab = $derived(getActiveTab());
     let commands = $derived(buildCommands());
-    let omarchyAvailable = $derived(getOmarchyAvailable());
-
-    void initOmarchyCapabilities();
 
     const TAB_FADE_DURATION = prefersReducedMotion() ? 0 : 100;
 
@@ -299,16 +290,12 @@
             WindowShow();
         } catch {}
 
-        await initOmarchyCapabilities();
-
         // Focus a specific tab if requested via --tab flag
         try {
             const {GetFocusTab} = await import('../wailsjs/go/main/App');
             const tab = await GetFocusTab();
             if (tab && isValidTab(tab)) {
-                setActiveTab(
-                    tab === 'system' && !getOmarchyAvailable() ? 'editor' : tab
-                );
+                setActiveTab(tab);
             }
         } catch {}
 
@@ -583,8 +570,6 @@
                     <FavoritesView />
                 {:else if activeTab === 'blueprints'}
                     <BlueprintsView />
-                {:else if activeTab === 'system'}
-                    <OmarchyThemes />
                 {:else if activeTab === 'settings'}
                     <SettingsView />
                 {:else if activeTab === 'about'}
@@ -593,7 +578,7 @@
             </div>
         {/key}
     </main>
-    {#if activeTab === 'editor' && getTargetsVisible() && !omarchyAvailable}
+    {#if activeTab === 'editor' && getTargetsVisible()}
         <TargetAppsStrip />
     {/if}
     <ActionBar />

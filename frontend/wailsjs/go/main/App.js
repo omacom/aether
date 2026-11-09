@@ -10,16 +10,8 @@ export function ApplyBlueprint(arg1) {
   return window['go']['main']['App']['ApplyBlueprint'](arg1);
 }
 
-export function ApplyOmarchyThemeByName(arg1) {
-  return window['go']['main']['App']['ApplyOmarchyThemeByName'](arg1);
-}
-
 export function ApplyTheme(arg1) {
   return window['go']['main']['App']['ApplyTheme'](arg1);
-}
-
-export function ApplyWallpaperOnly(arg1) {
-  return window['go']['main']['App']['ApplyWallpaperOnly'](arg1);
 }
 
 export function BlueprintExists(arg1) {
@@ -118,10 +110,6 @@ export function GetInitialState() {
   return window['go']['main']['App']['GetInitialState']();
 }
 
-export function GetOmarchyCapabilities() {
-  return window['go']['main']['App']['GetOmarchyCapabilities']();
-}
-
 export function GetPendingExternalImport() {
   return window['go']['main']['App']['GetPendingExternalImport']();
 }
@@ -182,10 +170,6 @@ export function IsMacOS() {
   return window['go']['main']['App']['IsMacOS']();
 }
 
-export function IsOmarchyInstalled() {
-  return window['go']['main']['App']['IsOmarchyInstalled']();
-}
-
 export function IsPreviewCached(arg1) {
   return window['go']['main']['App']['IsPreviewCached'](arg1);
 }
@@ -204,10 +188,6 @@ export function ListInstalledIconThemes() {
 
 export function LoadBlueprint(arg1) {
   return window['go']['main']['App']['LoadBlueprint'](arg1);
-}
-
-export function LoadOmarchyThemes() {
-  return window['go']['main']['App']['LoadOmarchyThemes']();
 }
 
 export function OpenExternalImportInEditor(arg1) {

@@ -5,7 +5,6 @@
         getAdditionalImages,
     } from '$lib/stores/theme.svelte';
     import {setActiveTab, showToast} from '$lib/stores/ui.svelte';
-    import {applyWallpaperOnly} from '$lib/actions/themeActions';
     import {getIsApplying} from '$lib/stores/theme.svelte';
     import {openURL} from '$lib/utils/browser';
     import {observeIntersection} from '$lib/utils/intersection';
@@ -101,7 +100,6 @@
         useTitle="Download, set as wallpaper, and open in editor"
         visitTitle="Open on wallhaven.cc"
         onuse={handleUse}
-        onwallpaperonly={() => applyWallpaperOnly(wallpaper.path)}
         {onpreview}
         onaddextra={handleAddExtra}
         onfavorite={handleFavorite}

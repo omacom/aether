@@ -68,7 +68,7 @@
         ctx.clearRect(0, 0, cw, ch);
 
         // Pick ink against the actually-painted bg, not just the user's
-        // light/dark toggle — a system Omarchy theme can apply a light bg
+        // light/dark toggle — the desktop theme can apply a light bg
         // while the toggle is still off, leaving white ink invisible.
         const bgVar = getComputedStyle(document.documentElement)
             .getPropertyValue('--color-bg-primary')

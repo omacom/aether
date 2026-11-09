@@ -6,7 +6,6 @@
         getAdditionalImages,
     } from '$lib/stores/theme.svelte';
     import {setActiveTab, showToast} from '$lib/stores/ui.svelte';
-    import {applyWallpaperOnly} from '$lib/actions/themeActions';
     import {getIsApplying} from '$lib/stores/theme.svelte';
     import {
         getLabels,
@@ -449,7 +448,6 @@
                         isFavorited={isFavorite(wp.path)}
                         applying={getIsApplying()}
                         onuse={() => selectWallpaper(wp.path)}
-                        onwallpaperonly={() => applyWallpaperOnly(wp.path)}
                         onpreview={() => handlePreview(i)}
                         onaddextra={() => handleAddExtra(wp.path)}
                         onfavorite={() => handleFavorite(wp)}

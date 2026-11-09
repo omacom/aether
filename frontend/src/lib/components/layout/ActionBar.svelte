@@ -31,7 +31,6 @@
     import {getApiKey, getTotalResults} from '$lib/stores/wallhaven.svelte';
     import {
         applyTheme,
-        getNativeAppOverrides,
         requestThemeApply,
         saveThemeAsNew,
         undoAction,
@@ -45,10 +44,6 @@
     import DialogHeader from '$lib/components/shared/DialogHeader.svelte';
     import DialogFooter from '$lib/components/shared/DialogFooter.svelte';
     import Switch from '$lib/components/shared/Switch.svelte';
-    import {
-        getOmarchyAvailable,
-        initOmarchyCapabilities,
-    } from '$lib/stores/omarchy.svelte';
 
     let showImportMenu = $state(false);
     let showApplyMenu = $state(false);
@@ -72,11 +67,7 @@
         },
     } as const;
     let exportName = $state('');
-    let installToOmarchy = $state(false);
-    let isOmarchy = $derived(getOmarchyAvailable());
     let exportNameInput = $state<HTMLInputElement | null>(null);
-
-    initOmarchyCapabilities();
 
     $effect(() => {
         if (showExportDialog) exportNameInput?.focus();
@@ -168,9 +159,7 @@
     let sidebarVisible = $derived(getSidebarVisible());
     let menuOpen = $derived(showImportMenu || showApplyMenu || showMoreMenu);
     let overrideCount = $derived(
-        Object.values(
-            isOmarchy ? getNativeAppOverrides() : getAppOverrides()
-        ).reduce((sum, o) => sum + Object.keys(o).length, 0)
+        Object.values(getAppOverrides()).reduce((sum, o) => sum + Object.keys(o).length, 0)
     );
 
     // --- Editor actions ---
@@ -206,11 +195,9 @@
     async function handleExport() {
         if (!exportName.trim()) return;
         try {
-            await initOmarchyCapabilities();
             const {ExportTheme} = await import(
                 '../../../../wailsjs/go/main/App'
             );
-            const nativeExport = getOmarchyAvailable();
             const includedApps = Object.entries(exportApps)
                 .filter(([, enabled]) => enabled)
                 .map(([key]) => key);
@@ -225,23 +212,11 @@
                 extendedColors: getExtendedColors(),
                 nativeColors: getNativeColors(),
                 iconTheme: {...getIconTheme()},
-                installToOmarchy,
-                appOverrides: nativeExport
-                    ? getNativeAppOverrides()
-                    : getAppOverrides(),
+                appOverrides: getAppOverrides(),
             } as unknown as main.ExportThemeRequest);
-            // Path ends with .../omarchy-{slug}-theme — pull the slug so the
-            // user can see what name actually went into Omarchy's menu.
-            const slug =
-                path.match(/omarchy-(.+)-theme$/)?.[1] ?? exportName.trim();
-            showToast(
-                installToOmarchy
-                    ? `Installed as Omarchy theme: ${slug}`
-                    : `Exported to ${path}`
-            );
+            showToast(`Exported to ${path}`);
             showExportDialog = false;
             exportName = '';
-            installToOmarchy = false;
         } catch (e: any) {
             showToast(e?.message || 'Export failed');
         }
@@ -493,8 +468,7 @@
                     {overrideCount} override{overrideCount === 1 ? '' : 's'}
                 </span>
             {/if}
-            {#if !isOmarchy}
-                <button
+            <button
                     type="button"
                     class="hover:text-fg-primary transition-colors {targetsVisible
                         ? 'text-fg-secondary'
@@ -507,7 +481,6 @@
                 >
                     Targets
                 </button>
-            {/if}
             <span title="Aether version">v{__APP_VERSION__}</span>
         </div>
 
@@ -660,8 +633,6 @@
                 <span>Favorited wallpapers</span>
             {:else if activeTab === 'blueprints'}
                 <span>Saved themes</span>
-            {:else if activeTab === 'system'}
-                <span>Native themes</span>
             {:else if activeTab === 'settings'}
                 <span>App settings</span>
             {:else if activeTab === 'about'}
@@ -703,17 +674,6 @@
                 bind:value={exportName}
             />
         </label>
-        {#if isOmarchy}
-            <p class="text-fg-dimmed text-[12px] leading-relaxed">
-                Exports a native colors.toml theme. Omarchy generates and
-                reloads application themes when it is applied.
-            </p>
-            {@render checkbox(
-                'Install as Omarchy theme',
-                installToOmarchy,
-                () => (installToOmarchy = !installToOmarchy)
-            )}
-        {:else}
             <div class="flex flex-col gap-3.5">
                 <div class="flex items-baseline justify-between">
                     <span class="text-fg-secondary text-[12px] font-medium"
@@ -755,7 +715,6 @@
                     </div>
                 {/each}
             </div>
-        {/if}
     </div>
     <DialogFooter>
         <button

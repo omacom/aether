@@ -14,7 +14,7 @@ beforeEach(() => {
         latestVersion: '',
         releaseURL: '',
         updateAvailable: false,
-        updateCommand: 'omarchy-update',
+        updateCommand: 'pacman -Syu',
     });
     vi.mocked(StartUpgrade).mockReset();
 });

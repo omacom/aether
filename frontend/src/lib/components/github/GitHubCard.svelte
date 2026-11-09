@@ -9,7 +9,6 @@
         getWallpaperRevision,
     } from '$lib/stores/theme.svelte';
     import {setActiveTab, showToast} from '$lib/stores/ui.svelte';
-    import {applyWallpaperOnly} from '$lib/actions/themeActions';
     import {isFavorite, toggleFavorite} from '$lib/stores/favorites.svelte';
     import {observeIntersection} from '$lib/utils/intersection';
     import {formatFileSize} from '$lib/utils/format';
@@ -123,7 +122,6 @@
         onuse={() => useImage()}
         onaddextra={() => useImage(true)}
         onfavorite={favorite}
-        onwallpaperonly={() => applyWallpaperOnly(image.url)}
         {onpreview}
     >
         {#snippet thumb()}
