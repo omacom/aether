@@ -26,7 +26,6 @@ const (
 	brightBlackMix   = 0.55
 	brightTowardMix  = 0.18
 	inkContrastGoal  = 7.0
-	inkStep          = 0.02
 	inkDarkLimit     = 0.15
 	inkLightLimit    = 0.97
 	inkChromaScale   = 0.5
@@ -103,18 +102,13 @@ func hueGap(a, b string) float64 {
 
 func accentInk(accent string) string {
 	lch := color.HexToOKLCH(accent)
-	target, step := inkLightLimit, inkStep
+	target, extreme := inkLightLimit, 1.0
 	if lch.L > inkDarkThreshold {
-		target, step = inkDarkLimit, -inkStep
+		target, extreme = inkDarkLimit, 0.0
 	}
-	lch.C *= inkChromaScale
-	out := color.OKLCHToHex(lch)
-	for color.ContrastRatio(out, accent) < inkContrastGoal {
-		if (step < 0 && lch.L <= target) || (step > 0 && lch.L >= target) {
-			break
-		}
-		lch.L += step
-		out = color.OKLCHToHex(lch)
+	out := color.OKLCHToHex(color.OKLCH{L: target, C: lch.C * inkChromaScale, H: lch.H})
+	if color.ContrastRatio(out, accent) < inkContrastGoal {
+		out = color.OKLCHToHex(color.OKLCH{L: extreme, C: 0, H: lch.H})
 	}
 	return out
 }

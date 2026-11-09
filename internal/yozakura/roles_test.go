@@ -2,6 +2,7 @@ package yozakura
 
 import (
 	"encoding/json"
+	"math"
 	"os"
 	"testing"
 
@@ -97,8 +98,8 @@ func TestDeriveTermBrights(t *testing.T) {
 }
 
 type curatedTheme struct {
-	Ground, Surface, Surface2, Border, Text, Muted string
-	Term                                           [8]string
+	Ground, Surface, Surface2, Border, Text, Muted, Accent, AccentInk string
+	Term                                                              [8]string
 }
 
 func TestDeriveCuratedSurfaceTolerance(t *testing.T) {
@@ -150,5 +151,107 @@ func TestDeriveDefaultsGlassClock(t *testing.T) {
 	th = Derive(mapRoles(defaultPalette), nil, &g, &c)
 	if th.Glass != 0.8 || th.Clock != c {
 		t.Errorf("explicit glass/clock not honoured")
+	}
+}
+
+func loadCurated(t *testing.T) map[string]curatedTheme {
+	t.Helper()
+	raw, err := os.ReadFile("testdata/curated.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var f struct {
+		Themes map[string]curatedTheme `json:"themes"`
+	}
+	if err := json.Unmarshal(raw, &f); err != nil {
+		t.Fatal(err)
+	}
+	return f.Themes
+}
+
+func TestDeriveAccentInkExtremeAndContrast(t *testing.T) {
+	check := func(name, accent, curatedInk string) {
+		r := mapRoles(defaultPalette)
+		r.Accent = accent
+		ink := Derive(r, nil, nil, nil).Roles["accentInk"]
+		if cr := color.ContrastRatio(ink, accent); cr < 7.0 {
+			t.Errorf("%s: contrast %.2f < 7", name, cr)
+		}
+		l := color.HexToOKLab(ink).L
+		if color.HexToOKLCH(accent).L > 0.6 {
+			if l > 0.2 {
+				t.Errorf("%s: ink L %.3f > 0.2", name, l)
+			}
+		} else if l < 0.9 {
+			t.Errorf("%s: ink L %.3f < 0.9", name, l)
+		}
+		if curatedInk != "" {
+			d := color.OKLabDistance(color.HexToOKLab(ink), color.HexToOKLab(curatedInk))
+			t.Logf("%s: ink %s curated %s dist %.4f", name, ink, curatedInk, d)
+			if d > 0.08 {
+				t.Errorf("%s: ink distance %.4f > 0.08", name, d)
+			}
+		}
+	}
+	check("default", defaultPalette[4], "")
+	for id, c := range loadCurated(t) {
+		check(id, c.Accent, c.AccentInk)
+	}
+}
+
+func TestDeriveMuted(t *testing.T) {
+	th := Derive(mapRoles(defaultPalette), nil, nil, nil)
+	if want := Mix(th.Roles["text"], th.Roles["border"], 0.40); th.Roles["muted"] != want {
+		t.Errorf("muted = %s, want %s", th.Roles["muted"], want)
+	}
+}
+
+func TestDeriveAccentDefaultHighestChroma(t *testing.T) {
+	r := mapRoles(defaultPalette)
+	r.Accent = ""
+	th := Derive(r, nil, nil, nil)
+	cands := AccentCandidates(r)
+	if th.Roles["accent"] != cands[0] {
+		t.Errorf("accent = %s, want %s", th.Roles["accent"], cands[0])
+	}
+	maxC := 0.0
+	for _, i := range []int{1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14} {
+		maxC = math.Max(maxC, color.HexToOKLCH(defaultPalette[i]).C)
+	}
+	if got := color.HexToOKLCH(cands[0]).C; math.Abs(got-maxC) > 1e-9 {
+		t.Errorf("candidate chroma %f != max %f", got, maxC)
+	}
+}
+
+func TestDeriveAccentInvalidFallsBack(t *testing.T) {
+	r := mapRoles(defaultPalette)
+	r.Accent = ""
+	want := Derive(r, nil, nil, nil).Roles["accent"]
+	r.Accent = "nothex"
+	if got := Derive(r, nil, nil, nil).Roles["accent"]; got != want {
+		t.Errorf("accent = %s, want %s", got, want)
+	}
+}
+
+func TestDeriveAccent2FallsBackToMagentaThenBlue(t *testing.T) {
+	// All ANSI colours are near-identical reds, so no candidate is 40 degrees away.
+	reds := [16]string{"#101010", "#ff0000", "#ff1010", "#f01010", "#ff2020", "#ee0000", "#ff0505", "#eeeeee",
+		"#303030", "#ff0000", "#ff1010", "#f01010", "#ff2020", "#ee0000", "#ff0505", "#ffffff"}
+	r := mapRoles(reds)
+	r.Accent = ""
+	if got := Derive(r, nil, nil, nil).Roles["accent2"]; got != r.Magenta {
+		t.Errorf("accent2 = %s, want magenta %s", got, r.Magenta)
+	}
+	r.Magenta = "bad"
+	if got := Derive(r, nil, nil, nil).Roles["accent2"]; got != r.Blue {
+		t.Errorf("accent2 = %s, want blue %s", got, r.Blue)
+	}
+}
+
+func TestHueGapWrapsAt360(t *testing.T) {
+	a := color.OKLCHToHex(color.OKLCH{L: 0.7, C: 0.1, H: 355})
+	b := color.OKLCHToHex(color.OKLCH{L: 0.7, C: 0.1, H: 10})
+	if g := hueGap(a, b); math.Abs(g-15) > 2 {
+		t.Errorf("gap = %f, want ~15", g)
 	}
 }
