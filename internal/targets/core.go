@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -260,10 +261,45 @@ func hyprlandTarget() Target {
 func awwwTarget() Target {
 	return Target{
 		ID: "awww", Label: "awww wallpaper",
-		Detect:       func(c Context) bool { return c.have("awww") && c.Wallpaper != "" },
-		Reload:       func(c Context) []string { return []string{"awww", "img", c.Wallpaper} },
+		Detect: func(c Context) bool { return c.have("awww") && c.Wallpaper != "" },
+		Reload: func(c Context) []string {
+			return []string{"awww", "img", c.Wallpaper, "--resize", "crop", "-t", "grow",
+				"--transition-pos", "top-right", "--transition-duration", "1.4", "--transition-fps", "60"}
+		},
 		AlwaysReload: true,
+		ReloadNeeded: awwwNeedsReload,
 	}
+}
+
+var awwwDisplaying = regexp.MustCompile(`currently displaying: (\w+):\s*(.*)$`)
+
+// awwwNeedsReload reports whether any output is not already showing the
+// wallpaper. An unreadable or unparsable query means "reload".
+func awwwNeedsReload(c Context) bool {
+	out, err := c.Run("awww", "query")
+	if err != nil {
+		return true
+	}
+	want, err := filepath.Abs(c.Wallpaper)
+	if err != nil {
+		return true
+	}
+	seen := false
+	for _, line := range strings.Split(out, "\n") {
+		m := awwwDisplaying.FindStringSubmatch(strings.TrimSpace(line))
+		if m == nil {
+			continue
+		}
+		seen = true
+		if m[1] != "image" {
+			return true
+		}
+		got, err := filepath.Abs(strings.TrimSpace(m[2]))
+		if err != nil || got != want {
+			return true
+		}
+	}
+	return !seen
 }
 
 func kittyTarget() Target {

@@ -11,6 +11,7 @@ import (
 )
 
 type curatedTheme struct {
+	Name  string          `json:"name"`
 	Match []string        `json:"match"`
 	Glass *float64        `json:"glass"`
 	Clock *yozakura.Clock `json:"clock"`
@@ -19,7 +20,7 @@ type curatedTheme struct {
 
 // ImportYozakura converts a curated Yozakura themes.json into blueprints
 // (one per theme id, sorted by id) and returns the file's default theme id.
-// The display name from the file is not stored; Blueprint.Name is the id.
+// Blueprint.Name is the id; the file's display name goes in DisplayName.
 func ImportYozakura(path string) (bps []Blueprint, defaultName string, err error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -72,7 +73,7 @@ func ImportYozakura(path string) (bps []Blueprint, defaultName string, err error
 		colors = append(colors, th.Term[8:]...)
 
 		bp := Blueprint{
-			Name: id,
+			Name: id, DisplayName: t.Name,
 			Palette: PaletteData{
 				Colors:         colors,
 				ExtendedColors: map[string]string{"background": rolesMap["ground"], "foreground": rolesMap["text"]},

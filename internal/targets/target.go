@@ -56,6 +56,9 @@ type Target struct {
 	Includes     []Include
 	Reload       func(Context) []string // argv; nil means no reload
 	AlwaysReload bool
+	// ReloadNeeded gates an AlwaysReload target: when set and it returns
+	// false, the reload is skipped and the target stays "unchanged".
+	ReloadNeeded func(Context) bool
 	Cleanup      []string // old generated files to delete after success (relative to Home)
 }
 
@@ -123,7 +126,11 @@ func applyOne(ctx Context, t Target, enabled func(string) bool) Status {
 	if changed {
 		st.State = "written"
 	}
-	if (changed || t.AlwaysReload) && t.Reload != nil && ctx.Run != nil {
+	reload := changed || t.AlwaysReload
+	if !changed && t.AlwaysReload && t.ReloadNeeded != nil && ctx.Run != nil && !t.ReloadNeeded(ctx) {
+		reload = false
+	}
+	if reload && t.Reload != nil && ctx.Run != nil {
 		if argv := t.Reload(ctx); len(argv) > 0 {
 			stderr, err := ctx.Run(argv[0], argv[1:]...)
 			if err != nil {

@@ -329,9 +329,19 @@ func (w *Writer) applyTargets(state *ThemeState, variables map[string]string, se
 	}
 	yoz := yozakura.Derive(state.ColorRoles, state.YozakuraRoles, state.Glass, state.Clock)
 	yozakura.Enforce(&yoz)
+	name, id := state.ThemeName, state.ThemeID
+	if id == "" {
+		id = "auto"
+	}
+	if name == "" {
+		name = "Auto"
+		if id != "auto" {
+			name = id
+		}
+	}
 	ctx := targets.Context{
-		Name:      "Aether",
-		ID:        "auto",
+		Name:      name,
+		ID:        id,
 		Wallpaper: state.WallpaperPath,
 		Vars:      variables,
 		Yoz:       yoz,

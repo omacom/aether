@@ -59,7 +59,21 @@ func ichoContext(t *testing.T) (Context, *recorder) {
 	cr.SelectionForeground, cr.SelectionBackground = over["accentInk"], over["accent"]
 	home := t.TempDir()
 	rec := &recorder{}
+	display := ""
 	run := func(name string, args ...string) (string, error) {
+		if name == "awww" && len(args) > 0 {
+			rec.calls = append(rec.calls, append([]string{name}, args...))
+			switch args[0] {
+			case "query":
+				if display == "" {
+					return "0: eDP-1: 1x1, scale: 1, currently displaying: color: 000000\n", nil
+				}
+				return "0: eDP-1: 1x1, scale: 1, currently displaying: image: " + display + "\n", nil
+			case "img":
+				display = args[1]
+				return "", nil
+			}
+		}
 		if name == "gsettings" {
 			rec.calls = append(rec.calls, append([]string{name}, args...))
 			return "true\n", nil
@@ -200,9 +214,13 @@ func TestApplyTwiceIsIdempotent(t *testing.T) {
 	ctx.Backups = NewBackups(ctx.Home, time.Unix(4001, 0))
 	for _, s := range Apply(ctx, All(), nil) {
 		switch s.ID {
-		case "hyprland", "awww":
+		case "hyprland":
 			if s.State != "reloaded" {
 				t.Errorf("%s = %s, want reloaded", s.ID, s.State)
+			}
+		case "awww":
+			if s.State != "unchanged" {
+				t.Errorf("awww = %s, want unchanged", s.State)
 			}
 		default:
 			if s.State != "unchanged" {
@@ -214,6 +232,18 @@ func TestApplyTwiceIsIdempotent(t *testing.T) {
 		if c[0] != "hyprctl" && c[0] != "awww" && c[0] != "gsettings" {
 			t.Errorf("unexpected call on run 2: %q", c)
 		}
+	}
+	sawQuery := false
+	for _, c := range rec.calls {
+		if c[0] == "awww" && c[1] == "img" {
+			t.Errorf("awww img on run 2: %q", c)
+		}
+		if c[0] == "awww" && c[1] == "query" {
+			sawQuery = true
+		}
+	}
+	if !sawQuery {
+		t.Error("run 2 did not query awww")
 	}
 	if _, err := os.Stat(filepath.Join(ctx.Home, ".local/state/aether/backups/4001")); err == nil {
 		t.Error("second run created backups")
@@ -329,5 +359,76 @@ func TestDetectUsesInjectedLookup(t *testing.T) {
 	}
 	for _, c := range rec.calls {
 		t.Errorf("unexpected command %q", c)
+	}
+}
+
+func awwwCalls(rec *recorder) (query, img [][]string) {
+	for _, c := range rec.calls {
+		if c[0] == "awww" && c[1] == "query" {
+			query = append(query, c)
+		}
+		if c[0] == "awww" && c[1] == "img" {
+			img = append(img, c)
+		}
+	}
+	return
+}
+
+func awwwStatus(t *testing.T, ctx Context) Status {
+	t.Helper()
+	for _, s := range Apply(ctx, []Target{awwwTarget()}, nil) {
+		return s
+	}
+	return Status{}
+}
+
+func TestAwwwSkipsWhenAlreadyDisplayed(t *testing.T) {
+	for name, out := range map[string]string{
+		"single": "0: eDP-1: 1x1, scale: 1, currently displaying: image: " + testWallpaper + "\n",
+		"multi": "0: eDP-1: 1x1, scale: 1, currently displaying: image: " + testWallpaper + "\n" +
+			"1: DP-1: 1x1, scale: 1, currently displaying: image: " + testWallpaper + "\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			ctx, rec := ichoContext(t)
+			ctx.Run = func(n string, a ...string) (string, error) {
+				rec.calls = append(rec.calls, append([]string{n}, a...))
+				return out, nil
+			}
+			if s := awwwStatus(t, ctx); s.State != "unchanged" {
+				t.Errorf("state = %+v", s)
+			}
+			q, img := awwwCalls(rec)
+			if len(q) != 1 || len(img) != 0 {
+				t.Errorf("calls = %v", rec.calls)
+			}
+		})
+	}
+}
+
+func TestAwwwReloadsWhenAnyOutputDiffers(t *testing.T) {
+	ctx, rec := ichoContext(t)
+	ctx.Run = func(n string, a ...string) (string, error) {
+		rec.calls = append(rec.calls, append([]string{n}, a...))
+		return "0: A: 1x1, scale: 1, currently displaying: image: " + testWallpaper + "\n" +
+			"1: B: 1x1, scale: 1, currently displaying: image: /other.png\n", nil
+	}
+	if s := awwwStatus(t, ctx); s.State != "reloaded" {
+		t.Errorf("state = %+v", s)
+	}
+	if _, img := awwwCalls(rec); len(img) != 1 {
+		t.Errorf("calls = %v", rec.calls)
+	}
+}
+
+func TestAwwwUsesShellTransition(t *testing.T) {
+	ctx, rec := ichoContext(t)
+	if s := awwwStatus(t, ctx); s.State != "reloaded" {
+		t.Fatalf("state = %+v", s)
+	}
+	_, img := awwwCalls(rec)
+	want := []string{"awww", "img", testWallpaper, "--resize", "crop", "-t", "grow",
+		"--transition-pos", "top-right", "--transition-duration", "1.4", "--transition-fps", "60"}
+	if len(img) != 1 || strings.Join(img[0], " ") != strings.Join(want, " ") {
+		t.Errorf("img = %v, want %v", img, want)
 	}
 }

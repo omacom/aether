@@ -41,6 +41,9 @@ func findBP(t *testing.T, bps []Blueprint, name string) Blueprint {
 func TestImportYozakuraRolesExplicit(t *testing.T) {
 	bps, _, _ := ImportYozakura(curatedFixture)
 	bp := findBP(t, bps, "icho")
+	if bp.DisplayName != "Ichō" {
+		t.Fatalf("displayName = %q", bp.DisplayName)
+	}
 	want := map[string]string{
 		"ground": "#120b18", "surface": "#1b1222", "surface2": "#281a31", "border": "#3c2a49",
 		"accent": "#ff9ed2", "accent2": "#c39cec", "info": "#8ba2f1", "danger": "#ff5d6c",

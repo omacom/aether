@@ -30,6 +30,10 @@ type ThemeState struct {
 	AdditionalImages      []string                     `json:"additionalImages"`
 	AppOverrides          map[string]map[string]string `json:"appOverrides"`
 	IconTheme             icontheme.Selection          `json:"iconTheme"`
+	// ThemeName and ThemeID label the theme in generated shell output
+	// (theme.json name/id). Empty means "Auto"/"auto".
+	ThemeName string `json:"themeName,omitempty"`
+	ThemeID   string `json:"themeID,omitempty"`
 }
 
 // DefaultPalette is the Catppuccin-inspired default 16-color palette.

@@ -10,7 +10,9 @@ import (
 
 // Blueprint represents a saved theme configuration.
 type Blueprint struct {
-	Name         string                       `json:"name"`
+	Name string `json:"name"`
+	// DisplayName is the human-readable theme name ("Ichō"); Name is the slug.
+	DisplayName  string                       `json:"displayName,omitempty"`
 	Palette      PaletteData                  `json:"palette"`
 	Adjustments  map[string]float64           `json:"adjustments,omitempty"`
 	AppOverrides map[string]map[string]string `json:"appOverrides,omitempty"`
