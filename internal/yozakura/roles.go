@@ -185,10 +185,9 @@ func Derive(roles template.ColorRoles, overrides map[string]string, glass *float
 
 	base := [8]string{roles.Black, roles.Red, roles.Green, roles.Yellow, roles.Blue, roles.Magenta, roles.Cyan, roles.White}
 	copy(th.Term[:8], base[:])
-	th.Term[8] = mixSRGB(base[0], r["muted"], brightBlackMix)
 	for i := 1; i <= 6; i++ {
 		th.Term[8+i] = mixSRGB(base[i], "#ffffff", brightTowardMix)
 	}
-	th.Term[15] = r["text"]
+	syncTerm(&th)
 	return th
 }
