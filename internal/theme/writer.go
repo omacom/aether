@@ -250,22 +250,16 @@ func prepareThemeDir(targetDir string, state *ThemeState) (string, error) {
 	return wallpaperDest, nil
 }
 
-// applyEditorThemes applies optional editor themes (Zed, VSCode).
+// applyEditorThemes applies optional editor themes (Zed). VS Code is written
+// by its desktop target (targets.vscodeTarget).
 func (w *Writer) applyEditorThemes(
 	themeDir string,
-	variables map[string]string,
 	appOverrides map[string]map[string]string,
 	includeZed bool,
-	includeVscode bool,
 ) error {
 	if includeZed || len(appOverrides["zed"]) > 0 {
 		if err := ApplyZedTheme(themeDir); err != nil {
 			return fmt.Errorf("apply Zed theme: %w", err)
-		}
-	}
-	if includeVscode || len(appOverrides["vscode"]) > 0 {
-		if err := ApplyVSCodeTheme(w.templatesFS, w.templatesDir, variables); err != nil {
-			return fmt.Errorf("apply VSCode theme: %w", err)
 		}
 	}
 	return nil
@@ -292,7 +286,8 @@ func (w *Writer) ApplyTheme(state *ThemeState, settings Settings) (*ApplyResult,
 	if _, err := prepareThemeDir(themeDir, state); err != nil {
 		return &ApplyResult{Success: false, ThemePath: themeDir}, err
 	}
-	if err := w.processTemplates(variables, themeDir, settings, state.AppOverrides, state.ExtendedColors, state.IconTheme); err != nil {
+	// chromium.theme is written by its desktop target, so apply skips it here.
+	if err := w.processTemplatesSkipping(targetOwnedTemplates, variables, themeDir, settings, state.AppOverrides, state.ExtendedColors, state.IconTheme); err != nil {
 		return &ApplyResult{Success: false, ThemePath: themeDir}, err
 	}
 	if err := HandleLightModeMarker(themeDir, state.LightMode); err != nil {
@@ -300,10 +295,8 @@ func (w *Writer) ApplyTheme(state *ThemeState, settings Settings) (*ApplyResult,
 	}
 	if err := w.applyEditorThemes(
 		themeDir,
-		variables,
 		state.AppOverrides,
 		settings.includesApp("zed"),
-		settings.includesApp("vscode"),
 	); err != nil {
 		return &ApplyResult{Success: false, ThemePath: themeDir}, err
 	}
@@ -338,6 +331,9 @@ func (w *Writer) applyTargets(state *ThemeState, variables map[string]string, se
 		Home:      home,
 		Run:       w.Run,
 		Have:      w.Have,
+	}
+	if sub, err := fs.Sub(w.templatesFS, w.templatesDir); err == nil {
+		ctx.Templates = sub
 	}
 	return targets.Apply(ctx, targets.All(), settings.TargetEnabled)
 }
@@ -515,6 +511,21 @@ func (w *Writer) processTemplates(
 	globalOverrides map[string]string,
 	iconThemes ...icontheme.Selection,
 ) error {
+	return w.processTemplatesSkipping(nil, variables, outputDir, settings, appOverrides, globalOverrides, iconThemes...)
+}
+
+// targetOwnedTemplates are written by a desktop target during ApplyTheme.
+var targetOwnedTemplates = map[string]bool{"chromium.theme": true}
+
+func (w *Writer) processTemplatesSkipping(
+	skip map[string]bool,
+	variables map[string]string,
+	outputDir string,
+	settings Settings,
+	appOverrides map[string]map[string]string,
+	globalOverrides map[string]string,
+	iconThemes ...icontheme.Selection,
+) error {
 	names, err := template.ListTemplates(w.templatesFS, w.templatesDir)
 	if err != nil {
 		return fmt.Errorf("list templates: %w", err)
@@ -522,7 +533,7 @@ func (w *Writer) processTemplates(
 
 	for _, fileName := range names {
 		// Skip copy.json (config file).
-		if fileName == "copy.json" {
+		if fileName == "copy.json" || skip[fileName] {
 			continue
 		}
 

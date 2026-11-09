@@ -1,0 +1,47 @@
+[Colors:Button]
+BackgroundAlternate=27, 18, 34
+BackgroundNormal=40, 26, 49
+DecorationFocus=255, 158, 210
+DecorationHover=195, 156, 236
+ForegroundInactive=160, 143, 168
+ForegroundNormal=242, 231, 240
+
+[Colors:Header]
+BackgroundAlternate=40, 26, 49
+BackgroundNormal=27, 18, 34
+DecorationFocus=255, 158, 210
+DecorationHover=195, 156, 236
+ForegroundInactive=160, 143, 168
+ForegroundNormal=242, 231, 240
+
+[Colors:Selection]
+BackgroundAlternate=195, 156, 236
+BackgroundNormal=255, 158, 210
+DecorationFocus=255, 158, 210
+DecorationHover=195, 156, 236
+ForegroundInactive=29, 12, 23
+ForegroundNormal=29, 12, 23
+
+[Colors:Tooltip]
+BackgroundAlternate=27, 18, 34
+BackgroundNormal=40, 26, 49
+DecorationFocus=255, 158, 210
+DecorationHover=195, 156, 236
+ForegroundInactive=160, 143, 168
+ForegroundNormal=242, 231, 240
+
+[Colors:View]
+BackgroundAlternate=27, 18, 34
+BackgroundNormal=18, 11, 24
+DecorationFocus=255, 158, 210
+DecorationHover=195, 156, 236
+ForegroundInactive=160, 143, 168
+ForegroundNormal=242, 231, 240
+
+[Colors:Window]
+BackgroundAlternate=40, 26, 49
+BackgroundNormal=27, 18, 34
+DecorationFocus=255, 158, 210
+DecorationHover=195, 156, 236
+ForegroundInactive=160, 143, 168
+ForegroundNormal=242, 231, 240

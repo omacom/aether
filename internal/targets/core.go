@@ -39,7 +39,12 @@ func pyFloat(f float64) string {
 	return s
 }
 
-func round2(f float64) float64 { return math.Round(f*100) / 100 }
+// round2 matches Python's round(x, 2): it rounds the exact binary value
+// (decimal formatting), not x*100.
+func round2(f float64) float64 {
+	r, _ := strconv.ParseFloat(strconv.FormatFloat(f, 'f', 2, 64), 64)
+	return r
+}
 
 func rgbCSS(hex string, alpha float64) string {
 	c := color.HexToRGB(hex)
@@ -236,7 +241,10 @@ func yozakuraTarget() Target {
 
 func hyprlandTarget() Target {
 	return Target{
-		ID: "hyprland", Label: "Hyprland", Detect: requires("hyprctl"),
+		ID: "hyprland", Label: "Hyprland",
+		Detect: func(c Context) bool {
+			return c.have("hyprctl") && exists(filepath.Join(c.Home, ".config/hypr/hyprland.lua"))
+		},
 		Files: []File{{Path: hyprColorsPath, Render: renderHyprland}},
 		Includes: []Include{{
 			Path:   ".config/hypr/hyprland.lua",

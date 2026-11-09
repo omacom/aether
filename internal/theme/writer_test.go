@@ -329,7 +329,8 @@ func TestPrepareThemeDirSupportsExistingMediaSources(t *testing.T) {
 }
 
 func TestApplyThemeReturnsEditorErrorsBeforeCustomApps(t *testing.T) {
-	for _, editor := range []string{"zed", "vscode"} {
+	// VS Code moved to a desktop target; its failures are reported per target.
+	for _, editor := range []string{"zed"} {
 		t.Run(editor, func(t *testing.T) {
 			home := setupWriterTestEnv(t)
 			target := platform.ThemeDir()
@@ -454,6 +455,7 @@ func TestApplyThemeReturnsTargets(t *testing.T) {
 	home := setupWriterTestEnv(t)
 	t.Setenv("XDG_CONFIG_HOME", "")
 	var calls [][]string
+	writeWriterTestFile(t, filepath.Join(home, ".config/hypr/hyprland.lua"), "-- user\n")
 	w := newTestWriter(t)
 	w.Have = func(string) bool { return true }
 	w.Run = func(name string, args ...string) (string, error) {

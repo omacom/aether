@@ -9,5 +9,14 @@ func All() []Target {
 		kittyTarget(),
 		gtkTarget(),
 		swayncTarget(),
+		rofiTarget(),
+		neovimTarget(),
+		btopTarget(),
+		vscodeTarget(),
+		qtTarget(),
+		fishTarget(),
+		starshipTarget(),
+		chromeTarget(),
+		hyprlockTarget(),
 	}
 }

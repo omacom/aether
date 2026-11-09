@@ -1,0 +1,16 @@
+palette = "aether"
+
+# >>> aether palette >>>
+[palettes.aether]
+bg = "#120b18"
+fg = "#f2e7f0"
+muted = "#a08fa8"
+accent = "#ff9ed2"
+accent2 = "#c39cec"
+red = "#ff5d6c"
+green = "#8fd6a8"
+yellow = "#f2c14e"
+blue = "#8ba2f1"
+magenta = "#ff9ed2"
+cyan = "#86d4e6"
+# <<< aether palette <<<

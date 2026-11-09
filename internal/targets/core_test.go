@@ -54,6 +54,9 @@ func ichoContext(t *testing.T) (Context, *recorder) {
 		Blue: c.Term[4], Magenta: c.Term[5], Cyan: c.Term[6], White: c.Term[7],
 	}
 	th := yozakura.Derive(cr, over, &c.Glass, &c.Clock)
+	cr.Background, cr.Foreground, cr.Accent = over["ground"], over["text"], over["accent"]
+	cr.Cursor, cr.BrightBlack = over["accent"], over["muted"]
+	cr.SelectionForeground, cr.SelectionBackground = over["accentInk"], over["accent"]
 	home := t.TempDir()
 	rec := &recorder{}
 	run := func(name string, args ...string) (string, error) {
@@ -66,7 +69,9 @@ func ichoContext(t *testing.T) (Context, *recorder) {
 	return Context{
 		Name: c.Name, ID: "icho", Wallpaper: testWallpaper, Yoz: th, Home: home,
 		Run: run, Have: func(string) bool { return true },
-		Backups: NewBackups(home, time.Unix(4000, 0)),
+		Backups:   NewBackups(home, time.Unix(4000, 0)),
+		Vars:      template.BuildVariables(cr, false, nil),
+		Templates: os.DirFS("../../templates"),
 	}, rec
 }
 
@@ -183,6 +188,8 @@ func TestHyprlandReloadQuotesPath(t *testing.T) {
 
 func TestApplyTwiceIsIdempotent(t *testing.T) {
 	ctx, rec := ichoContext(t)
+	writeHome(t, ctx, ".config/hypr/hyprland.lua", "-- user\n")
+	writeHome(t, ctx, ".config/nvim/init.lua", "")
 	first := Apply(ctx, All(), nil)
 	for _, s := range first {
 		if s.State == "failed" || s.State == "not-found" {
@@ -252,6 +259,7 @@ func TestMigrationReplacesOldIncludesAndCleansUp(t *testing.T) {
 	write(".config/gtk-4.0/gtk.css", "@import url(\"yozakura-colors.css\");\n")
 	write(".config/gtk-4.0/yozakura-colors.css", "old")
 	write(".config/hypr/yozakura-colors.lua", "old")
+	write(".config/hypr/hyprland.lua", "")
 	Apply(ctx, All(), nil)
 	b, _ := os.ReadFile(filepath.Join(ctx.Home, ".config/kitty/kitty.conf"))
 	if string(b) != "font_size 12\ninclude aether-theme.conf\n" {
