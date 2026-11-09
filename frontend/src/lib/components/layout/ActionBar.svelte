@@ -159,7 +159,10 @@
     let sidebarVisible = $derived(getSidebarVisible());
     let menuOpen = $derived(showImportMenu || showApplyMenu || showMoreMenu);
     let overrideCount = $derived(
-        Object.values(getAppOverrides()).reduce((sum, o) => sum + Object.keys(o).length, 0)
+        Object.values(getAppOverrides()).reduce(
+            (sum, o) => sum + Object.keys(o).length,
+            0
+        )
     );
 
     // --- Editor actions ---
@@ -469,18 +472,18 @@
                 </span>
             {/if}
             <button
-                    type="button"
-                    class="hover:text-fg-primary transition-colors {targetsVisible
-                        ? 'text-fg-secondary'
-                        : ''}"
-                    onclick={toggleTargetsVisible}
-                    title={targetsVisible
-                        ? 'Hide the Targets strip'
-                        : 'Show the Targets strip'}
-                    aria-pressed={targetsVisible}
-                >
-                    Targets
-                </button>
+                type="button"
+                class="hover:text-fg-primary transition-colors {targetsVisible
+                    ? 'text-fg-secondary'
+                    : ''}"
+                onclick={toggleTargetsVisible}
+                title={targetsVisible
+                    ? 'Hide the Targets strip'
+                    : 'Show the Targets strip'}
+                aria-pressed={targetsVisible}
+            >
+                Targets
+            </button>
             <span title="Aether version">v{__APP_VERSION__}</span>
         </div>
 
@@ -674,47 +677,46 @@
                 bind:value={exportName}
             />
         </label>
-            <div class="flex flex-col gap-3.5">
-                <div class="flex items-baseline justify-between">
-                    <span class="text-fg-secondary text-[12px] font-medium"
-                        >Include apps</span
+        <div class="flex flex-col gap-3.5">
+            <div class="flex items-baseline justify-between">
+                <span class="text-fg-secondary text-[12px] font-medium"
+                    >Include apps</span
+                >
+                <span class="text-fg-dimmed text-[11.5px]">
+                    {exportSelectedCount} of {exportAppCount} selected ·
+                    <button
+                        type="button"
+                        class="text-accent hover:text-accent-hover"
+                        onclick={() => setAllExportApps(true)}>All</button
                     >
-                    <span class="text-fg-dimmed text-[11.5px]">
-                        {exportSelectedCount} of {exportAppCount} selected ·
-                        <button
-                            type="button"
-                            class="text-accent hover:text-accent-hover"
-                            onclick={() => setAllExportApps(true)}>All</button
-                        >
-                        ·
-                        <button
-                            type="button"
-                            class="text-accent hover:text-accent-hover"
-                            onclick={() => setAllExportApps(false)}>None</button
-                        >
-                    </span>
-                </div>
-                {#each exportAppGroups as group}
-                    <div>
-                        <div
-                            class="text-fg-dimmed mb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                        >
-                            {group.label}
-                        </div>
-                        <div class="grid grid-cols-3 gap-x-2.5 gap-y-0.5">
-                            {#each group.apps as app}
-                                {@render checkbox(
-                                    app.name,
-                                    exportApps[app.key],
-                                    () =>
-                                        (exportApps[app.key] =
-                                            !exportApps[app.key])
-                                )}
-                            {/each}
-                        </div>
-                    </div>
-                {/each}
+                    ·
+                    <button
+                        type="button"
+                        class="text-accent hover:text-accent-hover"
+                        onclick={() => setAllExportApps(false)}>None</button
+                    >
+                </span>
             </div>
+            {#each exportAppGroups as group}
+                <div>
+                    <div
+                        class="text-fg-dimmed mb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    >
+                        {group.label}
+                    </div>
+                    <div class="grid grid-cols-3 gap-x-2.5 gap-y-0.5">
+                        {#each group.apps as app}
+                            {@render checkbox(
+                                app.name,
+                                exportApps[app.key],
+                                () =>
+                                    (exportApps[app.key] = !exportApps[app.key])
+                            )}
+                        {/each}
+                    </div>
+                </div>
+            {/each}
+        </div>
     </div>
     <DialogFooter>
         <button

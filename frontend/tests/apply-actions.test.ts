@@ -1,8 +1,5 @@
 import {beforeEach, expect, test, vi} from 'vitest';
-import {
-    applyTheme,
-    saveAndApplyTheme,
-} from '../src/lib/actions/themeActions';
+import {applyTheme, saveAndApplyTheme} from '../src/lib/actions/themeActions';
 import {loadBlueprintIntoEditor} from '../src/lib/actions/blueprintActions';
 import * as theme from '../src/lib/stores/theme.svelte';
 import {setLiveApply} from '../src/lib/stores/ui.svelte';
