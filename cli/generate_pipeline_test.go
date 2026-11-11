@@ -53,7 +53,7 @@ func newPipelineEnv(t *testing.T) *pipelineEnv {
 			t.Fatal(err)
 		}
 	}
-	if err := setDefaultBlueprint(def); err != nil {
+	if err := blueprint.SetDefaultBlueprint(def); err != nil {
 		t.Fatal(err)
 	}
 	return e

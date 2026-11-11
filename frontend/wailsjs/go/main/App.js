@@ -162,6 +162,10 @@ export function ImportFileDialog(arg1) {
   return window['go']['main']['App']['ImportFileDialog'](arg1);
 }
 
+export function ImportYozakuraThemes(arg1) {
+  return window['go']['main']['App']['ImportYozakuraThemes'](arg1);
+}
+
 export function IsFavorite(arg1) {
   return window['go']['main']['App']['IsFavorite'](arg1);
 }
@@ -176,6 +180,10 @@ export function IsMacOS() {
 
 export function IsPreviewCached(arg1) {
   return window['go']['main']['App']['IsPreviewCached'](arg1);
+}
+
+export function ListTargets() {
+  return window['go']['main']['App']['ListTargets']();
 }
 
 export function ListBlueprints() {

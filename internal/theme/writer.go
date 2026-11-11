@@ -66,6 +66,9 @@ type Settings struct {
 	SelectedNeovimConfig string          `json:"selectedNeovimConfig"`
 	IncludedApps         map[string]bool `json:"includedApps,omitempty"`
 	ExcludedApps         map[string]bool `json:"excludedApps,omitempty"`
+	// DisabledTargets opts desktop targets out without switching the legacy
+	// templates to opt-in (used by the CLI: --no-vscode, GUI opt-outs).
+	DisabledTargets map[string]bool `json:"-"`
 }
 
 // includesApp supports explicit opt-in targets while preserving callers that
@@ -97,8 +100,12 @@ func (s Settings) includesApp(app string) bool {
 }
 
 // TargetEnabled reports whether a desktop target (see targets.All) should run.
-// Every target is enabled unless IncludedApps explicitly sets it to false.
+// Every target is enabled unless IncludedApps explicitly sets it to false or
+// DisabledTargets lists it.
 func (s Settings) TargetEnabled(id string) bool {
+	if s.DisabledTargets[id] {
+		return false
+	}
 	if enabled, ok := s.IncludedApps[id]; ok {
 		return enabled
 	}

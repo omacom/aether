@@ -20,6 +20,7 @@ import (
 	"aether/internal/githubsource"
 	"aether/internal/icontheme"
 	"aether/internal/platform"
+	"aether/internal/targets"
 	"aether/internal/template"
 	"aether/internal/theme"
 	"aether/internal/update"
@@ -1185,15 +1186,6 @@ type ExportThemeRequest struct {
 	IconTheme        icontheme.Selection          `json:"iconTheme"`
 }
 
-// allExportableApps is the full set of app names that can be exported.
-var allExportableApps = map[string]bool{
-	"alacritty": true, "btop": true, "chromium": true, "colors": true,
-	"foot": true, "ghostty": true, "hyprland": true, "hyprlock": true,
-	"icons": true, "kitty": true, "mako": true, "neovim": true,
-	"swayosd": true, "vencord": true, "vscode": true, "walker": true,
-	"warp": true, "waybar": true, "wofi": true, "zed": true,
-}
-
 // ExportTheme exports the current theme to a user-chosen directory.
 func (a *App) ExportTheme(req ExportThemeRequest) (string, error) {
 	// Sanitize the user-typed name so the export folder is portable.
@@ -1237,20 +1229,9 @@ func (a *App) ExportTheme(req ExportThemeRequest) (string, error) {
 		included[app] = true
 	}
 
-	// Derive excluded apps: everything in allExportableApps that is NOT included
-	excluded := make(map[string]bool)
-	for app := range allExportableApps {
-		if !included[app] {
-			excluded[app] = true
-		}
-	}
-
-	settings := theme.Settings{
-		IncludeZed:    included["zed"],
-		IncludeVscode: included["vscode"],
-		IncludeNeovim: included["neovim"],
-		ExcludedApps:  excluded,
-	}
+	// IncludedApps is the single source of truth for per-app inclusion; the
+	// legacy Include* flags are ignored once it is set. Unlisted apps are out.
+	settings := theme.Settings{IncludedApps: included}
 
 	exportDir := filepath.Join(dir, "aether-"+slug+"-theme")
 	if err := a.writer.GenerateOnly(state, settings, exportDir); err != nil {
@@ -1705,4 +1686,59 @@ func wallpaperFolderFromConfig(config map[string]interface{}) string {
 		return folder
 	}
 	return platform.WallpaperDir()
+}
+
+// TargetInfo describes one desktop target for the GUI's target list.
+type TargetInfo struct {
+	ID       string `json:"id"`
+	Label    string `json:"label"`
+	Detected bool   `json:"detected"`
+	Path     string `json:"path"`
+}
+
+// ListTargets returns every desktop target with whether it is installed.
+func (a *App) ListTargets() []TargetInfo {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return []TargetInfo{}
+	}
+	return listTargets(home, nil)
+}
+
+func listTargets(home string, have func(string) bool) []TargetInfo {
+	// Wallpaper is a placeholder: the awww target only needs it to be non-empty.
+	ctx := targets.Context{Home: home, Have: have, Wallpaper: "."}
+	all := targets.All()
+	out := make([]TargetInfo, 0, len(all))
+	for _, t := range all {
+		info := TargetInfo{ID: t.ID, Label: t.Label, Detected: t.Detect == nil || t.Detect(ctx)}
+		if len(t.Files) > 0 {
+			info.Path = filepath.Join(home, t.Files[0].Path)
+		}
+		out = append(out, info)
+	}
+	return out
+}
+
+// ImportYozakuraResult is the outcome of ImportYozakuraThemes.
+type ImportYozakuraResult struct {
+	Imported []string `json:"imported"`
+	Default  string   `json:"default"`
+	Error    string   `json:"error"`
+}
+
+// ImportYozakuraThemes imports a curated Yozakura themes.json as blueprints,
+// exactly like `aether --import-yozakura` (existing blueprints are not
+// overwritten).
+func (a *App) ImportYozakuraThemes(path string) ImportYozakuraResult {
+	res, err := blueprint.ImportYozakuraFile(path, false)
+	out := ImportYozakuraResult{Imported: []string{}}
+	if res != nil {
+		out.Imported = res.Imported
+		out.Default = res.Default
+	}
+	if err != nil {
+		out.Error = err.Error()
+	}
+	return out
 }

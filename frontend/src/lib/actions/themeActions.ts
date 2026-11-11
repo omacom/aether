@@ -30,6 +30,7 @@ import {
     markApplied,
 } from '$lib/stores/theme.svelte';
 import {getSettings} from '$lib/stores/settings.svelte';
+import {setLastApply} from '$lib/stores/targets.svelte';
 import type {Settings} from '$lib/types/theme';
 import {
     undo as historyUndo,
@@ -85,6 +86,7 @@ async function runApply(
                   updateExisting: !!options.updateExisting,
               } as unknown as main.SaveAndApplyThemeRequest)
             : await ApplyTheme(payload as unknown as main.ApplyThemeRequest);
+    setLastApply(result);
     if (result.success) {
         markApplied(signature);
         document.documentElement.classList.toggle(

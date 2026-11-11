@@ -41,3 +41,47 @@ func TestApplyThemeRealTemplatesRenderAppTargets(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func TestListTargetsReportsDetection(t *testing.T) {
+	home := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(home, ".config/nvim"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	got := listTargets(home, func(bin string) bool { return bin == "kitty" })
+	by := map[string]TargetInfo{}
+	for _, ti := range got {
+		by[ti.ID] = ti
+	}
+	if !by["kitty"].Detected || by["kitty"].Label == "" || by["kitty"].Path == "" {
+		t.Fatalf("kitty = %+v", by["kitty"])
+	}
+	if by["btop"].Detected {
+		t.Fatalf("btop detected without binary: %+v", by["btop"])
+	}
+	if !by["neovim"].Detected {
+		t.Fatalf("neovim not detected from ~/.config/nvim: %+v", by["neovim"])
+	}
+	if len(got) < 10 {
+		t.Fatalf("got %d targets", len(got))
+	}
+}
+
+func TestImportYozakuraThemes(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	app := NewApp()
+	fixture := "internal/yozakura/testdata/curated.json"
+	res := app.ImportYozakuraThemes(fixture)
+	if res.Error != "" || len(res.Imported) != 6 || res.Default != "icho" {
+		t.Fatalf("res = %+v", res)
+	}
+	if ok, _ := app.blueprints.FindByName("icho"); ok == nil {
+		t.Fatal("icho blueprint not saved")
+	}
+	if again := app.ImportYozakuraThemes(fixture); again.Error == "" {
+		t.Fatal("second import must refuse to overwrite")
+	}
+	if bad := app.ImportYozakuraThemes("/nonexistent.json"); bad.Error == "" {
+		t.Fatal("missing file must report an error")
+	}
+}

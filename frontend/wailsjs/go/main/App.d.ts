@@ -93,6 +93,8 @@ export function HandleIPC(arg1:ipc.Request):Promise<ipc.Response>;
 
 export function ImportFileDialog(arg1:string):Promise<main.ImportResult>;
 
+export function ImportYozakuraThemes(arg1:string):Promise<main.ImportYozakuraResult>;
+
 export function IsFavorite(arg1:string):Promise<boolean>;
 
 export function IsFavoritesExportRunning():Promise<boolean>;
@@ -101,6 +103,8 @@ export function IsMacOS():Promise<boolean>;
 
 
 export function IsPreviewCached(arg1:string):Promise<boolean>;
+
+export function ListTargets():Promise<Array<main.TargetInfo>>;
 
 export function ListBlueprints():Promise<Array<Record<string, any>>>;
 

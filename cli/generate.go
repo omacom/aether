@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -181,6 +182,8 @@ func runGenerateWith(args []string, templatesFS embed.FS, deps generateDeps) int
 		IncludeZed:    !noZed,
 		IncludeVscode: !noVscode,
 		IncludeNeovim: !noNeovim,
+		// The GUI's per-target opt-outs and the --no-* flags share one switch.
+		DisabledTargets: disabledTargets(noVscode, noNeovim),
 	}
 	svc := blueprint.NewService()
 
@@ -329,4 +332,21 @@ func joinStrings(s []string, sep string) string {
 		result += v
 	}
 	return result
+}
+
+// disabledTargets merges the GUI's saved opt-outs (settings.json includedApps
+// entries set to false) with the --no-vscode/--no-neovim flags.
+func disabledTargets(noVscode, noNeovim bool) map[string]bool {
+	out := map[string]bool{"vscode": noVscode, "neovim": noNeovim}
+	cfg, err := platform.ReadJSON[struct {
+		IncludedApps map[string]bool `json:"includedApps"`
+	}](filepath.Join(platform.ConfigDir(), "settings.json"))
+	if err == nil {
+		for id, on := range cfg.IncludedApps {
+			if !on {
+				out[id] = true
+			}
+		}
+	}
+	return out
 }

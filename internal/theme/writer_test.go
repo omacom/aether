@@ -560,3 +560,39 @@ func TestApplyThemeTargetsHonourSelectedNeovimConfig(t *testing.T) {
 		t.Fatalf("theme.lua = %q, %v", b, err)
 	}
 }
+
+func TestApplyThemeSkipsDisabledTarget(t *testing.T) {
+	home := setupWriterTestEnv(t)
+	t.Setenv("XDG_CONFIG_HOME", "")
+	var calls [][]string
+	w := newTestWriter(t)
+	w.Have = func(string) bool { return true }
+	w.Run = func(name string, args ...string) (string, error) {
+		calls = append(calls, append([]string{name}, args...))
+		return "", nil
+	}
+	res, err := w.ApplyTheme(NewThemeState(), Settings{IncludedApps: map[string]bool{"btop": false}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var btop, kitty string
+	for _, st := range res.Targets {
+		switch st.ID {
+		case "btop":
+			btop = st.State
+		case "kitty":
+			kitty = st.State
+		}
+	}
+	if btop != "skipped" || kitty == "skipped" || kitty == "" {
+		t.Fatalf("btop=%q kitty=%q", btop, kitty)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".config/btop/themes/aether.theme")); !os.IsNotExist(err) {
+		t.Fatalf("disabled target wrote its file: %v", err)
+	}
+	for _, c := range calls {
+		if c[0] == "btop" {
+			t.Fatalf("disabled target reloaded: %v", c)
+		}
+	}
+}

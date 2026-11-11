@@ -26,6 +26,7 @@
         onsave,
     }: {open?: boolean; onclose: () => void; onsave: () => void} = $props();
     let name = $state('');
+    let matchText = $state(getMatchWallpapers().join(', '));
     let isSaving = $state(false);
     let showOverrideConfirm = $state(false);
     let nameInput = $state<HTMLInputElement | null>(null);
@@ -89,7 +90,10 @@
             yozakuraRoles: {...getYozakuraRoles()},
             glass: getGlass(),
             clock: getClock(),
-            matchWallpapers: [...getMatchWallpapers()],
+            matchWallpapers: matchText
+                .split(',')
+                .map(p => p.trim())
+                .filter(Boolean),
             iconTheme: {...getIconTheme()},
             appOverrides: Object.fromEntries(
                 Object.entries(getAppOverrides()).map(([app, colors]) => [
@@ -209,6 +213,20 @@
                     disabled={isSaving}
                     aria-invalid={!!nameError}
                     aria-describedby={nameError ? 'save-name-error' : undefined}
+                />
+            </label>
+            <label class="flex flex-col gap-1.5">
+                <span class="text-fg-secondary text-[12px] font-medium"
+                    >Match wallpapers</span
+                >
+                <input
+                    type="text"
+                    aria-label="Match wallpapers"
+                    class="bg-bg-primary text-fg-primary border-border focus:border-accent h-[34px] border px-2.5 text-[13px] outline-none disabled:opacity-60"
+                    placeholder="e.g. evanescia, night (optional)"
+                    title="Comma-separated, case-insensitive wallpaper filename patterns. Wallpapers that match load this blueprint."
+                    bind:value={matchText}
+                    disabled={isSaving}
                 />
             </label>
             {#if nameError}

@@ -507,6 +507,22 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class ImportYozakuraResult {
+	    imported: string[];
+	    default: string;
+	    error: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ImportYozakuraResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.imported = source["imported"];
+	        this.default = source["default"];
+	        this.error = source["error"];
+	    }
+	}
 	export class SaveAndApplyThemeRequest {
 	    name: string;
 	    updateExisting: boolean;
@@ -670,6 +686,24 @@ export namespace main {
 		    }
 		    return a;
 		}
+	}
+	export class TargetInfo {
+	    id: string;
+	    label: string;
+	    detected: boolean;
+	    path: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new TargetInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.label = source["label"];
+	        this.detected = source["detected"];
+	        this.path = source["path"];
+	    }
 	}
 	export class YozakuraRolesRequest {
 	    palette: string[];

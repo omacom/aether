@@ -4,11 +4,13 @@ import (
 	"embed"
 	"io"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 
 	"aether/internal/icontheme"
+	"aether/internal/theme"
 )
 
 func TestRunGenerateRejectsRemovedGTKOptions(t *testing.T) {
@@ -129,4 +131,19 @@ func captureGenerateStderr(t *testing.T, run func() int) (int, string) {
 		t.Fatal(err)
 	}
 	return code, string(output)
+}
+
+func TestDisabledTargetsMergesFlagsAndGUIOptOuts(t *testing.T) {
+	cfg := isolate(t)
+	if err := os.MkdirAll(cfg, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	os.WriteFile(filepath.Join(cfg, "settings.json"), []byte(`{"includedApps":{"kitty":false,"btop":true}}`), 0o644)
+	s := theme.Settings{DisabledTargets: disabledTargets(true, false)}
+	if s.TargetEnabled("vscode") || s.TargetEnabled("kitty") {
+		t.Fatal("--no-vscode and a GUI opt-out must disable their targets")
+	}
+	if !s.TargetEnabled("neovim") || !s.TargetEnabled("btop") {
+		t.Fatal("other targets must stay enabled")
+	}
 }

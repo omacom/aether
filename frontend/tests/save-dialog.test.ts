@@ -141,3 +141,25 @@ test('destroying the dialog invalidates an outstanding name check', async () => 
     await settle();
     expect(SaveBlueprint).not.toHaveBeenCalled();
 });
+
+test('the match wallpapers field sends trimmed comma-separated patterns', async () => {
+    vi.mocked(BlueprintExists).mockResolvedValue(false);
+    vi.mocked(SaveBlueprint).mockResolvedValue(undefined);
+    const {target} = render(SaveDialog, {
+        open: true,
+        onclose: vi.fn(),
+        onsave: vi.fn(),
+    });
+    setName(target, 'Night');
+    const field = target.querySelector<HTMLInputElement>(
+        'input[aria-label="Match wallpapers"]'
+    )!;
+    field.value = 'evanescia, night';
+    field.dispatchEvent(new Event('input', {bubbles: true}));
+    flushSync();
+    button(target, 'Save').click();
+    await settle();
+    expect(SaveBlueprint).toHaveBeenCalledWith(
+        expect.objectContaining({matchWallpapers: ['evanescia', 'night']})
+    );
+});
