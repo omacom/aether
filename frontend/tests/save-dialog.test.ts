@@ -4,6 +4,7 @@ import SaveDialog from '../src/lib/components/blueprints/SaveDialog.svelte';
 import * as theme from '../src/lib/stores/theme.svelte';
 import {BlueprintExists, SaveBlueprint} from '../wailsjs/go/main/App';
 import {button, deferred, render, settle} from './setup';
+import SaveDialogHarness from './SaveDialogHarness.svelte';
 
 vi.mock('../wailsjs/go/main/App', () => ({
     BlueprintExists: vi.fn(),
@@ -162,4 +163,36 @@ test('the match wallpapers field sends trimmed comma-separated patterns', async 
     expect(SaveBlueprint).toHaveBeenCalledWith(
         expect.objectContaining({matchWallpapers: ['evanescia', 'night']})
     );
+});
+
+test('reopening the dialog re-reads match patterns from the store', async () => {
+    vi.mocked(BlueprintExists).mockResolvedValue(false);
+    vi.mocked(SaveBlueprint).mockResolvedValue(undefined);
+    const {target} = render(SaveDialogHarness, {});
+    // Blueprint loaded after the dialog mounted (as in the ActionBar).
+    theme.setMatchWallpapers(['sumi', 'ink']);
+    button(target, 'Open save').click();
+    flushSync();
+    const match = () =>
+        target.querySelector<HTMLInputElement>(
+            'input[aria-label="Match wallpapers"]'
+        )!;
+    expect(match().value).toBe('sumi, ink');
+
+    setName(target, 'Sumi');
+    enter();
+    await settle();
+    expect(SaveBlueprint).toHaveBeenCalledWith(
+        expect.objectContaining({matchWallpapers: ['sumi', 'ink']})
+    );
+
+    // Text typed for one save must not leak into the next.
+    match().value = 'typed';
+    match().dispatchEvent(new Event('input', {bubbles: true}));
+    button(target, 'Close save').click();
+    flushSync();
+    theme.setMatchWallpapers([]);
+    button(target, 'Open save').click();
+    flushSync();
+    expect(match().value).toBe('');
 });

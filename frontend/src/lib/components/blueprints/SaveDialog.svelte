@@ -1,5 +1,5 @@
 <script lang="ts">
-    import {onDestroy} from 'svelte';
+    import {onDestroy, untrack} from 'svelte';
     import type {main} from '../../../../wailsjs/go/models';
     import {showToast} from '$lib/stores/ui.svelte';
     import {
@@ -26,7 +26,7 @@
         onsave,
     }: {open?: boolean; onclose: () => void; onsave: () => void} = $props();
     let name = $state('');
-    let matchText = $state(getMatchWallpapers().join(', '));
+    let matchText = $state('');
     let isSaving = $state(false);
     let showOverrideConfirm = $state(false);
     let nameInput = $state<HTMLInputElement | null>(null);
@@ -43,6 +43,12 @@
         }
     });
     onDestroy(() => requestId++);
+
+    // The ActionBar dialog mounts once at startup, so the patterns must be
+    // re-read from the store every time the dialog opens.
+    $effect(() => {
+        if (open) matchText = untrack(() => getMatchWallpapers().join(', '));
+    });
 
     $effect(() => {
         if (open && !showOverrideConfirm) nameInput?.focus();
