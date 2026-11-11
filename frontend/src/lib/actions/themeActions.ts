@@ -19,6 +19,7 @@ import {
     getAdditionalImages,
     getAppOverrides,
     getThemeSnapshot,
+    getLoadedBlueprint,
     getThemeSignature,
     getHistorySnapshot,
     restoreHistorySnapshot,
@@ -42,8 +43,11 @@ import {STORAGE_KEYS} from '$lib/constants/storage';
 
 export function captureApplyRequest() {
     const settings = getSettings();
+    const blueprint = getLoadedBlueprint();
     return {
         ...getThemeSnapshot(),
+        themeName: blueprint?.name ?? '',
+        themeID: blueprint?.id ?? '',
         settings: {...settings, includedApps: {...settings.includedApps}},
     };
 }

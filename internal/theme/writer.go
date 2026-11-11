@@ -116,12 +116,48 @@ func (s Settings) TargetEnabled(id string) bool {
 // Use this anywhere the user is applying a theme without picking per-app
 // toggles explicitly so a bare `Settings{}` does not silently drop editor
 // integrations from the output.
+//
+// It also carries the user's saved per-target opt-outs so every apply path
+// (GUI, IPC, --apply-blueprint, imports) honours them like --generate does.
 func DefaultApplySettings() Settings {
 	return Settings{
-		IncludeZed:    true,
-		IncludeVscode: true,
-		IncludeNeovim: true,
+		IncludeZed:      true,
+		IncludeVscode:   true,
+		IncludeNeovim:   true,
+		DisabledTargets: LoadTargetOptOuts(),
+
+		SelectedNeovimConfig: LoadSelectedNeovimConfig(),
 	}
+}
+
+type savedSettings struct {
+	IncludedApps         map[string]bool `json:"includedApps"`
+	SelectedNeovimConfig string          `json:"selectedNeovimConfig"`
+}
+
+func readSavedSettings() savedSettings {
+	cfg, err := platform.ReadJSON[savedSettings](filepath.Join(platform.ConfigDir(), "settings.json"))
+	if err != nil {
+		return savedSettings{}
+	}
+	return cfg
+}
+
+// LoadTargetOptOuts returns the targets the user disabled in the GUI
+// (settings.json includedApps entries set to false).
+func LoadTargetOptOuts() map[string]bool {
+	out := map[string]bool{}
+	for id, on := range readSavedSettings().IncludedApps {
+		if !on {
+			out[id] = true
+		}
+	}
+	return out
+}
+
+// LoadSelectedNeovimConfig returns the neovim config the GUI selected, if any.
+func LoadSelectedNeovimConfig() string {
+	return readSavedSettings().SelectedNeovimConfig
 }
 
 // ApplyResult is returned by ApplyTheme with the outcome of theme application.

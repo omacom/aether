@@ -196,8 +196,8 @@ func TestGenerateJSONStdoutOnly(t *testing.T) {
 	if !strings.HasPrefix(out, `{"name":`) {
 		t.Errorf("key order not preserved: %s", out)
 	}
-	if !strings.Contains(se.String(), "Theme applied successfully") {
-		t.Errorf("progress should go to stderr, got %q", se)
+	if strings.Contains(se.String(), "Theme applied successfully") {
+		t.Errorf("progress must not be printed in --json mode, got %q", se)
 	}
 }
 
@@ -308,5 +308,115 @@ func TestGenerateKeepsMatchedBlueprintIconTheme(t *testing.T) {
 	flag := icontheme.Selection{Mode: icontheme.SelectionExplicit, ID: "Adwaita"}
 	if got := run("--icon-theme", "Adwaita"); got != flag {
 		t.Errorf("with flag: icon theme = %+v, want %+v", got, flag)
+	}
+}
+
+func writeSettings(t *testing.T, e *pipelineEnv, body string) {
+	t.Helper()
+	dir := filepath.Join(e.home, ".config/aether")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "settings.json"), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func (e *pipelineEnv) ran(bin string) bool {
+	for _, c := range e.calls {
+		if c[0] == bin || (c[0] == "pkill" && len(c) > 0 && strings.Contains(strings.Join(c, " "), bin)) {
+			return true
+		}
+	}
+	return false
+}
+
+func TestGenerateJSONSuppressesProgress(t *testing.T) {
+	e := newPipelineEnv(t)
+	wp := e.wallpaper(t, "evanescia.png")
+	d, _, se := e.deps(extractOK)
+	if code := runGenerateWith([]string{wp, "--json"}, pipelineTemplates, d); code != 0 {
+		t.Fatalf("exit %d: %s", code, se)
+	}
+	if se.Len() != 0 {
+		t.Errorf("--json stderr must be quiet on success, got %q", se)
+	}
+	// Errors still reach stderr.
+	d, _, se = e.deps(extractOK)
+	if code := runGenerateWith([]string{filepath.Join(e.home, "missing.png"), "--json"}, pipelineTemplates, d); code != 1 || se.Len() == 0 {
+		t.Errorf("error must be reported: code=%d stderr=%q", code, se)
+	}
+}
+
+func TestGenerateHonoursSelectedNeovimConfig(t *testing.T) {
+	e := newPipelineEnv(t)
+	wp := e.wallpaper(t, "evanescia.png")
+	writeSettings(t, e, `{"selectedNeovimConfig":"-- custom nvim theme"}`)
+	if err := os.MkdirAll(filepath.Join(e.home, ".config/nvim"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	d, _, se := e.deps(extractOK)
+	if code := runGenerateWith([]string{wp}, pipelineTemplates, d); code != 0 {
+		t.Fatalf("exit %d: %s", code, se)
+	}
+	got, err := os.ReadFile(filepath.Join(e.home, ".config/nvim/lua/aether/theme.lua"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "-- custom nvim theme" {
+		t.Errorf("theme.lua = %q", got)
+	}
+}
+
+func TestOptedOutTargetSkippedByGenerateAndApplyBlueprint(t *testing.T) {
+	for name, run := range map[string]func(e *pipelineEnv, d generateDeps) int{
+		"generate": func(e *pipelineEnv, d generateDeps) int {
+			return runGenerateWith([]string{e.wallpaper(t, "evanescia.png")}, pipelineTemplates, d)
+		},
+		"apply-blueprint": func(e *pipelineEnv, d generateDeps) int {
+			return runApplyBlueprintWith([]string{"icho"}, pipelineTemplates, d)
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			e := newPipelineEnv(t)
+			e.have["kitty"] = true
+			writeSettings(t, e, `{"includedApps":{"kitty":false}}`)
+			d, _, se := e.deps(extractOK)
+			if code := run(e, d); code != 0 {
+				t.Fatalf("exit %d: %s", code, se)
+			}
+			if _, err := os.Stat(filepath.Join(e.home, ".config/kitty/aether-theme.conf")); err == nil {
+				t.Error("disabled kitty target was written")
+			}
+			if e.ran("kitty") {
+				t.Errorf("disabled kitty target was reloaded: %v", e.calls)
+			}
+			if _, err := os.Stat(filepath.Join(e.home, ".local/state/yozakura/theme.json")); err != nil {
+				t.Errorf("yozakura target should still run: %v", err)
+			}
+		})
+	}
+}
+
+func TestGenerateBlueprintNamedAutoKeepsItsIconTheme(t *testing.T) {
+	e := newPipelineEnv(t)
+	wp := e.wallpaper(t, "zzauto.png")
+	bp := blueprint.Blueprint{Name: "auto", MatchWallpapers: []string{"zzauto"}}
+	bp.Palette.Colors = []string{"#101010", "#cc3333", "#33cc33", "#cccc33", "#3333cc", "#cc33cc", "#33cccc", "#e0e0e0",
+		"#404040", "#ff5555", "#55ff55", "#ffff55", "#5555ff", "#ff55ff", "#55ffff", "#ffffff"}
+	if err := bp.SetIconThemeSelection(icontheme.Selection{Mode: icontheme.SelectionExplicit, ID: "Papirus"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := blueprint.NewService().Save("auto", bp); err != nil {
+		t.Fatal(err)
+	}
+	d, _, se := e.deps(extractOK)
+	var got icontheme.Selection
+	d.OnState = func(s *theme.ThemeState) { got = s.IconTheme }
+	if code := runGenerateWith([]string{wp}, pipelineTemplates, d); code != 0 {
+		t.Fatalf("exit %d: %s", code, se)
+	}
+	if got.ID != "Papirus" {
+		t.Errorf("icon theme = %+v, blueprint's own choice was overridden", got)
 	}
 }

@@ -77,6 +77,7 @@ export interface BlueprintPaletteData {
 
 export interface Blueprint {
     name: string;
+    displayName?: string;
     palette: BlueprintPaletteData;
     adjustments?: Record<string, number>;
     appOverrides?: Record<string, Record<string, string>>;

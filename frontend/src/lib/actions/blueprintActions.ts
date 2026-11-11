@@ -7,6 +7,7 @@ import {
     setGlass,
     setClock,
     setMatchWallpapers,
+    setLoadedBlueprint,
     setIconTheme,
     setLightMode,
     setWallpaperPath,
@@ -36,6 +37,7 @@ export function loadBlueprintIntoEditor(bp: Blueprint): void {
     setGlass(bp.palette.glass);
     setClock(bp.palette.clock);
     setMatchWallpapers(bp.matchWallpapers);
+    setLoadedBlueprint({name: bp.displayName || bp.name, id: bp.name});
     setIconTheme(bp.iconTheme, true);
     setLightMode(
         bp.palette.mode ? bp.palette.mode === 'light' : !!bp.palette.lightMode

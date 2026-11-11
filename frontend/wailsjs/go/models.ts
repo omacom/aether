@@ -310,6 +310,8 @@ export namespace main {
 	    settings: theme.Settings;
 	    appOverrides: Record<string, any>;
 	    iconTheme: icontheme.Selection;
+	    themeName: string;
+	    themeID: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ApplyThemeRequest(source);
@@ -329,6 +331,8 @@ export namespace main {
 	        this.settings = this.convertValues(source["settings"], theme.Settings);
 	        this.appOverrides = source["appOverrides"];
 	        this.iconTheme = this.convertValues(source["iconTheme"], icontheme.Selection);
+	        this.themeName = source["themeName"];
+	        this.themeID = source["themeID"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -538,6 +542,8 @@ export namespace main {
 	    settings: theme.Settings;
 	    appOverrides: Record<string, any>;
 	    iconTheme: icontheme.Selection;
+	    themeName: string;
+	    themeID: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new SaveAndApplyThemeRequest(source);
@@ -559,6 +565,8 @@ export namespace main {
 	        this.settings = this.convertValues(source["settings"], theme.Settings);
 	        this.appOverrides = source["appOverrides"];
 	        this.iconTheme = this.convertValues(source["iconTheme"], icontheme.Selection);
+	        this.themeName = source["themeName"];
+	        this.themeID = source["themeID"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -594,7 +602,7 @@ export namespace main {
 	    appOverrides: Record<string, any>;
 	    adjustments: Record<string, number>;
 	    iconTheme: icontheme.Selection;
-	    matchWallpapers?: string[];
+	    matchWallpapers: string[];
 	
 	    static createFrom(source: any = {}) {
 	        return new SaveBlueprintRequest(source);
@@ -784,6 +792,31 @@ export namespace main {
 		    }
 		    return a;
 		}
+	}
+
+}
+
+export namespace targets {
+	
+	export class Status {
+	    id: string;
+	    label: string;
+	    state: string;
+	    path: string;
+	    error?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Status(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.label = source["label"];
+	        this.state = source["state"];
+	        this.path = source["path"];
+	        this.error = source["error"];
+	    }
 	}
 
 }
@@ -1094,31 +1127,6 @@ export namespace wallpaper {
 
 }
 
-export namespace targets {
-	
-	export class Status {
-	    id: string;
-	    label: string;
-	    state: string;
-	    path: string;
-	    error?: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new Status(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.label = source["label"];
-	        this.state = source["state"];
-	        this.path = source["path"];
-	        this.error = source["error"];
-	    }
-	}
-
-}
-
 export namespace yozakura {
 	
 	export class Clock {
@@ -1159,3 +1167,4 @@ export namespace yozakura {
 	}
 
 }
+

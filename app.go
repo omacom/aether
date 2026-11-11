@@ -276,6 +276,16 @@ func (a *App) SyncState(req SyncStateRequest) error {
 	return nil
 }
 
+// blueprintLabel returns the theme.json (name, id) for a blueprint: the
+// display name (falling back to the slug) and the slug.
+func blueprintLabel(bp *blueprint.Blueprint) (string, string) {
+	name := bp.DisplayName
+	if name == "" {
+		name = bp.Name
+	}
+	return name, bp.Name
+}
+
 // ANSI 16-color palette positions. Names follow xterm convention; the role
 // defaults below tie e.g. accent=blue and foreground=white as our chosen mapping.
 const (
@@ -398,6 +408,10 @@ type ApplyThemeRequest struct {
 	Settings         theme.Settings               `json:"settings"`
 	AppOverrides     map[string]map[string]string `json:"appOverrides"`
 	IconTheme        icontheme.Selection          `json:"iconTheme"`
+	// ThemeName/ThemeID label the theme in the yozakura output. Empty means
+	// an extraction ("Auto"/"auto").
+	ThemeName string `json:"themeName"`
+	ThemeID   string `json:"themeID"`
 }
 
 // ApplyTheme processes all templates and applies the theme to the system.
@@ -422,6 +436,8 @@ func (a *App) ApplyTheme(req ApplyThemeRequest) (*theme.ApplyResult, error) {
 		AdditionalImages: req.AdditionalImages,
 		AppOverrides:     appOverrides,
 		IconTheme:        req.IconTheme,
+		ThemeName:        req.ThemeName,
+		ThemeID:          req.ThemeID,
 	}
 
 	return a.writer.ApplyTheme(state, req.Settings)
@@ -444,6 +460,8 @@ type SaveAndApplyThemeRequest struct {
 	Settings         theme.Settings               `json:"settings"`
 	AppOverrides     map[string]map[string]string `json:"appOverrides"`
 	IconTheme        icontheme.Selection          `json:"iconTheme"`
+	ThemeName        string                       `json:"themeName"`
+	ThemeID          string                       `json:"themeID"`
 }
 
 // SaveAndApplyTheme writes a reusable named theme folder before applying it.
@@ -472,6 +490,8 @@ func (a *App) SaveAndApplyTheme(req SaveAndApplyThemeRequest) (*theme.ApplyResul
 		AdditionalImages: req.AdditionalImages,
 		AppOverrides:     req.AppOverrides,
 		IconTheme:        req.IconTheme,
+		ThemeName:        req.ThemeName,
+		ThemeID:          req.ThemeID,
 	}
 	if state.AppOverrides == nil {
 		state.AppOverrides = make(map[string]map[string]string)
@@ -685,6 +705,7 @@ func (a *App) LoadBlueprint(name string) error {
 		return fmt.Errorf("blueprint iconTheme: %w", err)
 	}
 	a.state.IconTheme = iconTheme
+	a.state.ThemeName, a.state.ThemeID = blueprintLabel(bp)
 	return nil
 }
 
@@ -732,6 +753,7 @@ func (a *App) ApplyBlueprint(name string) (*theme.ApplyResult, error) {
 		return nil, fmt.Errorf("blueprint iconTheme: %w", err)
 	}
 	a.state.IconTheme = iconTheme
+	a.state.ThemeName, a.state.ThemeID = blueprintLabel(bp)
 
 	return a.writer.ApplyTheme(a.state, theme.DefaultApplySettings())
 }
@@ -1493,6 +1515,8 @@ func (a *App) HandleIPC(req ipc.Request) ipc.Response {
 			Settings:         theme.DefaultApplySettings(),
 			AppOverrides:     a.state.AppOverrides,
 			IconTheme:        a.state.IconTheme,
+			ThemeName:        a.state.ThemeName,
+			ThemeID:          a.state.ThemeID,
 		})
 		if err != nil {
 			return ipc.Response{OK: false, Error: err.Error()}

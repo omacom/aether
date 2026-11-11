@@ -118,14 +118,6 @@ export function GetPreview(arg1) {
   return window['go']['main']['App']['GetPreview'](arg1);
 }
 
-export function GetReleaseStatus(arg1) {
-  return window['go']['main']['App']['GetReleaseStatus'](arg1);
-}
-
-export function GetYozakuraRoles(arg1) {
-  return window['go']['main']['App']['GetYozakuraRoles'](arg1);
-}
-
 export function GetSettings() {
   return window['go']['main']['App']['GetSettings']();
 }
@@ -148,6 +140,10 @@ export function GetWallhavenConfig() {
 
 export function GetWallpaperTags() {
   return window['go']['main']['App']['GetWallpaperTags']();
+}
+
+export function GetYozakuraRoles(arg1) {
+  return window['go']['main']['App']['GetYozakuraRoles'](arg1);
 }
 
 export function HandleDroppedFiles(arg1) {
@@ -182,10 +178,6 @@ export function IsPreviewCached(arg1) {
   return window['go']['main']['App']['IsPreviewCached'](arg1);
 }
 
-export function ListTargets() {
-  return window['go']['main']['App']['ListTargets']();
-}
-
 export function ListBlueprints() {
   return window['go']['main']['App']['ListBlueprints']();
 }
@@ -196,6 +188,10 @@ export function ListGitHubImages(arg1) {
 
 export function ListInstalledIconThemes() {
   return window['go']['main']['App']['ListInstalledIconThemes']();
+}
+
+export function ListTargets() {
+  return window['go']['main']['App']['ListTargets']();
 }
 
 export function LoadBlueprint(arg1) {
@@ -268,10 +264,6 @@ export function SetWallhavenAPIKey(arg1) {
 
 export function StartBatchProcessing(arg1, arg2) {
   return window['go']['main']['App']['StartBatchProcessing'](arg1, arg2);
-}
-
-export function StartUpgrade() {
-  return window['go']['main']['App']['StartUpgrade']();
 }
 
 export function SyncState(arg1) {

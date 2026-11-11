@@ -52,6 +52,9 @@ let yozakuraRoles = $state<Record<string, string>>({});
 let glass = $state<number | null>(null);
 let clock = $state<YozakuraClock | null>(null);
 let matchWallpapers = $state<string[]>([]);
+// Name/id of the blueprint currently loaded in the editor; labels the theme
+// in the shell output. Null after extraction/reset (an "Auto" theme).
+let loadedBlueprint = $state<{name: string; id: string} | null>(null);
 let iconTheme = $state<IconThemeSelection>({...AUTOMATIC_ICON_THEME});
 let paletteCurvePoints = $state<[number, number][]>([]);
 // Source path of the most recently extracted palette. Used to decide
@@ -633,6 +636,8 @@ export function setPaletteFromExtraction(path: string, colors: string[]): void {
     yozakuraRoles = {};
     glass = null;
     clock = null;
+    matchWallpapers = [];
+    loadedBlueprint = null;
     setPalette(colors);
 }
 
@@ -673,6 +678,16 @@ export function setGlass(value: number | null | undefined): void {
 
 export function setClock(value: YozakuraClock | null | undefined): void {
     clock = value ? {...value} : null;
+}
+
+export function getLoadedBlueprint(): {name: string; id: string} | null {
+    return loadedBlueprint ? {...loadedBlueprint} : null;
+}
+
+export function setLoadedBlueprint(
+    value: {name: string; id: string} | null
+): void {
+    loadedBlueprint = value ? {...value} : null;
 }
 
 export function setMatchWallpapers(
@@ -956,6 +971,10 @@ export function reset(): void {
     baseExtendedColors = {...ext};
     appOverrides = {};
     yozakuraRoles = {};
+    glass = null;
+    clock = null;
+    matchWallpapers = [];
+    loadedBlueprint = null;
     iconTheme = {...AUTOMATIC_ICON_THEME};
     paletteCurvePoints = [];
     lastExtractedPath = '';

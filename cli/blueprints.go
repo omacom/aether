@@ -76,6 +76,10 @@ func runListBlueprints(args []string) int {
 }
 
 func runApplyBlueprint(args []string, templatesFS embed.FS) int {
+	return runApplyBlueprintWith(args, templatesFS, generateDeps{})
+}
+
+func runApplyBlueprintWith(args []string, templatesFS embed.FS, deps generateDeps) int {
 	if len(args) == 0 {
 		fmt.Fprintln(os.Stderr, "Error: Blueprint name is required")
 		fmt.Fprintln(os.Stderr, "Usage: aether --apply-blueprint <name>")
@@ -116,8 +120,19 @@ func runApplyBlueprint(args []string, templatesFS embed.FS) int {
 		fmt.Fprintf(os.Stderr, "Error: Blueprint iconTheme: %v\n", err)
 		return 1
 	}
-	writer := theme.NewWriter(templatesFS, "templates")
+	tplDir := deps.TemplatesDir
+	if tplDir == "" {
+		tplDir = "templates"
+	}
+	writer := theme.NewWriter(templatesFS, tplDir)
+	if deps.Run != nil {
+		writer.Run = deps.Run
+	}
+	if deps.Have != nil {
+		writer.Have = deps.Have
+	}
 
+	// DefaultApplySettings carries the GUI's saved per-target opt-outs.
 	settings := theme.DefaultApplySettings()
 	fmt.Printf("Applying blueprint: %s\n", bp.Name)
 	result, err := writer.ApplyTheme(state, settings)

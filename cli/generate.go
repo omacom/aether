@@ -8,8 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 
@@ -120,9 +120,14 @@ func runGenerateWith(args []string, templatesFS embed.FS, deps generateDeps) int
 
 	// Human-readable progress goes to stdout, or to stderr when stdout is
 	// reserved for the --json object.
+	// In --json mode the progress lines are dropped entirely (callers like the
+	// shell log every stderr line as a warning); errors and warnings still
+	// reach stderr.
 	var out io.Writer = stdout
 	if jsonOut {
-		out = stderr
+		out = io.Discard
+		log.SetOutput(&problemLogWriter{w: stderr})
+		defer log.SetOutput(os.Stderr)
 	}
 
 	if len(args) == 0 {
@@ -184,11 +189,14 @@ func runGenerateWith(args []string, templatesFS embed.FS, deps generateDeps) int
 		IncludeNeovim: !noNeovim,
 		// The GUI's per-target opt-outs and the --no-* flags share one switch.
 		DisabledTargets: disabledTargets(noVscode, noNeovim),
+		// Same neovim config the GUI would apply.
+		SelectedNeovimConfig: theme.LoadSelectedNeovimConfig(),
 	}
 	svc := blueprint.NewService()
 
 	// Lookup order: wallpaper-matched blueprint, extraction, default blueprint.
 	var state *theme.ThemeState
+	fromBlueprint := false
 	bp, err := svc.FindForWallpaper(wallpaperPath)
 	if err != nil {
 		fmt.Fprintf(stderr, "Warning: blueprint lookup failed: %v\n", err)
@@ -198,6 +206,7 @@ func runGenerateWith(args []string, templatesFS embed.FS, deps generateDeps) int
 			fmt.Fprintf(stderr, "Warning: blueprint %s unusable (%v); extracting instead\n", bp.Name, err)
 			state = nil
 		} else {
+			fromBlueprint = true
 			fmt.Fprintf(out, "Using blueprint %s for %s\n", bp.Name, wallpaperPath)
 		}
 	}
@@ -238,11 +247,12 @@ func runGenerateWith(args []string, templatesFS embed.FS, deps generateDeps) int
 				fmt.Fprintf(stderr, "Error: Failed to extract colors: %v\n", err)
 				return 1
 			}
+			fromBlueprint = true
 			fmt.Fprintf(stderr, "Warning: extraction failed (%v); falling back to default blueprint %s\n", err, def.Name)
 		}
 	}
 	// A blueprint keeps its own icon theme unless --icon-theme was given.
-	if iconThemeSet || state.ThemeID == "auto" {
+	if iconThemeSet || !fromBlueprint {
 		state.IconTheme = iconTheme
 	}
 	if deps.OnState != nil {
@@ -323,6 +333,18 @@ func printThemeJSON(w io.Writer, result *theme.ApplyResult) error {
 	return fmt.Errorf("yozakura target did not run")
 }
 
+// problemLogWriter forwards only log lines that report a problem, dropping
+// informational ones such as "Copied Zed theme to: ...".
+type problemLogWriter struct{ w io.Writer }
+
+func (p *problemLogWriter) Write(b []byte) (int, error) {
+	line := strings.ToLower(string(b))
+	if strings.Contains(line, "warning") || strings.Contains(line, "error") || strings.Contains(line, "failed") {
+		return p.w.Write(b)
+	}
+	return len(b), nil
+}
+
 func joinStrings(s []string, sep string) string {
 	result := ""
 	for i, v := range s {
@@ -337,16 +359,8 @@ func joinStrings(s []string, sep string) string {
 // disabledTargets merges the GUI's saved opt-outs (settings.json includedApps
 // entries set to false) with the --no-vscode/--no-neovim flags.
 func disabledTargets(noVscode, noNeovim bool) map[string]bool {
-	out := map[string]bool{"vscode": noVscode, "neovim": noNeovim}
-	cfg, err := platform.ReadJSON[struct {
-		IncludedApps map[string]bool `json:"includedApps"`
-	}](filepath.Join(platform.ConfigDir(), "settings.json"))
-	if err == nil {
-		for id, on := range cfg.IncludedApps {
-			if !on {
-				out[id] = true
-			}
-		}
-	}
+	out := theme.LoadTargetOptOuts()
+	out["vscode"] = out["vscode"] || noVscode
+	out["neovim"] = out["neovim"] || noNeovim
 	return out
 }

@@ -14,9 +14,7 @@ export function AdjustPaletteColors(arg1:Array<string>,arg2:color.Adjustments):P
 
 export function ApplyBlueprint(arg1:string):Promise<theme.ApplyResult>;
 
-
 export function ApplyTheme(arg1:main.ApplyThemeRequest):Promise<theme.ApplyResult>;
-
 
 export function BlueprintExists(arg1:string):Promise<boolean>;
 
@@ -66,14 +64,9 @@ export function GetIconThemePreview(arg1:string):Promise<icontheme.ThemePreview>
 
 export function GetInitialState():Promise<theme.StateSnapshot>;
 
-
 export function GetPendingExternalImport():Promise<main.ExternalImportPreview>;
 
 export function GetPreview(arg1:string):Promise<string>;
-
-export function GetReleaseStatus(arg1:string):Promise<Record<string, any>>;
-
-export function GetYozakuraRoles(arg1:main.YozakuraRolesRequest):Promise<main.YozakuraRolesResult>;
 
 export function GetSettings():Promise<Record<string, any>>;
 
@@ -86,6 +79,8 @@ export function GetThumbnail(arg1:string):Promise<string>;
 export function GetWallhavenConfig():Promise<Record<string, any>>;
 
 export function GetWallpaperTags():Promise<Record<string, any>>;
+
+export function GetYozakuraRoles(arg1:main.YozakuraRolesRequest):Promise<main.YozakuraRolesResult>;
 
 export function HandleDroppedFiles(arg1:Array<string>):Promise<string>;
 
@@ -101,10 +96,7 @@ export function IsFavoritesExportRunning():Promise<boolean>;
 
 export function IsMacOS():Promise<boolean>;
 
-
 export function IsPreviewCached(arg1:string):Promise<boolean>;
-
-export function ListTargets():Promise<Array<main.TargetInfo>>;
 
 export function ListBlueprints():Promise<Array<Record<string, any>>>;
 
@@ -112,8 +104,9 @@ export function ListGitHubImages(arg1:string):Promise<githubsource.ListContentsR
 
 export function ListInstalledIconThemes():Promise<Array<icontheme.ThemeSummary>>;
 
-export function LoadBlueprint(arg1:string):Promise<void>;
+export function ListTargets():Promise<Array<main.TargetInfo>>;
 
+export function LoadBlueprint(arg1:string):Promise<void>;
 
 export function OpenExternalImportInEditor(arg1:string):Promise<void>;
 
@@ -148,8 +141,6 @@ export function SetExtractionMode(arg1:string):Promise<void>;
 export function SetWallhavenAPIKey(arg1:string):Promise<void>;
 
 export function StartBatchProcessing(arg1:Array<string>,arg2:boolean):Promise<void>;
-
-export function StartUpgrade():Promise<void>;
 
 export function SyncState(arg1:main.SyncStateRequest):Promise<void>;
 
