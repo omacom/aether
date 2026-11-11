@@ -9,7 +9,6 @@
     } from '$lib/stores/ui.svelte';
     import SearchIcon from '$lib/components/shared/SearchIcon.svelte';
     import Kbd from '$lib/components/shared/Kbd.svelte';
-    import ReleaseIndicator from '$lib/components/layout/ReleaseIndicator.svelte';
     import aetherLogo from '../../../assets/aether-logo.png';
 
     let activeTab = $derived(getActiveTab());
@@ -138,7 +137,6 @@
     <div class="min-w-4 flex-1"></div>
 
     <div class="flex items-center gap-1" style="--wails-draggable:no-drag">
-        <ReleaseIndicator {isMac} />
         <button
             type="button"
             class="bg-bg-surface border-border text-fg-dimmed hover:border-border-focus mr-1.5 flex h-7 min-w-0 items-center gap-2 border pl-2.5 pr-1.5 text-[12px] transition-colors xl:w-[232px]"

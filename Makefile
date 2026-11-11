@@ -26,7 +26,6 @@ dev:
 
 test:
 	go test ./internal/... ./cli/...
-	go test -ldflags "-X aether/internal/update.packageUpdateCommand=pacman-update" ./internal/update ./cli
 
 clean:
 	rm -rf build/bin

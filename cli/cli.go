@@ -108,8 +108,6 @@ func Run(args []string, templatesFS embed.FS) int {
 		return runIsFavorite(args[1:])
 
 	// --- Meta ---
-	case "upgrade":
-		return runUpgrade(args[1:])
 	case "--help", "-h":
 		printUsage()
 		return 0
@@ -128,7 +126,6 @@ func printUsage() {
 
 Usage:
   aether                                    Launch GUI
-  aether upgrade                            Upgrade to the latest release
   aether --help                             Show this help
   aether --version                          Show version
 

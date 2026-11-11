@@ -8,9 +8,9 @@ https://github.com/user-attachments/assets/58bb3de6-d425-4f8e-a01c-79da7a26a9f0
 
 # Aether
 
-A visual theming application for [Omarchy](https://omarchy.org). Extract colors from wallpapers and apply cohesive themes across your entire desktop.
+A visual theming application for Linux desktops. Extract colors from wallpapers and apply cohesive themes across your entire desktop. This fork is the theme engine for the Yozakura Quickshell desktop on Hyprland.
 
-> **Not using Omarchy?** Aether works standalone on any Linux desktop. See the [Standalone Guide](docs/standalone.md) for setup.
+> Aether works standalone on any Linux desktop. See the [Standalone Guide](docs/standalone.md) for setup.
 
 ## Features
 
@@ -77,15 +77,9 @@ git clone https://github.com/omacom/aether.git
 cd aether && make build
 ```
 
-### Package-managed installs
+### Updates
 
-When pacman owns the `aether` binary, Aether does not check for releases or upgrade itself. `aether upgrade` prints the update command instead: `yay -Syu`, `paru -Syu` or `sudo pacman -Syu`.
-
-To set this behavior in other packages, give the update command at build time:
-
-```bash
-wails build -tags webkit2_41 -ldflags "-X 'aether/internal/update.packageUpdateCommand=sudo dnf upgrade aether'"
-```
+This fork does not check for releases or upgrade itself, and has no `aether upgrade` command: rebuild from source (`make build`) and reinstall the binary.
 
 ### Basic Usage
 
@@ -152,12 +146,11 @@ From `frontend/`, run `npm ci`, `npm run check`, `npm test`, and `npm run build`
 | [File System](docs/filesystem.md) | Where Aether stores files |
 | [Remote Control](docs/remote-control.md) | IPC commands and AI integration |
 | [Protocol Handler](docs/protocol-handler.md) | Register `aether://` links |
-| [Standalone](docs/standalone.md) | Using Aether without Omarchy |
+| [Standalone](docs/standalone.md) | Desktop targets and shell integration |
 | [Troubleshooting](docs/troubleshooting.md) | Common issues |
 
 ## Complementary Projects
 
-- [omarchy-theme-hook](https://github.com/OldJobobo/thpm) - A clean solution to extend your Omarchy theme to other apps.
 - [waybar-themes](https://github.com/HANCORE-linux/waybar-themes) - Waybar themes by HANCORE.
 
 ## Contributing
