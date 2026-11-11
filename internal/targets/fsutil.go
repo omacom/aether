@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -131,7 +132,10 @@ func (b *Backups) Save(path string) error {
 		rel = strings.TrimPrefix(path, string(filepath.Separator))
 	}
 	dst := filepath.Join(b.root, rel)
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+	if err := os.MkdirAll(b.root, 0o700); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(dst), 0o700); err != nil {
 		return err
 	}
 	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_EXCL, st.Mode().Perm())
@@ -152,6 +156,46 @@ func (b *Backups) Save(path string) error {
 	}
 	b.done[path] = true
 	return nil
+}
+
+// MaxBackups is how many timestamped backup directories are kept.
+const MaxBackups = 20
+
+// Prune deletes the oldest timestamped backup directories, keeping the newest
+// keep. Only directories with purely numeric names are considered; anything
+// else under the backups directory is left alone. Failures are ignored: pruning
+// is housekeeping and must never fail an apply.
+func (b *Backups) Prune(keep int) {
+	if b == nil {
+		return
+	}
+	parent := filepath.Dir(b.root)
+	entries, err := os.ReadDir(parent)
+	if err != nil {
+		return
+	}
+	type stamped struct {
+		name string
+		ts   int64
+	}
+	var dirs []stamped
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		ts, err := strconv.ParseInt(e.Name(), 10, 64)
+		if err != nil || strconv.FormatInt(ts, 10) != e.Name() {
+			continue
+		}
+		dirs = append(dirs, stamped{e.Name(), ts})
+	}
+	if len(dirs) <= keep {
+		return
+	}
+	sort.Slice(dirs, func(i, j int) bool { return dirs[i].ts > dirs[j].ts })
+	for _, d := range dirs[keep:] {
+		os.RemoveAll(filepath.Join(parent, d.name))
+	}
 }
 
 // EnsureInclude makes sure the user-owned file inc.Path contains every line of

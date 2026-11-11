@@ -81,6 +81,10 @@ func Apply(ctx Context, ts []Target, enabled func(id string) bool) []Status {
 	for _, t := range ts {
 		out = append(out, applyOne(ctx, t, enabled))
 	}
+	// Only a run that created a backup directory adds to the pile.
+	if _, err := os.Stat(ctx.Backups.root); err == nil {
+		ctx.Backups.Prune(MaxBackups)
+	}
 	return out
 }
 

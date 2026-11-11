@@ -3,6 +3,7 @@ package targets
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -235,5 +236,45 @@ func TestBackupsSameSecondKeepsOriginal(t *testing.T) {
 	b, _ := os.ReadFile(filepath.Join(home, ".local/state/aether/backups/5000/f.conf"))
 	if string(b) != "original" {
 		t.Fatalf("backup %q", b)
+	}
+}
+
+func TestApplyPrunesTimestampedBackupsOnly(t *testing.T) {
+	home := t.TempDir()
+	root := filepath.Join(home, ".local/state/aether/backups")
+	for i := 1; i <= 25; i++ {
+		os.MkdirAll(filepath.Join(root, strconv.Itoa(i)), 0o755)
+	}
+	os.MkdirAll(filepath.Join(root, "yozakura-python-engine"), 0o755)
+	os.WriteFile(filepath.Join(root, "yozakura-themes.json"), []byte("{}"), 0o644)
+	user := filepath.Join(home, ".config/app.conf")
+	os.MkdirAll(filepath.Dir(user), 0o755)
+	os.WriteFile(user, []byte("keep\n"), 0o644)
+
+	ctx := Context{Home: home, Backups: NewBackups(home, time.Unix(1000, 0))}
+	tg := Target{ID: "t", Label: "T", Includes: []Include{{Path: ".config/app.conf", Line: "include x"}}}
+	Apply(ctx, []Target{tg}, nil)
+
+	entries, _ := os.ReadDir(root)
+	var nums int
+	names := map[string]bool{}
+	for _, e := range entries {
+		names[e.Name()] = true
+		if _, err := strconv.Atoi(e.Name()); err == nil {
+			nums++
+		}
+	}
+	if nums != MaxBackups {
+		t.Fatalf("kept %d timestamped dirs, want %d: %v", nums, MaxBackups, names)
+	}
+	if !names["1000"] || names["1"] || names["6"] || !names["7"] {
+		t.Fatalf("wrong dirs pruned: %v", names)
+	}
+	if !names["yozakura-python-engine"] || !names["yozakura-themes.json"] {
+		t.Fatalf("non-timestamp entries must survive: %v", names)
+	}
+	info, err := os.Stat(filepath.Join(root, "1000"))
+	if err != nil || info.Mode().Perm() != 0o700 {
+		t.Fatalf("backup dir mode = %v (%v)", info, err)
 	}
 }
