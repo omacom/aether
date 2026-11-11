@@ -49,13 +49,14 @@ func runCheckContrast(args []string) int {
 		var palette [16]string
 		copy(palette[:], bp.Palette.Colors)
 		th := yozakura.Derive(MapColorsToRoles(palette), bp.Palette.YozakuraRoles, bp.Palette.Glass, bp.Palette.Clock)
-		for _, r := range yozakura.Check(th) {
+		// Apply runs Enforce, so report what Apply would actually produce.
+		for _, r := range yozakura.Enforce(&th) {
 			flag := ""
-			if r.Ratio < r.Min {
+			if r.State == "failed" {
 				flag = fmt.Sprintf("   <-- below %.1f", r.Min)
 				bad++
 			}
-			fmt.Printf("%-6s %-16s %5.2f%s\n", bp.Name, r.Pair, r.Ratio, flag)
+			fmt.Printf("%-6s %-16s %5.2f  %s%s\n", bp.Name, r.Pair, r.Ratio, r.State, flag)
 		}
 	}
 	if bad > 0 {

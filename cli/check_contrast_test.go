@@ -133,3 +133,23 @@ func TestImportYozakuraKeepsMalformedSettings(t *testing.T) {
 		t.Fatalf("stderr lacks settings mention: %s", eb.String())
 	}
 }
+
+func TestRunCheckContrastReportsNudgedForDerivedRoles(t *testing.T) {
+	isolate(t)
+	svc := blueprint.NewService()
+	bp := blueprint.Blueprint{Name: "dim"}
+	// Foreground colours barely lighter than the background: Derive alone
+	// fails contrast, Enforce (what Apply runs) nudges them into range.
+	bp.Palette.Colors = []string{"#202020", "#505050", "#505050", "#505050", "#d0d0ff", "#505050", "#505050", "#707070",
+		"#282828", "#585858", "#585858", "#585858", "#e0e0ff", "#585858", "#585858", "#808080"}
+	if err := svc.Save("dim", bp); err != nil {
+		t.Fatal(err)
+	}
+	c, out := capture(t, func() int { return runCheckContrast([]string{"dim"}) })
+	if c != 0 {
+		t.Fatalf("exit %d, Apply would fix these:\n%s", c, out)
+	}
+	if !strings.Contains(out, "nudged") {
+		t.Fatalf("no nudged state printed:\n%s", out)
+	}
+}
