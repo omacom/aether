@@ -18,12 +18,6 @@ Blueprints store the source path and the blur choice.
 Aether recreates the cached variant when needed.
 Saved theme folders contain both the original image and the blurred variant.
 
-## Wallpaper-only changes
-
-On Omarchy, use `Wallpaper only` in Local, Wallhaven, or Favorites to change the background.
-This action preserves the active theme and its colors.
-It requires Omarchy's public background command.
-
 ## Filter Categories
 
 ### Basic Adjustments

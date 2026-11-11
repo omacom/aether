@@ -13,7 +13,6 @@ The browser supports public repositories and the same still-image formats as Loc
 Use the name filter to narrow the current results.
 The heart saves an image in Favorites.
 The additional-image control adds it to the current theme's image set.
-On Omarchy, `Wallpaper only` changes the background and preserves the active theme.
 
 The command palette also provides `Go to GitHub`.
 Saved repositories remain available between sessions.

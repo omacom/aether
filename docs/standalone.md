@@ -49,17 +49,23 @@ app.
 
 ## Yozakura themes
 
-Import the curated Yozakura `themes.json` as blueprints (existing blueprints are
-kept unless you pass `--force`; the file's default theme becomes your default
-blueprint):
+Blueprints in `~/.config/aether/blueprints` are the source of Yozakura themes.
+The curated `themes.json` that used to live next to the shell is archived; do
+not edit it. To bring its themes in once, import it as blueprints (existing
+blueprints are kept unless you pass `--force`; the file's default theme becomes
+your default blueprint):
 
 ```bash
 aether --import-yozakura ~/.config/quickshell/yozakura/themes/themes.json
 ```
 
+Edit and add themes in Aether, then save them as blueprints.
+
 Blueprints can carry **match wallpapers**: case-insensitive filename patterns
 (set in the Save blueprint dialog, comma separated). Generating from a matching
-wallpaper loads that blueprint instead of extracting a palette.
+wallpaper loads that blueprint instead of extracting a palette. A tweak made in
+the GUI persists across wallpaper changes only when it is saved as a blueprint
+with a match pattern.
 
 Check the readability of the Yozakura roles (text on surface, muted, accent and
 so on) for one blueprint or all of them:
@@ -72,7 +78,9 @@ aether --check-contrast --all
 ## Using Aether from a shell
 
 `--generate` extracts or resolves a theme, applies it, and with `--json` prints
-the resulting theme object to stdout, which is what the Yozakura shell reads:
+the resulting theme object to stdout, which is what the Yozakura shell reads at
+startup and on wallpaper change. The shell also watches
+`~/.local/state/yozakura/theme.json`, so a GUI Apply reaches it without a reload:
 
 ```bash
 aether --generate ~/Wallpapers/sunset.jpg --json

@@ -17,7 +17,7 @@ aether --generate ~/Wallpapers/sunset.jpg
 # Import Base16 color scheme
 aether --import-base16 ~/themes/dracula.yaml
 
-# Import colors.toml (omarchy/ethereal format)
+# Import colors.toml (ethereal format)
 aether --import-colors-toml ~/themes/colors.toml
 ```
 
@@ -60,6 +60,13 @@ aether --generate /path/to/wallpaper.jpg
 | `--no-apply` | Generate templates only, don't activate theme |
 | `--output PATH` | Custom output directory (use with `--no-apply`) |
 | `--icon-theme automatic\|ID` | Keep color-matched Yaru or write an explicit safe icon-theme directory ID |
+| `--json` | Apply, then print the resulting Yozakura `theme.json` as one compact line on stdout. Progress output is suppressed; errors still go to stderr. Incompatible with `--no-apply` |
+| `--no-vscode`, `--no-neovim`, `--no-zed` | Leave that editor target alone |
+
+If a blueprint's match-wallpaper pattern matches the wallpaper, that blueprint is
+used instead of extracting a palette. Targets switched off in the GUI
+(`includedApps.<id> = false` in `settings.json`) are skipped by every apply
+path, including `--generate` and `--apply-blueprint`.
 
 **Extraction Modes:**
 
@@ -115,6 +122,27 @@ aether --import-blueprint "/path/to/theme.json"
 aether --import-blueprint "https://example.com/blueprint.json" --auto-apply
 ```
 
+### Import Yozakura Themes
+
+Import the curated Yozakura `themes.json` as blueprints. Existing blueprints are
+kept unless `--force` is given; the file's default theme becomes the default blueprint.
+
+```bash
+aether --import-yozakura ~/.config/quickshell/yozakura/themes/themes.json
+aether --import-yozakura themes.json --force
+```
+
+### Check Contrast
+
+Report the contrast of each Yozakura role pair for one blueprint or all of them,
+after the same nudging Apply performs. Each pair is `ok`, `nudged` or `failed`;
+the exit code is 1 when any pair fails.
+
+```bash
+aether --check-contrast Icho
+aether --check-contrast --all
+```
+
 ### Import Base16 Scheme
 
 Import a [Base16](https://github.com/chriskempson/base16) color scheme:
@@ -149,7 +177,7 @@ See [Base16 documentation](base16.md) for format details and color mapping.
 
 ### Import Colors.toml
 
-Import a flat colors.toml file (compatible with omarchy/ethereal themes):
+Import a flat colors.toml file (compatible with ethereal themes):
 
 ```bash
 aether --import-colors-toml /path/to/colors.toml
@@ -166,7 +194,7 @@ aether --import-colors-toml /path/to/colors.toml
 
 ```bash
 # Import colors.toml
-aether --import-colors-toml /usr/share/omarchy/themes/ethereal/colors.toml
+aether --import-colors-toml ~/themes/ethereal/colors.toml
 
 # Import with wallpaper
 aether --import-colors-toml ~/themes/colors.toml --wallpaper ~/wallpaper.jpg
@@ -494,10 +522,6 @@ aether --generate "$wallpaper"
 Add to `~/.config/hypr/hyprland.conf`:
 
 ```conf
-# Native Omarchy shell selectors
-bind = SUPER ALT, W, exec, omarchy-shell shell toggle aether.wallpapers '{}'
-bind = SUPER ALT, B, exec, omarchy-shell shell toggle aether.blueprints '{}'
-
 # Generate theme from current wallpaper
 bind = $mainMod ALT, T, exec, aether --generate $(hyprctl hyprpaper listactive | head -1 | cut -d' ' -f2)
 ```
@@ -516,19 +540,3 @@ Aether respects standard XDG directories:
 - `~/.config/aether/` - Configuration and blueprints
 - `~/.cache/aether/` - Thumbnails and temporary files
 - `~/.local/share/aether/` - Downloaded wallpapers
-
-### `AETHER_EXTRA_THEME_DIRS`
-
-Colon-separated list of additional directories to scan for themes shown
-in the **System Themes** tab. These are searched **before** the omarchy
-defaults (`~/.config/omarchy/themes`, `$OMARCHY_PATH/themes` or
-`/usr/share/omarchy/themes`,
-`~/.config/themes`), so a theme with the same name in a custom directory
-wins.
-
-```bash
-AETHER_EXTRA_THEME_DIRS="$HOME/dotfiles/themes:$HOME/work/themes" aether
-```
-
-Useful if you keep themes in a non-omarchy location (e.g. your dotfiles
-repo) or run a distro that puts themes elsewhere.
