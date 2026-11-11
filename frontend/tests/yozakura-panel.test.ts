@@ -129,3 +129,12 @@ test('apply request carries yozakuraRoles, glass and clock', () => {
         ornament: 'seal',
     });
 });
+
+test('mounting does not refetch in a loop', async () => {
+    await mountPanel();
+    const settled = vi.mocked(GetYozakuraRoles).mock.calls.length;
+    await wait(600);
+    await settle();
+    expect(vi.mocked(GetYozakuraRoles).mock.calls.length).toBe(settled);
+    expect(settled).toBe(1);
+});

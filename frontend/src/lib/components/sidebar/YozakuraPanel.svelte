@@ -35,16 +35,21 @@
     let pinned = $derived(Object.keys(overrides).length);
     let contrast = $derived(result?.contrast ?? []);
 
-    // Touch every input of the derivation so any edit re-queries the backend.
-    $effect(() => {
-        const _ = [
+    // A primitive key: a backend response that re-creates an equal clock
+    // object must not retrigger the refresh that produced it.
+    let inputKey = $derived(
+        JSON.stringify([
             getPalette(),
             getExtendedColors(),
             getLightMode(),
             overrides,
             glass,
             clock,
-        ].map(v => JSON.stringify(v));
+        ])
+    );
+
+    $effect(() => {
+        void inputKey;
         refreshYozakura();
     });
 
