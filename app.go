@@ -361,6 +361,49 @@ func (a *App) ComputeVariables(paletteSlice []string, extendedColors map[string]
 	return template.BuildVariables(roles, lightMode, extendedColors)
 }
 
+// YozakuraRolesRequest is the editor state needed to preview the Yozakura roles.
+type YozakuraRolesRequest struct {
+	Palette        [16]string        `json:"palette"`
+	ExtendedColors map[string]string `json:"extendedColors"`
+	LightMode      bool              `json:"lightMode"`
+	Overrides      map[string]string `json:"overrides"`
+	Glass          *float64          `json:"glass"`
+	Clock          *yozakura.Clock   `json:"clock"`
+}
+
+// YozakuraRolesResult is the derived, contrast-enforced theme for live preview.
+type YozakuraRolesResult struct {
+	Roles            map[string]string     `json:"roles"`
+	Explicit         map[string]bool       `json:"explicit"`
+	Glass            float64               `json:"glass"`
+	Clock            yozakura.Clock        `json:"clock"`
+	Contrast         []yozakura.PairResult `json:"contrast"`
+	AccentCandidates []string              `json:"accentCandidates"`
+}
+
+// GetYozakuraRoles derives the Yozakura roles exactly as ApplyTheme would and
+// reports the contrast outcome, without writing anything.
+func (a *App) GetYozakuraRoles(req YozakuraRolesRequest) YozakuraRolesResult {
+	_, roles := buildColorRoles(req.Palette[:], req.ExtendedColors)
+	th := yozakura.Derive(roles, req.Overrides, req.Glass, req.Clock)
+	contrast := yozakura.Enforce(&th)
+	if contrast == nil {
+		contrast = []yozakura.PairResult{}
+	}
+	explicit := th.Explicit
+	if explicit == nil {
+		explicit = map[string]bool{}
+	}
+	return YozakuraRolesResult{
+		Roles:            th.Roles,
+		Explicit:         explicit,
+		Glass:            th.Glass,
+		Clock:            th.Clock,
+		Contrast:         contrast,
+		AccentCandidates: yozakura.AccentCandidates(roles),
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Theme Application
 // ---------------------------------------------------------------------------

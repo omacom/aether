@@ -185,3 +185,30 @@ func TestSaveBlueprintKeepsDisplayName(t *testing.T) {
 		t.Errorf("DisplayName = %q, want Ichō", bp.DisplayName)
 	}
 }
+
+func TestGetYozakuraRolesDerivesAndReportsContrast(t *testing.T) {
+	app := &App{}
+	var pal [16]string
+	copy(pal[:], yozPalette())
+	glass := 0.85
+	res := app.GetYozakuraRoles(YozakuraRolesRequest{
+		Palette:   pal,
+		Overrides: map[string]string{"accent": "#ff0000"},
+		Glass:     &glass,
+	})
+	if len(res.Roles) != len(yozakura.Keys) {
+		t.Fatalf("roles = %d keys, want %d", len(res.Roles), len(yozakura.Keys))
+	}
+	if res.Roles["accent"] != "#ff0000" || !res.Explicit["accent"] || res.Explicit["surface"] {
+		t.Errorf("override not pinned: %v %v", res.Roles["accent"], res.Explicit)
+	}
+	if res.Glass != 0.85 || res.Clock != yozakura.DefaultClock() {
+		t.Errorf("glass/clock = %v %+v", res.Glass, res.Clock)
+	}
+	if len(res.Contrast) != 7 {
+		t.Errorf("contrast pairs = %d, want 7", len(res.Contrast))
+	}
+	if res.AccentCandidates == nil {
+		t.Error("accentCandidates must not be nil")
+	}
+}

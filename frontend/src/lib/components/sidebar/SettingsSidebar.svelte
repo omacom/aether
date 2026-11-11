@@ -5,6 +5,7 @@
     import GradientGenerator from './GradientGenerator.svelte';
     import PaletteFromColor from './PaletteFromColor.svelte';
     import AccessibilityPanel from './AccessibilityPanel.svelte';
+    import YozakuraPanel from './YozakuraPanel.svelte';
     import NeovimThemes from './NeovimThemes.svelte';
     import TemplateToggles from './TemplateToggles.svelte';
     import IconThemePicker from './IconThemePicker.svelte';
@@ -46,6 +47,7 @@
     <ColorAdjustments />
     <IconThemePicker />
     <AccessibilityPanel />
+    <YozakuraPanel />
 
     <SectionLabel label="Targets" />
     <NeovimThemes />

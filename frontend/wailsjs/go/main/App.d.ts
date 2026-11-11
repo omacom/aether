@@ -73,6 +73,8 @@ export function GetPreview(arg1:string):Promise<string>;
 
 export function GetReleaseStatus(arg1:string):Promise<Record<string, any>>;
 
+export function GetYozakuraRoles(arg1:main.YozakuraRolesRequest):Promise<main.YozakuraRolesResult>;
+
 export function GetSettings():Promise<Record<string, any>>;
 
 export function GetTemplateColors():Promise<Record<string, Array<string>>>;

@@ -122,6 +122,10 @@ export function GetReleaseStatus(arg1) {
   return window['go']['main']['App']['GetReleaseStatus'](arg1);
 }
 
+export function GetYozakuraRoles(arg1) {
+  return window['go']['main']['App']['GetYozakuraRoles'](arg1);
+}
+
 export function GetSettings() {
   return window['go']['main']['App']['GetSettings']();
 }

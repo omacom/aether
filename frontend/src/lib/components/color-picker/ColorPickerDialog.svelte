@@ -4,6 +4,7 @@
         getColorPickerExtKey,
         getColorPickerOverrideApp,
         getColorPickerOverrideRole,
+        getColorPickerYozakuraRole,
         closeColorPicker,
         getEyedropperActive,
         setEyedropperActive,
@@ -28,6 +29,12 @@
         ANSI_SLOT_ROLES,
         EXTENDED_COLOR_LABELS,
     } from '$lib/constants/colors';
+    import {
+        getEffectiveRole,
+        getYozakuraOverrides,
+        resetYozakuraRole,
+        setYozakuraRole,
+    } from '$lib/stores/yozakura.svelte';
     import {appLabel} from '$lib/constants/apps';
     import {onDestroy, untrack} from 'svelte';
     import {
@@ -94,6 +101,8 @@
     let extKey = $derived(getColorPickerExtKey());
     let overrideApp = $derived(getColorPickerOverrideApp());
     let overrideRole = $derived(getColorPickerOverrideRole());
+    let yozakuraRole = $derived(getColorPickerYozakuraRole());
+    let isYozakura = $derived(yozakuraRole !== '');
     let isExtended = $derived(extKey !== '');
     let isOverride = $derived(overrideApp !== '' && overrideRole !== '');
 
@@ -127,30 +136,40 @@
         return computedVars[overrideRole] || '#000000';
     }
 
-    let currentColor = $derived(
-        isOverride
-            ? overrideValue || getOverrideBaseColor()
-            : isExtended
-              ? getExtendedColors()[extKey] || '#000000'
-              : getPalette()[idx] || '#000000'
+    let yozakuraPinned = $derived(
+        isYozakura && yozakuraRole in getYozakuraOverrides()
     );
 
-    let isAnsi = $derived(!isExtended && !isOverride);
+    let currentColor = $derived(
+        isYozakura
+            ? getEffectiveRole(yozakuraRole) || '#000000'
+            : isOverride
+              ? overrideValue || getOverrideBaseColor()
+              : isExtended
+                ? getExtendedColors()[extKey] || '#000000'
+                : getPalette()[idx] || '#000000'
+    );
+
+    let isAnsi = $derived(!isExtended && !isOverride && !isYozakura);
     let locked = $derived(isAnsi ? getLockedColors()[idx] || false : false);
 
     let title = $derived(
-        isOverride
-            ? ROLE_LABELS[overrideRole] || overrideRole
-            : isExtended
-              ? EXTENDED_COLOR_LABELS[extKey] || extKey
-              : ANSI_COLOR_NAMES[idx] || ''
+        isYozakura
+            ? yozakuraRole
+            : isOverride
+              ? ROLE_LABELS[overrideRole] || overrideRole
+              : isExtended
+                ? EXTENDED_COLOR_LABELS[extKey] || extKey
+                : ANSI_COLOR_NAMES[idx] || ''
     );
     let subtitle = $derived(
-        isOverride
-            ? `${appLabel(overrideApp)} override · ${overrideValue ? 'custom' : 'computed'}`
-            : isExtended
-              ? 'Semantic color'
-              : `ANSI slot ${idx} · ${ANSI_SLOT_ROLES[idx] ?? ''}`
+        isYozakura
+            ? `Yozakura role · ${yozakuraPinned ? 'pinned' : 'auto'}`
+            : isOverride
+              ? `${appLabel(overrideApp)} override · ${overrideValue ? 'custom' : 'computed'}`
+              : isExtended
+                ? 'Semantic color'
+                : `ANSI slot ${idx} · ${ANSI_SLOT_ROLES[idx] ?? ''}`
     );
 
     let eyedropperActive = $derived(getEyedropperActive());
@@ -166,7 +185,8 @@
     function applyColor(hex: string) {
         if (locked) return;
         hexInput = hex;
-        if (isOverride) setAppOverride(overrideApp, overrideRole, hex);
+        if (isYozakura) setYozakuraRole(yozakuraRole, hex);
+        else if (isOverride) setAppOverride(overrideApp, overrideRole, hex);
         else if (isExtended) setExtendedColor(extKey, hex);
         else setColor(idx, hex);
     }
@@ -174,7 +194,9 @@
     function handleHexInput(value: string) {
         hexInput = value;
         if (!locked && isValidHex(value)) {
-            if (isOverride) setAppOverride(overrideApp, overrideRole, value);
+            if (isYozakura) setYozakuraRole(yozakuraRole, value);
+            else if (isOverride)
+                setAppOverride(overrideApp, overrideRole, value);
             else if (isExtended) setExtendedColor(extKey, value);
             else setColor(idx, value);
         }
@@ -192,11 +214,13 @@
     let authoredHex = '';
     let authoredModel: ColorModel | null = null;
     let colorTarget = $derived(
-        isOverride
-            ? `override:${overrideApp}:${overrideRole}`
-            : isExtended
-              ? `extended:${extKey}`
-              : `ansi:${idx}`
+        isYozakura
+            ? `yozakura:${yozakuraRole}`
+            : isOverride
+              ? `override:${overrideApp}:${overrideRole}`
+              : isExtended
+                ? `extended:${extKey}`
+                : `ansi:${idx}`
     );
 
     // Preserve the user's model coordinates while converting through the
@@ -336,7 +360,10 @@
     }
 
     function handleResetOverride() {
-        if (isOverride) {
+        if (isYozakura) {
+            resetYozakuraRole(yozakuraRole);
+            closeColorPicker();
+        } else if (isOverride) {
             removeAppOverride(overrideApp, overrideRole);
             closeColorPicker();
         }
@@ -467,11 +494,13 @@
                     <LockIcon {locked} size="h-[15px] w-[15px]" />
                 </button>
             {/if}
-            {#if isOverride && overrideValue}
+            {#if (isOverride && overrideValue) || yozakuraPinned}
                 <button
                     class="text-destructive hover:bg-bg-hover flex h-[30px] items-center justify-center px-2 text-[11px] transition-colors"
                     onclick={handleResetOverride}
-                    title="Reset override to computed value"
+                    title={isYozakura
+                        ? 'Unpin role and use the derived value'
+                        : 'Reset override to computed value'}
                 >
                     Reset
                 </button>
