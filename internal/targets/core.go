@@ -338,6 +338,20 @@ func swayncTarget() Target {
 			Path: ".config/swaync/style.css",
 			Line: "@import url(\"file:///etc/xdg/swaync/style.css\");\n@import url(\"colors.css\");",
 		}},
-		Reload: func(Context) []string { return []string{"swaync-client", "-rs"} },
+		Reload: swayncReload,
 	}
+}
+
+// swayncReload reloads swaync's CSS only when swaync is already running.
+// swaync-client talks to org.erikreider.swaync.cc, which D-Bus activation
+// starts on demand: reloading a stopped swaync would launch it, and it would
+// then own org.freedesktop.Notifications instead of the Yozakura shell.
+func swayncReload(c Context) []string {
+	if c.Run == nil {
+		return nil
+	}
+	if _, err := c.Run("pgrep", "-x", "swaync"); err != nil {
+		return nil
+	}
+	return []string{"swaync-client", "-rs"}
 }

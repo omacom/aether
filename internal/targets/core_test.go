@@ -432,3 +432,51 @@ func TestAwwwUsesShellTransition(t *testing.T) {
 		t.Errorf("img = %v, want %v", img, want)
 	}
 }
+
+// swaync-client reaches swaync through a D-Bus-activatable name, so a reload
+// while swaync is not running would start it, and it would then take
+// org.freedesktop.Notifications away from the shell's own notification server.
+func TestSwayncReloadSkippedWhenNotRunning(t *testing.T) {
+	ctx, rec := ichoContext(t)
+	inner := ctx.Run
+	ctx.Run = func(name string, args ...string) (string, error) {
+		if name == "pgrep" {
+			rec.calls = append(rec.calls, append([]string{name}, args...))
+			return "", errors.New("exit status 1")
+		}
+		return inner(name, args...)
+	}
+	sts := Apply(ctx, []Target{swayncTarget()}, nil)
+	if len(sts) != 1 || sts[0].State != "written" {
+		t.Errorf("swaync = %+v, want written (files only, no reload)", sts)
+	}
+	probed := false
+	for _, c := range rec.calls {
+		if c[0] == "swaync-client" {
+			t.Errorf("swaync-client called while swaync is not running: %q", c)
+		}
+		if strings.Join(c, " ") == "pgrep -x swaync" {
+			probed = true
+		}
+	}
+	if !probed {
+		t.Errorf("did not check whether swaync is running; calls = %q", rec.calls)
+	}
+}
+
+func TestSwayncReloadsWhenRunning(t *testing.T) {
+	ctx, rec := ichoContext(t)
+	sts := Apply(ctx, []Target{swayncTarget()}, nil)
+	if len(sts) != 1 || sts[0].State != "reloaded" {
+		t.Errorf("swaync = %+v, want reloaded", sts)
+	}
+	reloaded := false
+	for _, c := range rec.calls {
+		if strings.Join(c, " ") == "swaync-client -rs" {
+			reloaded = true
+		}
+	}
+	if !reloaded {
+		t.Errorf("swaync-client -rs not called; calls = %q", rec.calls)
+	}
+}

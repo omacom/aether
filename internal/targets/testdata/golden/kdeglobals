@@ -3,45 +3,95 @@ BackgroundAlternate=27, 18, 34
 BackgroundNormal=40, 26, 49
 DecorationFocus=255, 158, 210
 DecorationHover=195, 156, 236
+ForegroundActive=195, 156, 236
 ForegroundInactive=160, 143, 168
+ForegroundLink=255, 158, 210
+ForegroundNegative=255, 93, 108
+ForegroundNeutral=242, 193, 78
 ForegroundNormal=242, 231, 240
+ForegroundPositive=143, 214, 168
+ForegroundVisited=195, 156, 236
+
+[Colors:Complementary]
+BackgroundAlternate=27, 18, 34
+BackgroundNormal=18, 11, 24
+DecorationFocus=255, 158, 210
+DecorationHover=195, 156, 236
+ForegroundActive=195, 156, 236
+ForegroundInactive=160, 143, 168
+ForegroundLink=255, 158, 210
+ForegroundNegative=255, 93, 108
+ForegroundNeutral=242, 193, 78
+ForegroundNormal=242, 231, 240
+ForegroundPositive=143, 214, 168
+ForegroundVisited=195, 156, 236
 
 [Colors:Header]
 BackgroundAlternate=40, 26, 49
 BackgroundNormal=27, 18, 34
 DecorationFocus=255, 158, 210
 DecorationHover=195, 156, 236
+ForegroundActive=195, 156, 236
 ForegroundInactive=160, 143, 168
+ForegroundLink=255, 158, 210
+ForegroundNegative=255, 93, 108
+ForegroundNeutral=242, 193, 78
 ForegroundNormal=242, 231, 240
+ForegroundPositive=143, 214, 168
+ForegroundVisited=195, 156, 236
 
 [Colors:Selection]
 BackgroundAlternate=195, 156, 236
 BackgroundNormal=255, 158, 210
 DecorationFocus=255, 158, 210
 DecorationHover=195, 156, 236
+ForegroundActive=29, 12, 23
 ForegroundInactive=29, 12, 23
+ForegroundLink=29, 12, 23
+ForegroundNegative=255, 93, 108
+ForegroundNeutral=242, 193, 78
 ForegroundNormal=29, 12, 23
+ForegroundPositive=143, 214, 168
+ForegroundVisited=29, 12, 23
 
 [Colors:Tooltip]
 BackgroundAlternate=27, 18, 34
 BackgroundNormal=40, 26, 49
 DecorationFocus=255, 158, 210
 DecorationHover=195, 156, 236
+ForegroundActive=195, 156, 236
 ForegroundInactive=160, 143, 168
+ForegroundLink=255, 158, 210
+ForegroundNegative=255, 93, 108
+ForegroundNeutral=242, 193, 78
 ForegroundNormal=242, 231, 240
+ForegroundPositive=143, 214, 168
+ForegroundVisited=195, 156, 236
 
 [Colors:View]
 BackgroundAlternate=27, 18, 34
 BackgroundNormal=18, 11, 24
 DecorationFocus=255, 158, 210
 DecorationHover=195, 156, 236
+ForegroundActive=195, 156, 236
 ForegroundInactive=160, 143, 168
+ForegroundLink=255, 158, 210
+ForegroundNegative=255, 93, 108
+ForegroundNeutral=242, 193, 78
 ForegroundNormal=242, 231, 240
+ForegroundPositive=143, 214, 168
+ForegroundVisited=195, 156, 236
 
 [Colors:Window]
 BackgroundAlternate=40, 26, 49
 BackgroundNormal=27, 18, 34
 DecorationFocus=255, 158, 210
 DecorationHover=195, 156, 236
+ForegroundActive=195, 156, 236
 ForegroundInactive=160, 143, 168
+ForegroundLink=255, 158, 210
+ForegroundNegative=255, 93, 108
+ForegroundNeutral=242, 193, 78
 ForegroundNormal=242, 231, 240
+ForegroundPositive=143, 214, 168
+ForegroundVisited=195, 156, 236

@@ -158,11 +158,13 @@ func TestKdeglobalsPreservesOtherSections(t *testing.T) {
 	for _, keep := range []string{
 		"[General]\nColorScheme=BreezeDark\nfont=Noto Sans,10,-1,5,50,0,0,0,0,0\n",
 		"[KDE]\nwidgetStyle=Breeze\n",
-		"ForegroundActive=9,9,9\n",
 	} {
 		if !strings.Contains(got, keep) {
 			t.Errorf("lost %q in:\n%s", keep, got)
 		}
+	}
+	if strings.Contains(got, "ForegroundActive=9,9,9") {
+		t.Error("old ForegroundActive kept")
 	}
 	if strings.Contains(got, "BackgroundNormal=1,2,3") {
 		t.Error("old BackgroundNormal kept")
@@ -350,5 +352,70 @@ func TestAppTargetsDetectUsesInjectedLookup(t *testing.T) {
 	}
 	if len(rec.calls) != 0 {
 		t.Errorf("calls %q", rec.calls)
+	}
+}
+
+func TestQtSchemeAndDolphinrc(t *testing.T) {
+	ctx, _ := ichoContext(t)
+	writeHome(t, ctx, ".config/dolphinrc", "[MainWindow]\nMenuBar=Disabled\n")
+	writeHome(t, ctx, ".config/kdeglobals", "[Icons]\nTheme=breeze\n")
+	if s := Apply(ctx, []Target{qtTarget()}, nil)[0]; s.State != "written" {
+		t.Fatalf("state = %s (%s)", s.State, s.Error)
+	}
+	scheme := readHome(t, ctx, qtSchemePath)
+	for _, want := range []string{"[General]\nColorScheme=Aether\nName=Aether", "[Colors:View]", "[Colors:Complementary]", "ForegroundLink=", "[ColorEffects:Inactive]\nChangeSelectionColor=false\nEnable=false"} {
+		if !strings.Contains(scheme, want) {
+			t.Errorf("scheme missing %q:\n%s", want, scheme)
+		}
+	}
+	if rc := readHome(t, ctx, ".config/dolphinrc"); !strings.Contains(rc, "[MainWindow]\nMenuBar=Disabled\n") || !strings.Contains(rc, "[UiSettings]\nColorScheme=Aether") {
+		t.Errorf("dolphinrc:\n%s", rc)
+	}
+	if kg := readHome(t, ctx, ".config/kdeglobals"); !strings.Contains(kg, "Theme=breeze") || strings.Contains(kg, "Papirus") {
+		t.Errorf("user icon theme overwritten:\n%s", kg)
+	}
+}
+
+func TestMain(m *testing.M) {
+	qtIconDirs = []string{".local/share/icons"} // keep goldens independent of the host
+	os.Exit(m.Run())
+}
+
+func TestQtIconThemeFilledOnlyWhenInstalled(t *testing.T) {
+	ctx, _ := ichoContext(t)
+	writeHome(t, ctx, ".config/kdeglobals", "")
+	Apply(ctx, []Target{qtTarget()}, nil)
+	if kg := readHome(t, ctx, ".config/kdeglobals"); strings.Contains(kg, "[Icons]") {
+		t.Errorf("icon theme set without Papirus installed:\n%s", kg)
+	}
+	writeHome(t, ctx, ".local/share/icons/Papirus-Dark/index.theme", "")
+	Apply(ctx, []Target{qtTarget()}, nil)
+	if kg := readHome(t, ctx, ".config/kdeglobals"); !strings.Contains(kg, "[Icons]\nTheme=Papirus-Dark") {
+		t.Errorf("icon theme not set:\n%s", kg)
+	}
+}
+
+func TestQt6ctPaletteAndAppearance(t *testing.T) {
+	ctx, _ := ichoContext(t)
+	writeHome(t, ctx, ".config/qt6ct/qt6ct.conf", "[Appearance]\nicon_theme=breeze\nstyle=kvantum\n\n[Fonts]\nfixed=Mono\n")
+	if s := Apply(ctx, []Target{qtTarget()}, nil)[0]; s.State != "written" {
+		t.Fatalf("state = %s (%s)", s.State, s.Error)
+	}
+	pal := readHome(t, ctx, qt6ctScheme)
+	for _, key := range []string{"active_colors=", "disabled_colors=", "inactive_colors="} {
+		i := strings.Index(pal, key)
+		if i < 0 {
+			t.Fatalf("missing %s in:\n%s", key, pal)
+		}
+		line := strings.SplitN(pal[i+len(key):], "\n", 2)[0]
+		if n := len(strings.Split(line, ", ")); n != 21 {
+			t.Errorf("%s has %d colours, want 21", key, n)
+		}
+	}
+	conf := readHome(t, ctx, ".config/qt6ct/qt6ct.conf")
+	for _, want := range []string{"custom_palette=true", "color_scheme_path=" + filepath.Join(ctx.Home, qt6ctScheme), "icon_theme=breeze", "style=kvantum", "[Fonts]\nfixed=Mono"} {
+		if !strings.Contains(conf, want) {
+			t.Errorf("qt6ct.conf missing %q:\n%s", want, conf)
+		}
 	}
 }
