@@ -10,8 +10,8 @@
         setSorting,
         getOrder,
         setOrder,
-        getAtleast,
-        setAtleast,
+        getResolutionSelection,
+        setResolution,
         getColorFilter,
         setColorFilter,
         getApiKey,
@@ -159,15 +159,25 @@
         <div class="relative">
             <select
                 class="!border-border text-fg-secondary hover:!border-border-focus focus:!border-accent h-6 border !bg-transparent pl-2 pr-7 text-[11.5px] outline-none transition-colors"
-                value={getAtleast()}
-                onchange={e => setAtleast(e.currentTarget.value)}
-                title="Minimum resolution"
-                aria-label="Minimum resolution"
+                value={getResolutionSelection()}
+                onchange={e => setResolution(e.currentTarget.value)}
+                title="Resolution filter — minimum, or exact for ultrawide"
+                aria-label="Resolution filter"
             >
                 <option value="">Any resolution</option>
-                <option value="1920x1080">1920×1080+</option>
-                <option value="2560x1440">2560×1440+</option>
-                <option value="3840x2160">3840×2160+</option>
+                <optgroup label="Minimum">
+                    <option value="1920x1080">1920×1080+</option>
+                    <option value="2560x1440">2560×1440+</option>
+                    <option value="3840x2160">3840×2160+</option>
+                </optgroup>
+                <optgroup label="Exact">
+                    <option value="exact:1920x1080">1920×1080</option>
+                    <option value="exact:2560x1440">2560×1440</option>
+                    <option value="exact:3440x1440">3440×1440 (21:9)</option>
+                    <option value="exact:3840x2160">3840×2160</option>
+                    <option value="exact:3840x1080">3840×1080 (32:9)</option>
+                    <option value="exact:5120x1440">5120×1440 (32:9)</option>
+                </optgroup>
             </select>
             {@render chevron('right-2 h-[11px] w-[11px]')}
         </div>

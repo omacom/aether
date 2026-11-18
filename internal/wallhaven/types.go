@@ -2,14 +2,15 @@ package wallhaven
 
 // SearchParams holds the query parameters for a wallhaven.cc search.
 type SearchParams struct {
-	Query      string `json:"q"`
-	Categories string `json:"categories"` // "111" = all, "100" = general, etc.
-	Purity     string `json:"purity"`     // "100" = SFW
-	Sorting    string `json:"sorting"`    // date_added, relevance, random, views, favorites, toplist
-	Order      string `json:"order"`      // desc, asc
-	Page       int    `json:"page"`
-	AtLeast    string `json:"atleast"` // "1920x1080"
-	Colors     string `json:"colors"`  // hex without #
+	Query       string `json:"q"`
+	Categories  string `json:"categories"` // "111" = all, "100" = general, etc.
+	Purity      string `json:"purity"`     // "100" = SFW
+	Sorting     string `json:"sorting"`    // date_added, relevance, random, views, favorites, toplist
+	Order       string `json:"order"`      // desc, asc
+	Page        int    `json:"page"`
+	AtLeast     string `json:"atleast"`     // "1920x1080"
+	Resolutions string `json:"resolutions"` // exact resolutions, comma separated
+	Colors      string `json:"colors"`      // hex without #
 }
 
 // SearchResult is the top-level JSON response from the wallhaven search API.

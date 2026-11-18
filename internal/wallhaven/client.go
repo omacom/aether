@@ -83,6 +83,9 @@ func (c *Client) Search(params SearchParams) (*SearchResult, error) {
 	if params.AtLeast != "" {
 		q.Set("atleast", params.AtLeast)
 	}
+	if params.Resolutions != "" {
+		q.Set("resolutions", params.Resolutions)
+	}
 	if params.Colors != "" {
 		q.Set("colors", params.Colors)
 	}
