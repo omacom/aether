@@ -4,6 +4,7 @@
     import CloseIcon from '$lib/components/shared/CloseIcon.svelte';
     import Modal from '$lib/components/shared/Modal.svelte';
     import DialogFooter from '$lib/components/shared/DialogFooter.svelte';
+    import {isTextEntryTarget} from '$lib/utils/keyboard';
     import KbdInverse from '$lib/components/shared/KbdInverse.svelte';
     import {getWallpaperPath, setWallpaperPath} from '$lib/stores/theme.svelte';
     import {showToast} from '$lib/stores/ui.svelte';
@@ -268,11 +269,14 @@
             (target.tagName === 'INPUT' ||
                 target.tagName === 'TEXTAREA' ||
                 target.isContentEditable);
+        // Sliders, checkboxes and radios take no typed text. Escape there
+        // follows the same path as Escape outside a field.
+        const inTextField = inInput && isTextEntryTarget(target);
 
         if (e.key === 'Escape') {
             // Inside an input, Esc just blurs the input — closing the whole
             // editor while typing would be destructive.
-            if (inInput) {
+            if (inTextField) {
                 target.blur();
                 consume(e);
                 return;

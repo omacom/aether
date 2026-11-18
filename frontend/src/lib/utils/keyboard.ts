@@ -28,7 +28,7 @@ const NON_TEXT_INPUT_TYPES = new Set([
     'color',
 ]);
 
-function isTextEntryTarget(target: EventTarget | null): boolean {
+export function isTextEntryTarget(target: EventTarget | null): boolean {
     if (!(target instanceof HTMLElement)) return false;
     if (target instanceof HTMLTextAreaElement) return true;
     if (target instanceof HTMLInputElement) {

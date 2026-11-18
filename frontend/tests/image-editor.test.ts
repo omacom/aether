@@ -176,6 +176,17 @@ test('Escape in a text field only blurs it (AC-08.9)', () => {
     expect(dialog(target)).toBeNull();
 });
 
+test('Escape on a focused filter slider asks before closing (AC-08.1)', () => {
+    const {target, root, onclose} = open();
+    edit(root);
+    const range = target.querySelector<HTMLInputElement>('input[type="range"]');
+    expect(range).not.toBeNull();
+    range!.focus();
+    key(range!, 'Escape');
+    expect(onclose).not.toHaveBeenCalled();
+    expect(dialog(target)).not.toBeNull();
+});
+
 test('Ctrl+Z and Ctrl+Enter on a filter slider do not reach global shortcuts (AC-04.6)', () => {
     const {target, root} = open();
     const range = target.querySelector<HTMLInputElement>('input[type="range"]');
