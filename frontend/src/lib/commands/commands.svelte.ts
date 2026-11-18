@@ -2,11 +2,12 @@ import {
     setActiveTab,
     setKeymapOpen,
     setImageEditorOpen,
+    showToast,
 } from '$lib/stores/ui.svelte';
 import {
     getWallpaperPath,
     getLightMode,
-    setLightMode,
+    getPendingLightMode,
     getIsApplying,
     getBasePalette,
     getBaseExtendedColors,
@@ -23,6 +24,8 @@ import {
     changeWallpaper,
     extractColors,
     saveThemeAsNew,
+    changePaletteMode,
+    paletteModeExtracts,
 } from '$lib/actions/themeActions';
 import {getOmarchyAvailable} from '$lib/stores/omarchy.svelte';
 
@@ -101,7 +104,7 @@ export function buildCommands(): Command[] {
 
         {
             id: 'theme.apply',
-            label: 'Apply theme',
+            label: 'Apply only',
             category: 'Theme',
             shortcut: 'Ctrl+Enter',
             keywords: 'publish install',
@@ -124,7 +127,17 @@ export function buildCommands(): Command[] {
             label: 'Toggle light / dark mode',
             category: 'Theme',
             keywords: 'invert appearance',
-            run: () => setLightMode(!getLightMode()),
+            run: () => {
+                const next = !(getPendingLightMode() ?? getLightMode());
+                // Capture before the call: an extraction changes the answer.
+                const extracts = paletteModeExtracts();
+                void changePaletteMode(next);
+                if (!extracts) {
+                    showToast(
+                        `Palette mode set to ${next ? 'light' : 'dark'}. Applies on the next extract.`
+                    );
+                }
+            },
         },
         {
             id: 'theme.resetAdjustments',

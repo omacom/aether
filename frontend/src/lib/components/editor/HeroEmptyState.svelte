@@ -14,7 +14,10 @@
             lead: 'Extract the palette.',
             body: 'Click Extract to generate 16 cohesive colors from the image. Change the extraction mode in the sidebar for a different feel.',
         },
-        {lead: 'Apply the theme.', body: ''},
+        {
+            lead: 'Apply the theme.',
+            body: 'Click Apply theme to push colors and the wallpaper to your apps.',
+        },
     ];
 
     async function handleBrowse() {
@@ -113,12 +116,6 @@
                                 >{step.lead}</strong
                             >
                             {step.body}
-                            {#if i === 2}
-                                Click Apply theme or press <Kbd
-                                    class="text-fg-primary text-[10.5px]"
-                                    >Ctrl ↵</Kbd
-                                > to push colors and the wallpaper to your apps.
-                            {/if}
                         </span>
                     </li>
                 {/each}

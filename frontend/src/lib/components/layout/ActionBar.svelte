@@ -20,6 +20,7 @@
         getActiveTab,
         setActiveTab,
         showToast,
+        showErrorToast,
         getLiveApply,
         setLiveApply,
         getLivePending,
@@ -40,7 +41,6 @@
     import {importThemeFile} from '$lib/actions/importActions';
     import SaveDialog from '$lib/components/blueprints/SaveDialog.svelte';
     import ConfirmDialog from '$lib/components/shared/ConfirmDialog.svelte';
-    import KbdInverse from '$lib/components/shared/KbdInverse.svelte';
     import Modal from '$lib/components/shared/Modal.svelte';
     import DialogHeader from '$lib/components/shared/DialogHeader.svelte';
     import DialogFooter from '$lib/components/shared/DialogFooter.svelte';
@@ -184,8 +184,8 @@
             );
             await ClearTheme();
             showToast('Reverted to system theme');
-        } catch {
-            showToast('Couldn’t revert — see logs for details');
+        } catch (e: unknown) {
+            showErrorToast('Couldn’t revert system theme', e);
         }
     }
 
@@ -479,10 +479,13 @@
             class="text-fg-dimmed flex min-w-0 flex-1 items-center justify-center gap-3.5 overflow-hidden whitespace-nowrap text-[11.5px]"
         >
             {#if dirty}
-                <span class="text-fg-secondary flex items-center gap-1.5">
+                <span
+                    class="text-fg-secondary flex items-center gap-1.5"
+                    title="The desktop does not have these changes yet."
+                >
                     <span class="bg-warning h-1.5 w-1.5" aria-hidden="true"
                     ></span>
-                    Unsaved changes
+                    Not applied
                 </span>
             {/if}
             {#if overrideCount > 0}
@@ -597,9 +600,6 @@
                     : 'Apply theme (Ctrl+Enter applies only)'}
             >
                 <span>{applying ? 'Applying…' : 'Apply theme'}</span>
-                {#if !applying}
-                    <KbdInverse>Ctrl ↵</KbdInverse>
-                {/if}
             </button>
             <button
                 type="button"
@@ -620,7 +620,8 @@
             {#if dirty && !applying}
                 <span
                     class="bg-warning absolute -right-[3px] -top-[3px] h-2 w-2 shadow-[0_0_0_2px_var(--color-bg-secondary)]"
-                    aria-label="Unsaved changes"
+                    role="img"
+                    aria-label="Not applied"
                 ></span>
             {/if}
             {#if showApplyMenu}

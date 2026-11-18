@@ -1,11 +1,13 @@
 import {beforeEach, expect, test, vi} from 'vitest';
 import {
     applyTheme,
+    requestThemeApply,
     saveAndApplyTheme,
     applyWallpaperOnly,
 } from '../src/lib/actions/themeActions';
 import {loadBlueprintIntoEditor} from '../src/lib/actions/blueprintActions';
 import * as theme from '../src/lib/stores/theme.svelte';
+import * as ui from '../src/lib/stores/ui.svelte';
 import {setLiveApply} from '../src/lib/stores/ui.svelte';
 import {getSettings, updateSettings} from '../src/lib/stores/settings.svelte';
 import {initOmarchyCapabilities} from '../src/lib/stores/omarchy.svelte';
@@ -41,6 +43,8 @@ beforeEach(async () => {
     theme.setIsApplying(false);
     setLiveApply(false);
     document.documentElement.classList.remove('light-mode');
+    ui.setApplySaveDialogOpen(false);
+    while (ui.getToastQueueDepth()) ui.dismissCurrentToast();
     vi.mocked(ApplyTheme).mockReset().mockResolvedValue(success);
     vi.mocked(ApplyWallpaperOnly).mockReset().mockResolvedValue(undefined);
     vi.mocked(SaveAndApplyTheme).mockReset().mockResolvedValue(success);
@@ -190,4 +194,76 @@ test('failed apply/save requests do not acknowledge editor state or save a folde
     expect(theme.isDirty()).toBe(true);
     expect(localStorage.getItem(STORAGE_KEYS.savedThemeFolders)).toBe(null);
     expect(theme.getIsApplying()).toBe(false);
+});
+
+test('the primary apply opens the naming dialog and Ctrl+Enter applies only (AC-02.4)', async () => {
+    theme.setWallpaperPath('/new.png');
+    requestThemeApply();
+    expect(ui.getApplySaveDialogOpen()).toBe(true);
+    expect(ApplyTheme).not.toHaveBeenCalled();
+    ui.setApplySaveDialogOpen(false);
+    await applyTheme();
+    expect(ApplyTheme).toHaveBeenCalledTimes(1);
+    expect(ui.getApplySaveDialogOpen()).toBe(false);
+});
+
+test('a rejected apply shows the backend cause (AC-07.1)', async () => {
+    vi.mocked(ApplyTheme).mockRejectedValueOnce('template kitty: unknown role');
+    await applyTheme();
+    expect(ui.getToastMessage()).toContain('template kitty: unknown role');
+    expect(ui.getToastMessage()).not.toContain('see logs');
+});
+
+test('apply with success false is a failure (AC-07.2)', async () => {
+    theme.markApplied();
+    theme.setColor(0, '#abcdef');
+    const applied = theme.getLastAppliedSignature();
+    vi.mocked(ApplyTheme).mockResolvedValueOnce({
+        success: false,
+        isOmarchy: false,
+        themePath: '',
+    });
+    await applyTheme();
+    const message = ui.getToastMessage();
+    expect(message.startsWith('Couldn’t apply theme')).toBe(true);
+    expect(message).not.toContain('Theme applied');
+    expect(message).not.toContain('Theme files generated');
+    expect(theme.getLastAppliedSignature()).toBe(applied);
+});
+
+test('save and apply with success false is a failure and saves no folder (AC-07.12)', async () => {
+    theme.setWallpaperPath('/a.png');
+    theme.markApplied();
+    const applied = theme.getLastAppliedSignature();
+    vi.mocked(SaveAndApplyTheme).mockResolvedValueOnce({
+        success: false,
+        isOmarchy: false,
+        themePath: '',
+    });
+    expect(await saveAndApplyTheme('test-theme')).toBe(false);
+    const message = ui.getToastMessage();
+    expect(message.startsWith('Couldn’t apply theme')).toBe(true);
+    expect(message).not.toContain('Saved and applied');
+    expect(message).not.toContain('Applied:');
+    expect(theme.getLastAppliedSignature()).toBe(applied);
+    expect(localStorage.getItem(STORAGE_KEYS.savedThemeFolders)).toBe(null);
+});
+
+test('the primary apply with a saved folder reports success false (AC-07.13)', async () => {
+    theme.setWallpaperPath('/a.png');
+    localStorage.setItem(
+        STORAGE_KEYS.savedThemeFolders,
+        JSON.stringify({'/a.png': 'test-theme'})
+    );
+    theme.markApplied();
+    const applied = theme.getLastAppliedSignature();
+    vi.mocked(SaveAndApplyTheme).mockResolvedValueOnce({
+        success: false,
+        isOmarchy: false,
+        themePath: '',
+    });
+    requestThemeApply();
+    await settle();
+    expect(ui.getToastMessage().startsWith('Couldn’t apply theme')).toBe(true);
+    expect(theme.getLastAppliedSignature()).toBe(applied);
 });

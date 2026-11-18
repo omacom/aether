@@ -1,6 +1,10 @@
 <script lang="ts">
     import {setWallpaperPath} from '$lib/stores/theme.svelte';
-    import {showToast, setActiveTab} from '$lib/stores/ui.svelte';
+    import {
+        showToast,
+        showErrorToast,
+        setActiveTab,
+    } from '$lib/stores/ui.svelte';
 
     async function handleBrowse() {
         try {
@@ -12,7 +16,9 @@
                 setWallpaperPath(path);
                 showToast('Wallpaper selected');
             }
-        } catch {}
+        } catch (e: unknown) {
+            showErrorToast('Couldn’t open the file dialog', e);
+        }
     }
 </script>
 

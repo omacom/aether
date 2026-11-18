@@ -102,3 +102,20 @@ test('the suggested name can be cleared and replaced', () => {
     expect(input.value).toBe('');
     expect(button(target, 'Save and Apply').disabled).toBe(true);
 });
+
+test('the dialog explains why Apply needs a name and Enter saves the generated name (AC-02.5, AC-02.6)', async () => {
+    const {target} = render(ApplySaveDialog, {open: true, onclose: vi.fn()});
+    const text = (target.textContent ?? '').replace(/\s+/g, ' ');
+    const first =
+        'Aether saves the theme in a folder and applies it. When you click Apply theme again with this wallpaper, Aether updates the same folder.';
+    const second = 'Use lowercase letters, digits, and hyphens.';
+    expect(text).toContain(first);
+    expect(text.indexOf(first)).toBeLessThan(text.indexOf(second));
+    expect(target.querySelector('input')!.value).toBe('original');
+    enter();
+    await settle();
+    expect(SaveAndApplyTheme).toHaveBeenCalledTimes(1);
+    expect(SaveAndApplyTheme).toHaveBeenCalledWith(
+        expect.objectContaining({name: 'original'})
+    );
+});

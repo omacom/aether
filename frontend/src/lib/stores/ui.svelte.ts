@@ -1,4 +1,5 @@
 import {STORAGE_KEYS} from '$lib/constants/storage';
+import {failureMessage} from '$lib/utils/errors';
 
 export type Tab =
     | 'editor'
@@ -155,6 +156,13 @@ export function showToast(
     }
     toastQueue.push(entry);
     if (toastQueue.length === 1) showCurrentToast();
+}
+
+// Error toasts stay longer than the 3000 ms default so the user can read the cause.
+export const ERROR_TOAST_MS = 6000;
+
+export function showErrorToast(summary: string, error?: unknown): void {
+    showToast(failureMessage(summary, error), {duration: ERROR_TOAST_MS});
 }
 
 export function dismissCurrentToast(): void {

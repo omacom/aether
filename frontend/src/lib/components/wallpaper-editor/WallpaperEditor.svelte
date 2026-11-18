@@ -2,6 +2,8 @@
     import FilterControls from './FilterControls.svelte';
     import CropOverlay from './CropOverlay.svelte';
     import CloseIcon from '$lib/components/shared/CloseIcon.svelte';
+    import Modal from '$lib/components/shared/Modal.svelte';
+    import DialogFooter from '$lib/components/shared/DialogFooter.svelte';
     import KbdInverse from '$lib/components/shared/KbdInverse.svelte';
     import {getWallpaperPath, setWallpaperPath} from '$lib/stores/theme.svelte';
     import {showToast} from '$lib/stores/ui.svelte';
@@ -34,6 +36,8 @@
     let previewCanvasEl = $state<HTMLCanvasElement | null>(null);
     let histogram = $state<number[]>([]);
     let modalEl = $state<HTMLElement | null>(null);
+    let confirmDiscard = $state(false);
+    let keepEditingEl = $state<HTMLButtonElement | null>(null);
 
     // Filter undo/redo — separate from the palette history. Tracks snapshots
     // of the Filters object across edits within a single editor session.
@@ -72,6 +76,7 @@
             imgEl = null;
             cropMode = false;
             cropAspectRatio = 0;
+            confirmDiscard = false;
             const path = getWallpaperPath();
             if (path && !getCachedFullImage(path)) {
                 loadFullImage(path);
@@ -221,7 +226,42 @@
         e.stopPropagation();
     }
 
+    // Escape and the Close button ask before they drop unsaved edits.
+    function requestClose() {
+        if (hasChanges) confirmDiscard = true;
+        else onclose();
+    }
+
+    function discardEdits() {
+        confirmDiscard = false;
+        onclose();
+    }
+
+    // Focus the safe button first, so a stray Enter never discards.
+    $effect(() => {
+        if (confirmDiscard) keepEditingEl?.focus();
+    });
+
     function handleKeydown(e: KeyboardEvent) {
+        if (confirmDiscard) {
+            // Escape closes only the dialog. Tab reaches the focus trap of
+            // Modal. Enter and Space keep their native button activation.
+            // Every other key stops here, so no shortcut runs behind it.
+            if (e.key === 'Escape') {
+                confirmDiscard = false;
+                consume(e);
+            } else {
+                const native =
+                    e.key === 'Tab' ||
+                    (!e.ctrlKey &&
+                        !e.metaKey &&
+                        !e.altKey &&
+                        (e.key === 'Enter' || e.key === ' '));
+                if (!native) consume(e);
+            }
+            return;
+        }
+
         const target = e.target as HTMLElement;
         const inInput =
             target &&
@@ -242,12 +282,17 @@
                 consume(e);
                 return;
             }
-            onclose();
+            requestClose();
             consume(e);
             return;
         }
 
-        if (inInput) return;
+        if (inInput) {
+            // Keep slider, checkbox and text keys inside the editor. The
+            // global handler no longer skips range or checkbox inputs.
+            e.stopPropagation();
+            return;
+        }
 
         // Undo / Redo — works with or without Shift (Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y)
         if ((e.ctrlKey || e.metaKey) && !e.altKey) {
@@ -438,7 +483,7 @@
                 </button>
                 <button
                     class="text-fg-dimmed hover:text-fg-primary hover:bg-bg-hover ml-1 flex h-7 w-7 items-center justify-center transition-colors"
-                    onclick={onclose}
+                    onclick={requestClose}
                     aria-label="Close"
                     title="Close (Esc)"
                 >
@@ -567,5 +612,37 @@
                 />
             </div>
         </div>
+
+        <Modal
+            open={confirmDiscard}
+            onclose={() => (confirmDiscard = false)}
+            bare
+            panelClass="w-[400px]"
+            z="z-[60]"
+            label="Discard edits?"
+        >
+            <div class="px-5 pb-5 pt-[18px]">
+                <h3 class="text-fg-primary mb-1 text-[14px] font-semibold">
+                    Discard edits?
+                </h3>
+                <p class="text-fg-secondary text-[12px] leading-relaxed">
+                    The crop and filter changes you made will be lost.
+                </p>
+            </div>
+            <DialogFooter>
+                <button
+                    type="button"
+                    bind:this={keepEditingEl}
+                    class="text-fg-secondary hover:bg-bg-hover hover:text-fg-primary h-8 px-3.5 text-[12px] transition-colors"
+                    onclick={() => (confirmDiscard = false)}
+                    >Keep editing</button
+                >
+                <button
+                    type="button"
+                    class="bg-destructive hover:bg-destructive/85 text-destructive-fg h-8 px-4 text-[12px] font-semibold transition-colors"
+                    onclick={discardEdits}>Discard</button
+                >
+            </DialogFooter>
+        </Modal>
     </div>
 {/if}

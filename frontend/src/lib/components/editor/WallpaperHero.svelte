@@ -12,6 +12,7 @@
         getWallpaperBlur,
         setWallpaperBlur,
         getWallpaperRevision,
+        isPaletteStale,
     } from '$lib/stores/theme.svelte';
     import {extractColors} from '$lib/actions/themeActions';
     import {
@@ -59,6 +60,7 @@
     let objectFit = $derived(expanded ? 'object-contain' : 'object-cover');
     let extraCount = $derived(getAdditionalImages().length);
     let extracting = $derived(getIsExtracting());
+    let stale = $derived(isPaletteStale());
 
     let imgEl = $state<HTMLImageElement | null>(null);
 
@@ -383,6 +385,14 @@
                 class="border-white/12 pointer-events-none absolute left-1/2 top-3 -translate-x-1/2 border bg-[rgba(10,10,14,0.72)] px-3 py-1.5 text-[11.5px] font-medium text-white backdrop-blur-[10px]"
             >
                 Click to pick a color · Esc to cancel
+            </div>
+        {:else if stale && !extracting}
+            <div
+                class="border-white/12 pointer-events-none absolute left-3 top-3 max-w-[calc(100%-24px)] border bg-[rgba(10,10,14,0.72)] px-3 py-1.5 text-[11.5px] font-medium text-white backdrop-blur-[10px]"
+                role="status"
+            >
+                This palette is not from this wallpaper. Click Extract to update
+                it.
             </div>
         {/if}
     </div>

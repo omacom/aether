@@ -7,6 +7,8 @@ import {
     setWallpaperPath,
     setWallpaperBlur,
     setLightMode,
+    setLastExtractedPath,
+    getWallpaperPath,
 } from '$lib/stores/theme.svelte';
 
 export type ImportFileType = 'base16' | 'toml' | 'blueprint';
@@ -30,6 +32,7 @@ export async function importThemeFile(
         if (result.wallpaperPath) setWallpaperPath(result.wallpaperPath);
         setWallpaperBlur(!!result.wallpaperBlur, true);
         if (result.lightMode !== undefined) setLightMode(result.lightMode);
+        setLastExtractedPath(getWallpaperPath());
         showToast(`Imported: ${result.name || fileType}`);
         return true;
     } catch (e: any) {

@@ -9,6 +9,8 @@
         setAdditionalImages,
         setAppOverrides,
         setLightMode,
+        setLastExtractedPath,
+        getWallpaperPath,
     } from '$lib/stores/theme.svelte';
     import {setActiveTab, showToast} from '$lib/stores/ui.svelte';
     import {
@@ -70,6 +72,7 @@
         setWallpaperPath(theme.wallpapers?.[0] ?? '');
         setAdditionalImages(theme.wallpapers?.slice(1) ?? []);
         setAppOverrides({});
+        setLastExtractedPath(getWallpaperPath());
         return true;
     }
 

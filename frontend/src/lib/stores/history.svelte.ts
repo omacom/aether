@@ -26,6 +26,7 @@ export interface Snapshot {
     adjustments: Adjustments;
     paletteCurvePoints: [number, number][];
     extractionMode: string;
+    lightMode: boolean;
     pendingAdjustment: PendingAdjustment | null;
 }
 
@@ -65,6 +66,7 @@ export function copySnapshot(snapshot: Snapshot): Snapshot {
         adjustments: {...snapshot.adjustments},
         paletteCurvePoints: snapshot.paletteCurvePoints.map(([x, y]) => [x, y]),
         extractionMode: snapshot.extractionMode,
+        lightMode: snapshot.lightMode,
         iconTheme: {...snapshot.iconTheme},
         pendingAdjustment: pending
             ? {

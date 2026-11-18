@@ -16,22 +16,39 @@ function keyToString(e: KeyboardEvent): string {
     return parts.join('+');
 }
 
+// Input types that take no typed text. Every other type counts as text entry,
+// which keeps unknown types on the safe side.
+const NON_TEXT_INPUT_TYPES = new Set([
+    'range',
+    'checkbox',
+    'radio',
+    'button',
+    'submit',
+    'reset',
+    'color',
+]);
+
+function isTextEntryTarget(target: EventTarget | null): boolean {
+    if (!(target instanceof HTMLElement)) return false;
+    if (target instanceof HTMLTextAreaElement) return true;
+    if (target instanceof HTMLInputElement) {
+        return !NON_TEXT_INPUT_TYPES.has(target.type);
+    }
+    return (
+        target.isContentEditable ||
+        target.closest('[contenteditable]:not([contenteditable="false"])') !==
+            null
+    );
+}
+
 export function registerShortcut(combo: string, handler: ShortcutHandler) {
     shortcuts.set(combo.toLowerCase(), handler);
 }
 
 export function initKeyboardShortcuts() {
     document.addEventListener('keydown', (e: KeyboardEvent) => {
-        // Don't intercept when typing in inputs
-        const target = e.target as HTMLElement;
-        if (
-            target.tagName === 'INPUT' ||
-            target.tagName === 'TEXTAREA' ||
-            target.isContentEditable
-        ) {
-            // Allow Escape even in inputs
-            if (e.key !== 'Escape') return;
-        }
+        // Don't intercept when typing in text fields. Allow Escape there.
+        if (isTextEntryTarget(e.target) && e.key !== 'Escape') return;
 
         const key = keyToString(e);
         const handler = shortcuts.get(key);

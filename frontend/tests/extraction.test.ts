@@ -2,6 +2,7 @@ import {beforeEach, expect, test, vi} from 'vitest';
 import {flushSync} from 'svelte';
 import ExtractionModeSelect from '../src/lib/components/sidebar/ExtractionModeSelect.svelte';
 import * as theme from '../src/lib/stores/theme.svelte';
+import * as ui from '../src/lib/stores/ui.svelte';
 import {extractColors, undoAction} from '../src/lib/actions/themeActions';
 import {
     ExtractColors,
@@ -198,4 +199,14 @@ test('a failed mode request restores the displayed selection without changing pa
     expect(theme.getHistorySnapshot()).toEqual(before);
     expect(theme.getPendingExtractionMode()).toBe(null);
     expect(theme.getIsExtracting()).toBe(false);
+});
+
+test('a failed extraction shows the backend cause (AC-07.3)', async () => {
+    vi.mocked(ExtractColors).mockRejectedValueOnce(
+        'decode image: unknown format'
+    );
+    while (ui.getToastQueueDepth()) ui.dismissCurrentToast();
+    await extractColors();
+    expect(ui.getToastMessage()).toContain('decode image: unknown format');
+    expect(ui.getToastMessage()).toContain('Couldn’t extract colors');
 });

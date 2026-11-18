@@ -134,6 +134,11 @@
                     > already exists. Update this folder and apply the captured theme?
                 </p>
             {:else}
+                <p class="text-fg-secondary mb-1.5 text-[12px] leading-relaxed">
+                    Aether saves the theme in a folder and applies it. When you
+                    click Apply theme again with this wallpaper, Aether updates
+                    the same folder.
+                </p>
                 <p class="text-fg-dimmed text-[12px] leading-relaxed">
                     Use lowercase letters, digits, and hyphens.
                 </p>

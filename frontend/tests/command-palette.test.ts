@@ -6,6 +6,7 @@ import * as theme from '../src/lib/stores/theme.svelte';
 import * as ui from '../src/lib/stores/ui.svelte';
 import {DEFAULT_ADJUSTMENTS, DEFAULT_PALETTE} from '../src/lib/types/theme';
 import {loadBlueprintIntoEditor} from '../src/lib/actions/blueprintActions';
+import {applyTheme} from '../src/lib/actions/themeActions';
 import {buildCommands} from '../src/lib/commands/commands.svelte';
 import {button, deferred, render, settle} from './setup';
 
@@ -237,4 +238,19 @@ test('reset-adjustments command cancels unfinished calculations', async () => {
     expect(theme.getAdjustments()).toEqual(DEFAULT_ADJUSTMENTS);
     await vi.advanceTimersByTimeAsync(100);
     expect(theme.getPalette()).toEqual(DEFAULT_PALETTE);
+});
+
+test('the Ctrl+Enter command is named Apply only and runs the apply-only action (AC-02.3)', async () => {
+    const commands = buildCommands();
+    const apply = commands.find(item => item.shortcut === 'Ctrl+Enter')!;
+    expect(apply.label).toBe('Apply only');
+    expect(apply.run).toBe(applyTheme);
+    const {target} = render(Harness, {commands});
+    open(target);
+    await settle();
+    search(target, 'apply');
+    const options = [...target.querySelectorAll('[role="option"]')];
+    const match = options.find(el => el.textContent?.includes('Ctrl+Enter'));
+    expect(match?.textContent).toContain('Apply only');
+    expect(match?.textContent).not.toContain('Apply theme');
 });

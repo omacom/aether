@@ -22,6 +22,7 @@
         getAppOverrides,
         setAppOverride,
         removeAppOverride,
+        getWallpaperPath,
     } from '$lib/stores/theme.svelte';
     import {
         ANSI_COLOR_NAMES,
@@ -154,6 +155,7 @@
     );
 
     let eyedropperActive = $derived(getEyedropperActive());
+    let hasWallpaper = $derived(getWallpaperPath() !== '');
 
     let hexInput = $state('');
     let isValid = $derived(isValidHex(hexInput));
@@ -435,13 +437,21 @@
         </div>
         <div class="flex shrink-0 items-center">
             <button
-                class="flex h-[30px] w-[30px] items-center justify-center transition-colors {eyedropperActive
-                    ? 'text-accent bg-accent-muted'
-                    : 'text-fg-dimmed hover:text-fg-primary hover:bg-bg-hover'}"
-                onclick={() => setEyedropperActive(!eyedropperActive)}
+                class="flex h-[30px] w-[30px] items-center justify-center transition-colors {!hasWallpaper
+                    ? 'text-fg-dimmed cursor-not-allowed opacity-40'
+                    : eyedropperActive
+                      ? 'text-accent bg-accent-muted'
+                      : 'text-fg-dimmed hover:text-fg-primary hover:bg-bg-hover'}"
+                onclick={() => {
+                    if (!hasWallpaper) return;
+                    setEyedropperActive(!eyedropperActive);
+                }}
                 aria-label="Pick color from wallpaper"
-                aria-pressed={eyedropperActive}
-                title="Pick from wallpaper"
+                aria-pressed={hasWallpaper && eyedropperActive}
+                aria-disabled={!hasWallpaper}
+                title={hasWallpaper
+                    ? 'Pick from wallpaper'
+                    : 'Pick a wallpaper first'}
             >
                 <svg
                     class="h-[15px] w-[15px]"

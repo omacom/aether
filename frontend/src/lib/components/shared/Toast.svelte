@@ -21,12 +21,12 @@
 
 {#if visible}
     <div
-        class="bg-fg-primary text-bg-primary shadow-(--shadow-panel) fixed bottom-16 left-1/2 z-[100] flex -translate-x-1/2 items-center gap-3 py-[9px] pl-3.5 pr-2.5 text-[12px] font-medium"
+        class="bg-fg-primary text-bg-primary shadow-(--shadow-panel) fixed bottom-16 left-1/2 z-[100] flex max-w-[min(560px,calc(100vw-32px))] -translate-x-1/2 items-center gap-3 py-[9px] pl-3.5 pr-2.5 text-[12px] font-medium"
         style="animation: toast-in 150ms ease-out"
         role="status"
         aria-live="polite"
     >
-        <span>{message}</span>
+        <span class="min-w-0 break-words">{message}</span>
         {#if queueDepth > 1}
             <span class="font-mono text-[10px] tabular-nums opacity-60"
                 >+{queueDepth - 1}</span

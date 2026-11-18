@@ -4,6 +4,7 @@ import {
     getLiveApply,
     getLiveApplySession,
     setApplySaveDialogOpen,
+    showErrorToast,
 } from '$lib/stores/ui.svelte';
 import {
     getIsApplying,
@@ -27,6 +28,10 @@ import {
     getExtractionMode,
     setExtractionMode,
     setPendingExtractionMode,
+    getPendingLightMode,
+    setPendingLightMode,
+    setLightMode,
+    isPaletteStale,
     markApplied,
 } from '$lib/stores/theme.svelte';
 import {getSettings} from '$lib/stores/settings.svelte';
@@ -139,10 +144,10 @@ export async function applyTheme(): Promise<void> {
         if (result.success) {
             showToast(`Theme applied${suffix}`);
         } else {
-            showToast(`Theme files generated${suffix}`);
+            showErrorToast('Couldn’t apply theme. Try again.');
         }
-    } catch {
-        showToast('Couldn’t apply theme — see logs for details');
+    } catch (e: unknown) {
+        showErrorToast('Couldn’t apply theme', e);
     } finally {
         setIsApplying(false);
     }
@@ -199,7 +204,11 @@ export async function saveAndApplyTheme(
     setIsApplying(true);
     try {
         const result = await runApply(request, {name, updateExisting});
-        if (!result?.success) return false;
+        if (!result) return false;
+        if (!result.success) {
+            showErrorToast('Couldn’t apply theme. Try again.');
+            return false;
+        }
         saveThemeFolder(name, request.wallpaperPath);
         showToast(
             updateExisting ? `Applied: ${name}` : `Saved and applied: ${name}`
@@ -338,18 +347,25 @@ export async function extractColors(
     options: {
         mode?: string;
         allImages?: boolean;
+        lightMode?: boolean;
     } = {}
 ): Promise<void> {
     const path = getWallpaperPath();
     const paths = [path, ...getAdditionalImages()].filter(Boolean);
-    if (!options.mode && (!path || getIsExtracting())) return;
+    if (
+        options.mode === undefined &&
+        options.lightMode === undefined &&
+        (!path || getIsExtracting())
+    )
+        return;
     const mode = options.mode ?? getExtractionMode();
-    const lightMode = getLightMode();
+    const lightMode = options.lightMode ?? getLightMode();
     const request = ++extractionRequest;
     const revision = invalidateThemeRequests();
     const isCurrent = () =>
         request === extractionRequest && revision === getThemeRevision();
     setPendingExtractionMode(options.mode ?? null);
+    setPendingLightMode(options.lightMode ?? null);
     setIsExtracting(!!path);
     try {
         const {ExtractColors, ExtractColorsFromImages, SetExtractionMode} =
@@ -369,6 +385,8 @@ export async function extractColors(
         if (!isCurrent()) return;
         setPaletteFromExtraction(path, result.palette);
         setExtractionMode(mode);
+        // The history snapshot was pushed above, so it holds the old mode.
+        if (options.lightMode !== undefined) setLightMode(options.lightMode);
         if (options.allImages) {
             const used = paths.length - result.skipped;
             const suffix =
@@ -378,15 +396,45 @@ export async function extractColors(
             );
             return;
         }
+        if (options.lightMode !== undefined) {
+            showToast(
+                `Palette extracted for ${options.lightMode ? 'light' : 'dark'} mode.`
+            );
+            return;
+        }
         showToast(
             options.mode ? `Re-extracted with ${mode} mode` : 'Colors extracted'
         );
-    } catch {
-        if (isCurrent()) showToast('Couldn’t extract colors from that image');
+    } catch (e: unknown) {
+        if (isCurrent()) showErrorToast('Couldn’t extract colors', e);
     } finally {
         if (request === extractionRequest) {
             setIsExtracting(false);
             setPendingExtractionMode(null);
+            setPendingLightMode(null);
         }
     }
+}
+
+// True when a Palette mode change runs an extraction. Without a wallpaper, or
+// with a stale palette, the change only sets the mode for the next extract.
+export function paletteModeExtracts(): boolean {
+    return getWallpaperPath() !== '' && !isPaletteStale();
+}
+
+// The Palette mode switch and the toggle command use this action. Loads,
+// imports, the startup restore and IPC pushes call setLightMode directly.
+export async function changePaletteMode(light: boolean): Promise<void> {
+    if (light === (getPendingLightMode() ?? getLightMode())) return;
+    if (getPendingLightMode() !== null) {
+        // Drop the running extraction for the other mode.
+        invalidateThemeRequests(false);
+        setPendingLightMode(null);
+    }
+    if (light === getLightMode()) return;
+    if (!paletteModeExtracts()) {
+        setLightMode(light, true);
+        return;
+    }
+    await extractColors({lightMode: light});
 }

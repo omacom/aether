@@ -1,10 +1,11 @@
 <script lang="ts">
-    import {onMount} from 'svelte';
+    import {onMount, tick} from 'svelte';
     import BlueprintCard, {THEME_CARD_MIN_WIDTH} from './BlueprintCard.svelte';
     import SaveDialog from './SaveDialog.svelte';
     import {showToast} from '$lib/stores/ui.svelte';
     import {loadBlueprintIntoEditor} from '$lib/actions/blueprintActions';
     import {importThemeFile} from '$lib/actions/importActions';
+    import {errorMessage} from '$lib/utils/errors';
     import type {Blueprint} from '$lib/types/theme';
     import EmptyState from '$lib/components/shared/EmptyState.svelte';
     import LoadingState from '$lib/components/shared/LoadingState.svelte';
@@ -15,6 +16,9 @@
     let blueprints = $state<Blueprint[]>([]);
     let isLoading = $state(true);
     let showSaveDialog = $state(false);
+    // null: the last load did not fail. A string, which can be empty: it failed.
+    let loadError = $state<string | null>(null);
+    let errorWrap = $state<HTMLDivElement | null>(null);
 
     onMount(() => {
         loadBlueprints();
@@ -22,6 +26,7 @@
 
     async function loadBlueprints() {
         isLoading = true;
+        loadError = null;
         try {
             const {ListBlueprints} = await import(
                 '../../../../wailsjs/go/main/App'
@@ -30,11 +35,19 @@
             blueprints = (
                 Array.isArray(result) ? (result as unknown as Blueprint[]) : []
             ).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-        } catch {
+        } catch (e: unknown) {
             blueprints = [];
+            loadError = errorMessage(e);
         } finally {
             isLoading = false;
         }
+    }
+
+    async function retry() {
+        await loadBlueprints();
+        if (loadError === null) return;
+        await tick();
+        errorWrap?.querySelector('button')?.focus();
     }
 
     async function handleDelete(name: string) {
@@ -62,7 +75,7 @@
 <div class="flex h-full flex-col">
     <ViewHeader>
         <h2 class="text-fg-primary text-[13.5px] font-semibold">My themes</h2>
-        {#if !isLoading}
+        {#if !isLoading && loadError === null}
             <span class="text-fg-dimmed text-[12px]"
                 >{blueprints.length} saved</span
             >
@@ -87,6 +100,33 @@
     <div class="flex-1 overflow-y-auto p-4">
         {#if isLoading}
             <LoadingState message="Loading themes…" />
+        {:else if loadError !== null}
+            <div class="h-full" bind:this={errorWrap}>
+                <EmptyState
+                    title="Couldn’t load your themes"
+                    body={loadError || undefined}
+                    actionLabel="Retry"
+                    onaction={retry}
+                >
+                    {#snippet icon()}
+                        <svg
+                            class="text-destructive h-6 w-6"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            aria-hidden="true"
+                        >
+                            <polygon points="12 2 2 7 12 12 22 7 12 2"
+                            ></polygon>
+                            <polyline points="2 17 12 22 22 17"></polyline>
+                            <polyline points="2 12 12 17 22 12"></polyline>
+                        </svg>
+                    {/snippet}
+                </EmptyState>
+            </div>
         {:else if blueprints.length === 0}
             <EmptyState
                 title="No themes saved yet"

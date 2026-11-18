@@ -43,6 +43,7 @@ let selectedExtColors = $state<Record<string, boolean>>({}); // extended color s
 let adjustments = $state<Adjustments>({...DEFAULT_ADJUSTMENTS});
 let extractionMode = $state<string>('normal');
 let pendingExtractionMode = $state<string | null>(null);
+let pendingLightMode = $state<boolean | null>(null);
 let pendingAdjustment = $state.raw<PendingAdjustment | null>(null);
 let isExtracting = $state<boolean>(false);
 let isApplying = $state<boolean>(false);
@@ -51,10 +52,10 @@ let appOverrides = $state<Record<string, Record<string, string>>>({});
 let nativeColors = $state<Record<string, string>>({});
 let iconTheme = $state<IconThemeSelection>({...AUTOMATIC_ICON_THEME});
 let paletteCurvePoints = $state<[number, number][]>([]);
-// Source path of the most recently extracted palette. Used to decide
-// whether per-app template overrides should be cleared on the next
-// extraction (a fresh image invalidates color choices made for the
-// previous palette).
+// The wallpaper that the current palette belongs to. It has 2 uses: it
+// decides whether per-app template overrides are cleared on the next
+// extraction (a fresh image invalidates color choices made for the previous
+// palette), and it drives isPaletteStale().
 let lastExtractedPath = $state<string>('');
 
 // Extended colors — independent from palette, initialized from palette on extract/load
@@ -187,6 +188,12 @@ export function getPendingExtractionMode(): string | null {
 export function setPendingExtractionMode(mode: string | null): void {
     pendingExtractionMode = mode;
 }
+export function getPendingLightMode(): boolean | null {
+    return pendingLightMode;
+}
+export function setPendingLightMode(value: boolean | null): void {
+    pendingLightMode = value;
+}
 export function getIsAdjusting(): boolean {
     return pendingAdjustment !== null;
 }
@@ -311,6 +318,7 @@ export function getHistorySnapshot(): Snapshot {
         adjustments,
         paletteCurvePoints,
         extractionMode,
+        lightMode,
         pendingAdjustment,
         iconTheme,
     });
@@ -336,6 +344,7 @@ export function restoreHistorySnapshot(snapshot: Snapshot): void {
     adjustments = restored.adjustments;
     paletteCurvePoints = restored.paletteCurvePoints;
     extractionMode = restored.extractionMode;
+    lightMode = restored.lightMode;
     pendingAdjustment = restored.pendingAdjustment;
     // Only unfinished calculations resume. Recomputing settled snapshots would
     // overwrite manual color edits made after their adjustment was applied.
@@ -610,6 +619,11 @@ export function setLastExtractedPath(path: string): void {
     lastExtractedPath = path;
 }
 
+// True when the wallpaper changed and no action made a palette for it since.
+export function isPaletteStale(): boolean {
+    return wallpaperPath !== '' && wallpaperPath !== lastExtractedPath;
+}
+
 // setAdjustedExtendedColors sets only the display extended colors (from adjustment results).
 export function setAdjustedExtendedColors(
     colors: Record<string, string>
@@ -726,7 +740,11 @@ export function setWallpaperPath(path: string): void {
     // staged alongside it, so drop it instead of failing the whole apply.
     dropImagesCollidingWith(path);
 }
-export function setLightMode(enabled: boolean): void {
+export function setLightMode(enabled: boolean, recordHistory = false): void {
+    if (recordHistory && lightMode !== enabled) {
+        endColorEditSessions();
+        pushState(getHistorySnapshot());
+    }
     invalidateThemeRequests(false);
     lightMode = enabled;
 }
@@ -897,6 +915,7 @@ export function reset(): void {
     adjustments = {...DEFAULT_ADJUSTMENTS};
     extractionMode = 'normal';
     pendingExtractionMode = null;
+    pendingLightMode = null;
     additionalImages = [];
     const ext = {
         accent: DEFAULT_PALETTE[4],
