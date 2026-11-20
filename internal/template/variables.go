@@ -81,6 +81,30 @@ func rolesMap(roles ColorRoles) map[string]string {
 	}
 }
 
+// alignSelection gives an untouched dark theme a readable selection pair.
+// The legacy default paints the background colour onto a fill that is only
+// slightly lighter, which Omarchy then keeps because the foreground key is
+// set. Stock themes leave that key unset and use bright_foreground; write
+// the same colour, and point the fill token at the derived surface so the
+// panel and the file agree. A custom pair is left alone. Light mode already
+// puts the light background on a much darker fill.
+func alignSelection(vars map[string]string, lightMode bool) {
+	alignSelectionWith(vars, lightMode, func(key, value string) { vars[key] = value })
+}
+
+func alignSelectionWith(vars map[string]string, lightMode bool, set func(key, value string)) {
+	fill := selectionColor(vars, lightMode)
+	set("selection", fill)
+	if lightMode || vars["bright_fg"] == "" {
+		return
+	}
+	if vars["selection_foreground"] == vars["background"] &&
+		vars["selection_background"] == vars["foreground"] {
+		set("selection_foreground", vars["bright_fg"])
+		set("selection_background", fill)
+	}
+}
+
 func selectionColor(vars map[string]string, lightMode bool) string {
 	// The legacy default is an inverted selection pair. Omarchy v4 only has a
 	// selection background token and supplies its own foreground, so derive a
@@ -149,7 +173,7 @@ func BuildVariables(roles ColorRoles, lightMode bool, overrides map[string]strin
 	orange := color.LightenRGB(vars["red"], 15)
 	vars["orange"] = orange
 	vars["brown"] = color.DarkenRGB(orange, 60)
-	vars["selection"] = selectionColor(vars, lightMode)
+	alignSelection(vars, lightMode)
 
 	// Explicit overrides win over the derived defaults (last word).
 	for k, v := range overrides {
@@ -184,7 +208,7 @@ func RecomputeDerived(vars map[string]string, overrides map[string]string) {
 	orange := color.LightenRGB(vars["red"], 15)
 	set("orange", orange)
 	set("brown", color.DarkenRGB(orange, 60))
-	set("selection", selectionColor(vars, vars["theme_type"] == "light"))
+	alignSelectionWith(vars, vars["theme_type"] == "light", set)
 	set("mode", vars["theme_type"])
 
 	for i, name := range semanticOrder {
