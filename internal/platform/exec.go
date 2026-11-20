@@ -113,7 +113,7 @@ func hyprlandMonitorSize() (int, int) {
 		Scale   float64 `json:"scale"`
 		Focused bool    `json:"focused"`
 	}
-	if json.Unmarshal(out, &monitors) != nil {
+	if json.Unmarshal(out, &monitors) != nil || len(monitors) == 0 {
 		return 1920, 1080
 	}
 	// Prefer the focused monitor, fall back to first.

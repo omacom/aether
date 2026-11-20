@@ -940,14 +940,24 @@ func (a *App) ContrastRatio(hex1, hex2 string) float64 {
 // Wallhaven
 // ---------------------------------------------------------------------------
 
+var nativeMonitorResolution = platform.NativeMonitorResolutionString
+
 // SetWallhavenAPIKey sets the wallhaven API key for authenticated requests.
 func (a *App) SetWallhavenAPIKey(key string) {
 	a.wallhaven.SetAPIKey(key)
 }
 
-// GetWallhavenConfig reads the saved wallhaven settings from ~/.config/aether/wallhaven.json.
+// GetWallhavenConfig reads the saved wallhaven settings from ~/.config/aether/wallhaven.json
+// and attaches the detected native display resolution when available.
 func (a *App) GetWallhavenConfig() map[string]interface{} {
-	return readConfigJSON("wallhaven.json")
+	config := readConfigJSON("wallhaven.json")
+	if config == nil {
+		config = make(map[string]interface{})
+	}
+	if res := nativeMonitorResolution(); res != "" {
+		config["detectedResolution"] = res
+	}
+	return config
 }
 
 // SaveWallhavenConfig writes wallhaven settings to ~/.config/aether/wallhaven.json.
