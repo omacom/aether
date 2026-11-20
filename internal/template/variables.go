@@ -173,7 +173,6 @@ func BuildVariables(roles ColorRoles, lightMode bool, overrides map[string]strin
 	orange := color.LightenRGB(vars["red"], 15)
 	vars["orange"] = orange
 	vars["brown"] = color.DarkenRGB(orange, 60)
-	alignSelection(vars, lightMode)
 
 	// Explicit overrides win over the derived defaults (last word).
 	for k, v := range overrides {
@@ -181,6 +180,11 @@ func BuildVariables(roles ColorRoles, lightMode bool, overrides map[string]strin
 			vars[k] = v
 		}
 	}
+	// The stored theme keeps the legacy selection pair as extended colors.
+	// Those land in overrides and would put the background colour back on
+	// the fill, so align after they are applied. A custom pair does not match
+	// and is left as written.
+	alignSelection(vars, lightMode)
 
 	return vars
 }
