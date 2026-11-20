@@ -428,6 +428,13 @@ func TestStoredLegacySelectionOverrideStillAligns(t *testing.T) {
 	if vars["selection_foreground"] != vars["bright_fg"] {
 		t.Errorf("stored default selection_foreground = %q, want bright_fg %q", vars["selection_foreground"], vars["bright_fg"])
 	}
+	light := BuildVariables(roles, true, map[string]string{
+		"selection_foreground": roles.Background,
+		"selection_background": roles.Foreground,
+	})
+	if light["selection_foreground"] != roles.Background {
+		t.Errorf("light selection_foreground = %q, want background %q", light["selection_foreground"], roles.Background)
+	}
 	custom := BuildVariables(roles, false, map[string]string{
 		"selection_foreground": "#abcdef",
 		"selection_background": "#123456",
