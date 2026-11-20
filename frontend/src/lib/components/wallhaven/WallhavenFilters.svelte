@@ -11,6 +11,7 @@
         getOrder,
         setOrder,
         getResolutionSelection,
+        getDetectedResolution,
         setResolution,
         getColorFilter,
         setColorFilter,
@@ -20,8 +21,15 @@
         search,
     } from '$lib/stores/wallhaven.svelte';
     import SearchIcon from '$lib/components/shared/SearchIcon.svelte';
+    import {buildResolutionOptions} from '$lib/utils/wallhaven-resolutions';
 
     let showAdvanced = $state(false);
+    const resolutionOptions = $derived(
+        buildResolutionOptions(
+            getDetectedResolution(),
+            getResolutionSelection()
+        )
+    );
 
     function handleSubmit(e: Event) {
         e.preventDefault();
@@ -161,22 +169,19 @@
                 class="!border-border text-fg-secondary hover:!border-border-focus focus:!border-accent h-6 border !bg-transparent pl-2 pr-7 text-[11.5px] outline-none transition-colors"
                 value={getResolutionSelection()}
                 onchange={e => setResolution(e.currentTarget.value)}
-                title="Resolution filter — minimum, or exact for ultrawide"
+                title="Resolution filter — minimum avoids upscaling, exact matches dimensions"
                 aria-label="Resolution filter"
             >
                 <option value="">Any resolution</option>
                 <optgroup label="Minimum">
-                    <option value="1920x1080">1920×1080+</option>
-                    <option value="2560x1440">2560×1440+</option>
-                    <option value="3840x2160">3840×2160+</option>
+                    {#each resolutionOptions.minimum as opt (opt.value)}
+                        <option value={opt.value}>{opt.label}</option>
+                    {/each}
                 </optgroup>
                 <optgroup label="Exact">
-                    <option value="exact:1920x1080">1920×1080</option>
-                    <option value="exact:2560x1440">2560×1440</option>
-                    <option value="exact:3440x1440">3440×1440 (21:9)</option>
-                    <option value="exact:3840x2160">3840×2160</option>
-                    <option value="exact:3840x1080">3840×1080 (32:9)</option>
-                    <option value="exact:5120x1440">5120×1440 (32:9)</option>
+                    {#each resolutionOptions.exact as opt (opt.value)}
+                        <option value={opt.value}>{opt.label}</option>
+                    {/each}
                 </optgroup>
             </select>
             {@render chevron('right-2 h-[11px] w-[11px]')}

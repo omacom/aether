@@ -6,6 +6,8 @@ import type {wallhaven} from '../../../wailsjs/go/models';
 
 type WallpaperInfo = wallhaven.WallpaperInfo;
 
+const RESOLUTION_RE = /^\d+x\d+$/;
+
 let query = $state('');
 let categories = $state('111');
 let purity = $state('100');
@@ -14,6 +16,7 @@ let order = $state('desc');
 let page = $state(1);
 let atleast = $state('1920x1080');
 let resolutionExact = $state(false);
+let detectedResolution = $state('');
 let colorFilter = $state('');
 let apiKey = $state('');
 
@@ -41,10 +44,20 @@ async function loadConfigFromFile() {
                 apiKey = config.apiKey;
                 await SetWallhavenAPIKey(config.apiKey);
             }
+            if (
+                typeof config.detectedResolution === 'string' &&
+                RESOLUTION_RE.test(config.detectedResolution)
+            ) {
+                detectedResolution = config.detectedResolution;
+            }
             if (config.categories) categories = config.categories;
             if (config.purity) purity = config.purity;
             if (config.sorting) sorting = config.sorting;
-            if (typeof config.resolutions === 'string') atleast = config.resolutions;
+            if (typeof config.resolutions === 'string') {
+                atleast = config.resolutions;
+            } else if (detectedResolution) {
+                atleast = detectedResolution;
+            }
             if (config.resolutionExact) resolutionExact = true;
             if (config.order) order = config.order;
         }
@@ -89,6 +102,9 @@ export function getResolutionSelection(): string {
     // The <select> needs one value that encodes both controls; persistence
     // keeps them separate for backwards compatibility.
     return resolutionExact && atleast ? `exact:${atleast}` : atleast;
+}
+export function getDetectedResolution(): string {
+    return detectedResolution;
 }
 export function getColorFilter(): string {
     return colorFilter;
