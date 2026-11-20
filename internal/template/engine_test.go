@@ -417,6 +417,26 @@ func TestRecomputeDerivedRepairsDarkSelectionOnce(t *testing.T) {
 	}
 }
 
+func TestStoredLegacySelectionOverrideStillAligns(t *testing.T) {
+	roles := sampleRoles()
+	roles.SelectionForeground = roles.Background
+	roles.SelectionBackground = roles.Foreground
+	vars := BuildVariables(roles, false, map[string]string{
+		"selection_foreground": roles.Background,
+		"selection_background": roles.Foreground,
+	})
+	if vars["selection_foreground"] != vars["bright_fg"] {
+		t.Errorf("stored default selection_foreground = %q, want bright_fg %q", vars["selection_foreground"], vars["bright_fg"])
+	}
+	custom := BuildVariables(roles, false, map[string]string{
+		"selection_foreground": "#abcdef",
+		"selection_background": "#123456",
+	})
+	if custom["selection_foreground"] != "#abcdef" || custom["selection"] != "#123456" {
+		t.Errorf("custom selection = %s / %s", custom["selection_foreground"], custom["selection"])
+	}
+}
+
 func TestReportedDarkWallpaperSelectionStaysReadable(t *testing.T) {
 	roles := sampleRoles()
 	roles.Background = "#050603"
