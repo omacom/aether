@@ -1,9 +1,12 @@
 package platform
 
 import (
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestParseHyprlandMonitors(t *testing.T) {
@@ -119,5 +122,38 @@ func TestNativeMonitorResolutionStringUsesHyprctl(t *testing.T) {
 
 	if got := NativeMonitorResolutionString(); got != "3440x1440" {
 		t.Fatalf("NativeMonitorResolutionString() = %q; want %q", got, "3440x1440")
+	}
+}
+
+func TestNativeMonitorResolutionStringTimesOutOnHungCommand(t *testing.T) {
+	sleepPath, err := exec.LookPath("sleep")
+	if err != nil {
+		t.Skip("sleep binary not found")
+	}
+
+	prev := displayQueryTimeout
+	displayQueryTimeout = 50 * time.Millisecond
+	t.Cleanup(func() { displayQueryTimeout = prev })
+
+	dir := t.TempDir()
+	script := fmt.Sprintf("#!/bin/sh\nexec %s 5\n", sleepPath)
+	if err := os.WriteFile(filepath.Join(dir, "hyprctl"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir)
+	t.Setenv("HYPRLAND_INSTANCE_SIGNATURE", "test-instance")
+	t.Setenv("SWAYSOCK", "")
+	t.Setenv("WAYLAND_DISPLAY", "")
+	t.Setenv("DISPLAY", "")
+
+	start := time.Now()
+	got := NativeMonitorResolutionString()
+	elapsed := time.Since(start)
+
+	if got != "" {
+		t.Fatalf("NativeMonitorResolutionString() = %q; want empty on timeout", got)
+	}
+	if elapsed >= 2*time.Second {
+		t.Fatalf("NativeMonitorResolutionString() took %v; want prompt timeout", elapsed)
 	}
 }

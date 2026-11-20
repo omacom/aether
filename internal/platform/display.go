@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -8,34 +9,55 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
+
+var displayQueryTimeout = 1500 * time.Millisecond
+
+func runDisplayQuery(ctx context.Context, name string, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.WaitDelay = 100 * time.Millisecond
+	return cmd.Output()
+}
 
 // NativeMonitorResolution returns the unscaled physical pixel dimensions of the
 // focused/primary enabled display. Returns (0, 0) if detection is unavailable.
 func NativeMonitorResolution() (int, int) {
+	ctx, cancel := context.WithTimeout(context.Background(), displayQueryTimeout)
+	defer cancel()
+
 	if os.Getenv("HYPRLAND_INSTANCE_SIGNATURE") != "" {
-		if out, err := exec.Command("hyprctl", "monitors", "-j").Output(); err == nil {
+		if out, err := runDisplayQuery(ctx, "hyprctl", "monitors", "-j"); err == nil {
 			if w, h := parseHyprlandMonitors(out); w > 0 && h > 0 {
 				return w, h
 			}
 		}
+		if ctx.Err() != nil {
+			return 0, 0
+		}
 	}
 	if os.Getenv("SWAYSOCK") != "" {
-		if out, err := exec.Command("swaymsg", "-t", "get_outputs").Output(); err == nil {
+		if out, err := runDisplayQuery(ctx, "swaymsg", "-t", "get_outputs"); err == nil {
 			if w, h := parseSwayOutputs(out); w > 0 && h > 0 {
 				return w, h
 			}
 		}
+		if ctx.Err() != nil {
+			return 0, 0
+		}
 	}
 	if os.Getenv("WAYLAND_DISPLAY") != "" {
-		if out, err := exec.Command("wlr-randr", "--json").Output(); err == nil {
+		if out, err := runDisplayQuery(ctx, "wlr-randr", "--json"); err == nil {
 			if w, h := parseWlrRandrOutputs(out); w > 0 && h > 0 {
 				return w, h
 			}
 		}
+		if ctx.Err() != nil {
+			return 0, 0
+		}
 	}
 	if os.Getenv("DISPLAY") != "" {
-		if out, err := exec.Command("xrandr", "--current").Output(); err == nil {
+		if out, err := runDisplayQuery(ctx, "xrandr", "--current"); err == nil {
 			if w, h := parseXrandrOutput(out); w > 0 && h > 0 {
 				return w, h
 			}
