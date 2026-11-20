@@ -4,6 +4,8 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"aether/internal/color"
 )
 
 func TestExtractVariableNames(t *testing.T) {
@@ -374,6 +376,18 @@ func TestBuildVariablesDerivesOmarchySelection(t *testing.T) {
 	if got, want := light["selection"], "#1a1a27"; got != want {
 		t.Errorf("light selection = %q, want %q", got, want)
 	}
+	if dark["selection_foreground"] != dark["bright_fg"] {
+		t.Errorf("dark selection_foreground = %q, want bright_fg %q", dark["selection_foreground"], dark["bright_fg"])
+	}
+	if dark["selection_background"] != dark["selection"] {
+		t.Errorf("dark selection_background = %q, want fill %q", dark["selection_background"], dark["selection"])
+	}
+	if ratio := color.ContrastRatio(dark["selection_foreground"], dark["selection"]); ratio < 4.5 {
+		t.Errorf("dark selection contrast = %v, want at least 4.5", ratio)
+	}
+	if light["selection_foreground"] != roles.Background {
+		t.Errorf("light selection_foreground = %q, want background %q", light["selection_foreground"], roles.Background)
+	}
 }
 
 func TestBuildVariablesPreservesCustomSelection(t *testing.T) {
@@ -382,6 +396,79 @@ func TestBuildVariablesPreservesCustomSelection(t *testing.T) {
 
 	if got, want := vars["selection"], roles.SelectionBackground; got != want {
 		t.Errorf("selection = %q, want custom background %q", got, want)
+	}
+	if vars["selection_foreground"] != roles.SelectionForeground {
+		t.Errorf("selection_foreground = %q, want custom %q", vars["selection_foreground"], roles.SelectionForeground)
+	}
+}
+
+func TestRecomputeDerivedRepairsDarkSelectionOnce(t *testing.T) {
+	roles := sampleRoles()
+	roles.SelectionForeground = roles.Background
+	roles.SelectionBackground = roles.Foreground
+	vars := BuildVariables(roles, false, nil)
+	before := vars["selection_foreground"]
+	RecomputeDerived(vars, nil)
+	if vars["selection_foreground"] != before {
+		t.Errorf("second derive changed selection_foreground from %s to %s", before, vars["selection_foreground"])
+	}
+	if vars["selection_background"] != vars["selection"] {
+		t.Errorf("selection_background = %q, want %q", vars["selection_background"], vars["selection"])
+	}
+}
+
+func TestStoredLegacySelectionOverrideStillAligns(t *testing.T) {
+	roles := sampleRoles()
+	roles.SelectionForeground = roles.Background
+	roles.SelectionBackground = roles.Foreground
+	vars := BuildVariables(roles, false, map[string]string{
+		"selection_foreground": roles.Background,
+		"selection_background": roles.Foreground,
+	})
+	if vars["selection_foreground"] != vars["bright_fg"] {
+		t.Errorf("stored default selection_foreground = %q, want bright_fg %q", vars["selection_foreground"], vars["bright_fg"])
+	}
+	light := BuildVariables(roles, true, map[string]string{
+		"selection_foreground": roles.Background,
+		"selection_background": roles.Foreground,
+	})
+	if light["selection_foreground"] != roles.Background {
+		t.Errorf("light selection_foreground = %q, want background %q", light["selection_foreground"], roles.Background)
+	}
+	custom := BuildVariables(roles, false, map[string]string{
+		"selection_foreground": "#abcdef",
+		"selection_background": "#123456",
+	})
+	if custom["selection_foreground"] != "#abcdef" || custom["selection"] != "#123456" {
+		t.Errorf("custom selection = %s / %s", custom["selection_foreground"], custom["selection"])
+	}
+}
+
+func TestReportedDarkWallpaperSelectionStaysReadable(t *testing.T) {
+	roles := sampleRoles()
+	roles.Background = "#050603"
+	roles.Foreground = "#d7d5c4"
+	roles.SelectionForeground = roles.Background
+	roles.SelectionBackground = roles.Foreground
+
+	vars := BuildVariables(roles, false, nil)
+	if vars["selection"] == roles.Background || vars["selection_foreground"] == roles.Background {
+		t.Fatalf("selection pair still uses the background: fill %s text %s", vars["selection"], vars["selection_foreground"])
+	}
+	if ratio := color.ContrastRatio(vars["selection_foreground"], vars["selection"]); ratio < 4.5 {
+		t.Errorf("reported dark wallpaper contrast = %v, want at least 4.5 (%s on %s)", ratio, vars["selection_foreground"], vars["selection"])
+	}
+}
+
+func TestRenderedDarkSelectionUsesBrightForeground(t *testing.T) {
+	roles := sampleRoles()
+	roles.SelectionForeground = roles.Background
+	roles.SelectionBackground = roles.Foreground
+	vars := BuildVariables(roles, false, nil)
+	got := ProcessTemplate("selection = \"{selection}\"\nselection_foreground = \"{selection_foreground}\"\n", vars)
+	want := "selection = \"" + vars["selection"] + "\"\nselection_foreground = \"" + vars["bright_fg"] + "\"\n"
+	if got != want {
+		t.Errorf("rendered =\n%s\nwant:\n%s", got, want)
 	}
 }
 
@@ -491,11 +578,14 @@ func TestBuildVariables(t *testing.T) {
 		if vars["cursor"] != "#cdd6f4" {
 			t.Errorf("cursor = %s, want #cdd6f4 (default to foreground)", vars["cursor"])
 		}
-		if vars["selection_foreground"] != "#1e1e2e" {
-			t.Errorf("selection_foreground = %s, want #1e1e2e (default to background)", vars["selection_foreground"])
+		if vars["selection_foreground"] != vars["bright_fg"] {
+			t.Errorf("selection_foreground = %s, want bright_fg %s", vars["selection_foreground"], vars["bright_fg"])
 		}
-		if vars["selection_background"] != "#cdd6f4" {
-			t.Errorf("selection_background = %s, want #cdd6f4 (default to foreground)", vars["selection_background"])
+		if vars["selection_background"] != vars["selection"] {
+			t.Errorf("selection_background = %s, want derived selection %s", vars["selection_background"], vars["selection"])
+		}
+		if color.ContrastRatio(vars["selection_foreground"], vars["selection"]) < 4.5 {
+			t.Errorf("selection contrast %v is below 4.5 (%s on %s)", color.ContrastRatio(vars["selection_foreground"], vars["selection"]), vars["selection_foreground"], vars["selection"])
 		}
 	})
 }
