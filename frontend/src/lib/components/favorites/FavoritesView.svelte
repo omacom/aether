@@ -27,9 +27,17 @@
     import ViewHeader from '$lib/components/shared/ViewHeader.svelte';
     import CardSizeToggle from '$lib/components/shared/CardSizeToggle.svelte';
     import {getCardSize, CARD_MIN_WIDTH} from '$lib/stores/cardsize.svelte';
-    import {applyWallpaperOnly} from '$lib/actions/themeActions';
+    import {
+        applyWallpaperOnly,
+        saveWallpaperToFolder,
+        addWallpaperToCurrentTheme,
+    } from '$lib/actions/themeActions';
     import {openURL} from '$lib/utils/browser';
     import {getIsApplying} from '$lib/stores/theme.svelte';
+    import {
+        getOmarchyAvailable,
+        getOmarchyCapabilities,
+    } from '$lib/stores/omarchy.svelte';
     import {
         getFavorites,
         getFavoritesError,
@@ -360,6 +368,9 @@
                 ]}px, 1fr))"
             >
                 {#each filtered as fav, i (fav.path)}
+                    {@const isRemote =
+                        fav.path.startsWith('http://') ||
+                        fav.path.startsWith('https://')}
                     <WallpaperTile
                         path={fav.path}
                         name={fav.data?.name || fav.data?.id || 'Wallpaper'}
@@ -367,8 +378,23 @@
                         isAdded={getAdditionalImages().includes(fav.path)}
                         isFavorited={true}
                         applying={getIsApplying()}
+                        themeName={getOmarchyCapabilities().currentTheme || ''}
                         onuse={() => handleSelect(fav)}
                         onwallpaperonly={() => applyWallpaperOnly(fav.path)}
+                        onsavefolder={isRemote
+                            ? () =>
+                                  saveWallpaperToFolder(
+                                      fav.path,
+                                      fav.data?.name || ''
+                                  )
+                            : undefined}
+                        onaddtotheme={getOmarchyAvailable()
+                            ? () =>
+                                  addWallpaperToCurrentTheme(
+                                      fav.path,
+                                      fav.data?.name || ''
+                                  )
+                            : undefined}
                         onpreview={() => handlePreview(i)}
                         onaddextra={() => handleAddExtra(fav)}
                         onfavorite={() => handleRemove(fav)}

@@ -11,6 +11,8 @@ import {ipc} from '../models';
 import {wallpaper} from '../models';
 import {wallhaven} from '../models';
 
+export function AddWallpaperToCurrentTheme(arg1:string,arg2:string):Promise<string>;
+
 export function AdjustPaletteColors(arg1:Array<string>,arg2:color.Adjustments):Promise<Array<string>>;
 
 export function ApplyBlueprint(arg1:string):Promise<theme.ApplyResult>;
@@ -136,6 +138,8 @@ export function SaveDataURLToFile(arg1:string,arg2:string):Promise<string>;
 export function SaveSettings(arg1:Record<string, any>):Promise<void>;
 
 export function SaveWallhavenConfig(arg1:Record<string, any>):Promise<void>;
+
+export function SaveWallpaperToFolder(arg1:string,arg2:string):Promise<string>;
 
 export function SaveWallpaperTags(arg1:Record<string, any>):Promise<void>;
 

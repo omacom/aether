@@ -1,6 +1,7 @@
 <script lang="ts">
     import type {Snippet} from 'svelte';
     import TagPicker from './TagPicker.svelte';
+    import ContextMenu from './ContextMenu.svelte';
 
     // Shared card for the Wallhaven, GitHub, Local, and Favorites grids. The
     // thumbnail source differs per view, so it arrives as a `thumb` snippet.
@@ -20,10 +21,13 @@
         useLabel = 'Use',
         useTitle = 'Set as wallpaper and open in editor',
         visitTitle = 'Open source page',
+        themeName = '',
         onuse,
         onwallpaperonly,
         onpreview,
         onaddextra,
+        onsavefolder,
+        onaddtotheme,
         onfavorite,
         onvisit,
         thumb,
@@ -39,15 +43,82 @@
         useLabel?: string;
         useTitle?: string;
         visitTitle?: string;
+        themeName?: string;
         onuse: () => void;
         onwallpaperonly: () => void;
         onpreview: () => void;
         onaddextra: () => void;
+        onsavefolder?: () => void | Promise<unknown>;
+        onaddtotheme?: () => void | Promise<unknown>;
         onfavorite?: () => void;
         onvisit?: () => void;
         thumb: Snippet;
         meta?: Snippet;
     } = $props();
+
+    let saving = $state(false);
+    let saveMenu = $state({open: false, x: 0, y: 0});
+
+    const hasSaveMenu = $derived(Boolean(onsavefolder && onaddtotheme));
+    const hasSaveAction = $derived(Boolean(onsavefolder || onaddtotheme));
+    const themeTargetLabel = $derived(
+        themeName
+            ? `Add to ${themeName} backgrounds`
+            : 'Add to current theme backgrounds'
+    );
+    const saveButtonLabel = $derived(
+        hasSaveMenu
+            ? 'Save wallpaper'
+            : onsavefolder
+              ? 'Save to wallpaper folder'
+              : themeTargetLabel
+    );
+    const saveMenuItems = $derived.by(() => {
+        const items: Array<{
+            kind: 'item';
+            label: string;
+            onSelect: () => void;
+        }> = [];
+        if (onsavefolder) {
+            items.push({
+                kind: 'item',
+                label: 'Save to wallpaper folder',
+                onSelect: () => void runSave(onsavefolder),
+            });
+        }
+        if (onaddtotheme) {
+            items.push({
+                kind: 'item',
+                label: themeTargetLabel,
+                onSelect: () => void runSave(onaddtotheme),
+            });
+        }
+        return items;
+    });
+
+    async function runSave(action: () => void | Promise<unknown>) {
+        if (saving) return;
+        saving = true;
+        try {
+            await action();
+        } finally {
+            saving = false;
+        }
+    }
+
+    function handleSaveClick(e: MouseEvent) {
+        e.stopPropagation();
+        if (saving) return;
+        if (hasSaveMenu) {
+            const rect = (
+                e.currentTarget as HTMLElement
+            ).getBoundingClientRect();
+            saveMenu = {open: true, x: rect.left, y: rect.bottom + 4};
+            return;
+        }
+        const action = onsavefolder || onaddtotheme;
+        if (action) void runSave(action);
+    }
 
     const HEART =
         'M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z';
@@ -105,7 +176,9 @@
         {/if}
 
         <div
-            class="pointer-events-none absolute inset-0 z-[2] flex flex-col justify-between p-2 opacity-0 transition-opacity duration-150 ease-out group-focus-within:opacity-100 group-hover:opacity-100"
+            class="pointer-events-none absolute inset-0 z-[2] flex flex-col justify-between p-2 transition-opacity duration-150 ease-out group-focus-within:opacity-100 group-hover:opacity-100 {saveMenu.open
+                ? 'opacity-100'
+                : 'opacity-0'}"
             style="background: linear-gradient(to bottom, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0) 34%, rgba(0,0,0,0) 48%, rgba(0,0,0,0.72) 100%)"
         >
             <div class="flex items-start gap-2">
@@ -183,6 +256,26 @@
                     >
                         {@render icon('M3 4h18v12H3z M8 20h8 M12 16v4')}
                     </button>
+                    {#if hasSaveAction}
+                        <button
+                            type="button"
+                            class="{TOOL} shadow-[inset_1px_0_0_rgba(255,255,255,0.1)]"
+                            onclick={handleSaveClick}
+                            disabled={saving || busy}
+                            aria-label={saveButtonLabel}
+                            aria-haspopup={hasSaveMenu ? 'menu' : undefined}
+                            aria-expanded={hasSaveMenu
+                                ? saveMenu.open
+                                : undefined}
+                            title={hasSaveMenu
+                                ? 'Save wallpaper…'
+                                : saveButtonLabel}
+                        >
+                            {@render icon(
+                                'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M7 10l5 5 5-5 M12 15V3'
+                            )}
+                        </button>
+                    {/if}
                     <button
                         class="{TOOL} shadow-[inset_1px_0_0_rgba(255,255,255,0.1)]"
                         onclick={onpreview}
@@ -224,3 +317,13 @@
         {/if}
     </div>
 </div>
+
+{#if hasSaveMenu}
+    <ContextMenu
+        open={saveMenu.open}
+        x={saveMenu.x}
+        y={saveMenu.y}
+        items={saveMenuItems}
+        onclose={() => (saveMenu.open = false)}
+    />
+{/if}

@@ -257,6 +257,67 @@ export async function applyWallpaperOnly(originalPath: string): Promise<void> {
     }
 }
 
+function isRemoteSource(path: string): boolean {
+    return path.startsWith('http://') || path.startsWith('https://');
+}
+
+function errorMessage(error: unknown, fallback: string): string {
+    if (typeof error === 'string' && error.trim()) return error;
+    if (error instanceof Error && error.message.trim()) return error.message;
+    return fallback;
+}
+
+// Download (if remote) and save a wallpaper into the configured local wallpaper
+// folder without changing the active desktop wallpaper or editor state.
+export async function saveWallpaperToFolder(
+    source: string,
+    preferredName = ''
+): Promise<boolean> {
+    if (!source) return false;
+    try {
+        if (isRemoteSource(source)) showToast('Downloading wallpaper…');
+        const {SaveWallpaperToFolder} = await import(
+            '../../../wailsjs/go/main/App'
+        );
+        await SaveWallpaperToFolder(source, preferredName);
+        showToast('Saved to wallpaper folder');
+        return true;
+    } catch (error: unknown) {
+        showToast(errorMessage(error, 'Could not save the wallpaper'));
+        return false;
+    }
+}
+
+// Download (if remote) and copy a wallpaper into the active Omarchy theme's
+// user backgrounds directory without changing the current wallpaper or palette.
+export async function addWallpaperToCurrentTheme(
+    source: string,
+    preferredName = ''
+): Promise<boolean> {
+    if (!source) return false;
+    try {
+        if (isRemoteSource(source)) showToast('Downloading wallpaper…');
+        const {AddWallpaperToCurrentTheme} = await import(
+            '../../../wailsjs/go/main/App'
+        );
+        const themeName = await AddWallpaperToCurrentTheme(
+            source,
+            preferredName
+        );
+        showToast(
+            themeName
+                ? `Added to ${themeName} backgrounds`
+                : 'Added to current theme backgrounds'
+        );
+        return true;
+    } catch (error: unknown) {
+        showToast(
+            errorMessage(error, 'Could not add wallpaper to current theme')
+        );
+        return false;
+    }
+}
+
 // Quieter undo-offering toast for live preview; long enough to react,
 // short enough not to pile up during rapid edits.
 const LIVE_APPLY_TOAST_MS = 2200;

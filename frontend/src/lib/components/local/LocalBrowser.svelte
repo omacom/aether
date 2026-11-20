@@ -6,8 +6,15 @@
         getAdditionalImages,
     } from '$lib/stores/theme.svelte';
     import {setActiveTab, showToast} from '$lib/stores/ui.svelte';
-    import {applyWallpaperOnly} from '$lib/actions/themeActions';
+    import {
+        applyWallpaperOnly,
+        addWallpaperToCurrentTheme,
+    } from '$lib/actions/themeActions';
     import {getIsApplying} from '$lib/stores/theme.svelte';
+    import {
+        getOmarchyAvailable,
+        getOmarchyCapabilities,
+    } from '$lib/stores/omarchy.svelte';
     import {
         getLabels,
         getLabelForPath,
@@ -448,8 +455,12 @@
                         isAdded={getAdditionalImages().includes(wp.path)}
                         isFavorited={isFavorite(wp.path)}
                         applying={getIsApplying()}
+                        themeName={getOmarchyCapabilities().currentTheme || ''}
                         onuse={() => selectWallpaper(wp.path)}
                         onwallpaperonly={() => applyWallpaperOnly(wp.path)}
+                        onaddtotheme={getOmarchyAvailable()
+                            ? () => addWallpaperToCurrentTheme(wp.path)
+                            : undefined}
                         onpreview={() => handlePreview(i)}
                         onaddextra={() => handleAddExtra(wp.path)}
                         onfavorite={() => handleFavorite(wp)}

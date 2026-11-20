@@ -9,7 +9,15 @@
         getWallpaperRevision,
     } from '$lib/stores/theme.svelte';
     import {setActiveTab, showToast} from '$lib/stores/ui.svelte';
-    import {applyWallpaperOnly} from '$lib/actions/themeActions';
+    import {
+        applyWallpaperOnly,
+        saveWallpaperToFolder,
+        addWallpaperToCurrentTheme,
+    } from '$lib/actions/themeActions';
+    import {
+        getOmarchyAvailable,
+        getOmarchyCapabilities,
+    } from '$lib/stores/omarchy.svelte';
     import {isFavorite, toggleFavorite} from '$lib/stores/favorites.svelte';
     import {observeIntersection} from '$lib/utils/intersection';
     import {formatFileSize} from '$lib/utils/format';
@@ -120,10 +128,15 @@
         isFavorited={isFavorite(image.url)}
         isAdded={!!localPath && getAdditionalImages().includes(localPath)}
         useLabel={busy ? 'Loading…' : 'Use'}
+        themeName={getOmarchyCapabilities().currentTheme || ''}
         onuse={() => useImage()}
         onaddextra={() => useImage(true)}
         onfavorite={favorite}
         onwallpaperonly={() => applyWallpaperOnly(image.url)}
+        onsavefolder={() => saveWallpaperToFolder(image.url, image.name)}
+        onaddtotheme={getOmarchyAvailable()
+            ? () => addWallpaperToCurrentTheme(image.url, image.name)
+            : undefined}
         {onpreview}
     >
         {#snippet thumb()}

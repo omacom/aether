@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -963,6 +965,138 @@ func (a *App) SearchWallhaven(params wallhaven.SearchParams) (*wallhaven.SearchR
 // DownloadWallpaper downloads a wallpaper from a URL. Returns local path.
 func (a *App) DownloadWallpaper(imageURL string) (string, error) {
 	return a.wallhaven.Download(imageURL)
+}
+
+var currentThemeBackgroundsDir = omarchy.CurrentThemeBackgroundsDir
+
+// SaveWallpaperToFolder downloads (if remote) and copies a wallpaper into the
+// user's configured wallpaper folder without changing the active wallpaper or theme.
+func (a *App) SaveWallpaperToFolder(source, preferredName string) (string, error) {
+	localPath, err := a.resolveWallpaperSource(source)
+	if err != nil {
+		return "", err
+	}
+	destDir := wallpaperFolderFromConfig(readConfigJSON("settings.json"))
+	return copyWallpaperToDir(localPath, destDir, preferredName)
+}
+
+// AddWallpaperToCurrentTheme downloads (if remote) and copies a wallpaper into
+// the active Omarchy theme's user backgrounds directory (~/.config/omarchy/backgrounds/<theme>).
+// Returns the active theme name.
+func (a *App) AddWallpaperToCurrentTheme(source, preferredName string) (string, error) {
+	destDir, themeName, err := currentThemeBackgroundsDir()
+	if err != nil {
+		return "", err
+	}
+	localPath, err := a.resolveWallpaperSource(source)
+	if err != nil {
+		return "", err
+	}
+	if _, err := copyWallpaperToDir(localPath, destDir, preferredName); err != nil {
+		return "", err
+	}
+	return themeName, nil
+}
+
+func (a *App) resolveWallpaperSource(source string) (string, error) {
+	path := strings.TrimSpace(source)
+	if path == "" {
+		return "", fmt.Errorf("wallpaper source is required")
+	}
+	if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
+		downloaded, err := a.wallhaven.Download(path)
+		if err != nil {
+			return "", err
+		}
+		path = downloaded
+	}
+	info, err := os.Stat(path)
+	if err != nil || !info.Mode().IsRegular() {
+		return "", fmt.Errorf("wallpaper must be a readable regular file")
+	}
+	if err := wallpaper.ValidateImageFile(path); err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
+func copyWallpaperToDir(srcPath, destDir, preferredName string) (string, error) {
+	if err := platform.EnsureDir(destDir); err != nil {
+		return "", fmt.Errorf("prepare wallpaper directory: %w", err)
+	}
+
+	filename := chooseSavedWallpaperFilename(srcPath, preferredName)
+	ext := filepath.Ext(filename)
+	stem := strings.TrimSuffix(filename, ext)
+
+	srcInfo, err := os.Stat(srcPath)
+	if err != nil {
+		return "", fmt.Errorf("inspect wallpaper: %w", err)
+	}
+	var srcDigest [sha256.Size]byte
+	srcHashed := false
+
+	for attempt := 1; attempt < 1000; attempt++ {
+		name := filename
+		if attempt > 1 {
+			name = fmt.Sprintf("%s-%d%s", stem, attempt, ext)
+		}
+		destPath := filepath.Join(destDir, name)
+		dstInfo, statErr := os.Stat(destPath)
+		if os.IsNotExist(statErr) {
+			if err := platform.CopyFile(srcPath, destPath); err != nil {
+				return "", fmt.Errorf("save wallpaper: %w", err)
+			}
+			return destPath, nil
+		}
+		if statErr != nil {
+			return "", fmt.Errorf("inspect destination: %w", statErr)
+		}
+		if os.SameFile(srcInfo, dstInfo) {
+			return destPath, nil
+		}
+		if dstInfo.Mode().IsRegular() && dstInfo.Size() == srcInfo.Size() {
+			if !srcHashed {
+				srcDigest, err = hashFileSHA256(srcPath)
+				if err != nil {
+					return "", err
+				}
+				srcHashed = true
+			}
+			dstDigest, err := hashFileSHA256(destPath)
+			if err == nil && dstDigest == srcDigest {
+				return destPath, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("could not choose a unique filename for %q", filename)
+}
+
+func chooseSavedWallpaperFilename(srcPath, preferredName string) string {
+	name := strings.TrimSpace(preferredName)
+	if name != "" && !strings.ContainsAny(name, "\\\x00") {
+		base := filepath.Base(name)
+		if base != "." && base != ".." && theme.IsImageFile(base) {
+			return base
+		}
+	}
+	return filepath.Base(srcPath)
+}
+
+func hashFileSHA256(path string) ([sha256.Size]byte, error) {
+	var zero [sha256.Size]byte
+	f, err := os.Open(path)
+	if err != nil {
+		return zero, err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return zero, err
+	}
+	var sum [sha256.Size]byte
+	copy(sum[:], h.Sum(nil))
+	return sum, nil
 }
 
 // ---------------------------------------------------------------------------
