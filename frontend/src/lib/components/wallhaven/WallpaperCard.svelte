@@ -11,10 +11,7 @@
         addWallpaperToCurrentTheme,
     } from '$lib/actions/themeActions';
     import {getIsApplying} from '$lib/stores/theme.svelte';
-    import {
-        getOmarchyAvailable,
-        getOmarchyCapabilities,
-    } from '$lib/stores/omarchy.svelte';
+    import {getOmarchyAvailable} from '$lib/stores/omarchy.svelte';
     import {openURL} from '$lib/utils/browser';
     import {observeIntersection} from '$lib/utils/intersection';
     import {isFavorite, toggleFavorite} from '$lib/stores/favorites.svelte';
@@ -108,7 +105,6 @@
         useLabel={isDownloading ? 'Loading…' : 'Use'}
         useTitle="Download, set as wallpaper, and open in editor"
         visitTitle="Open on wallhaven.cc"
-        themeName={getOmarchyCapabilities().currentTheme || ''}
         onuse={handleUse}
         onwallpaperonly={() => applyWallpaperOnly(wallpaper.path)}
         onsavefolder={() => saveWallpaperToFolder(wallpaper.path)}

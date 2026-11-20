@@ -34,10 +34,7 @@
     } from '$lib/actions/themeActions';
     import {openURL} from '$lib/utils/browser';
     import {getIsApplying} from '$lib/stores/theme.svelte';
-    import {
-        getOmarchyAvailable,
-        getOmarchyCapabilities,
-    } from '$lib/stores/omarchy.svelte';
+    import {getOmarchyAvailable} from '$lib/stores/omarchy.svelte';
     import {
         getFavorites,
         getFavoritesError,
@@ -378,7 +375,6 @@
                         isAdded={getAdditionalImages().includes(fav.path)}
                         isFavorited={true}
                         applying={getIsApplying()}
-                        themeName={getOmarchyCapabilities().currentTheme || ''}
                         onuse={() => handleSelect(fav)}
                         onwallpaperonly={() => applyWallpaperOnly(fav.path)}
                         onsavefolder={isRemote

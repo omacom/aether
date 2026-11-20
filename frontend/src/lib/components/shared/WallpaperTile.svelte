@@ -21,7 +21,6 @@
         useLabel = 'Use',
         useTitle = 'Set as wallpaper and open in editor',
         visitTitle = 'Open source page',
-        themeName = '',
         onuse,
         onwallpaperonly,
         onpreview,
@@ -43,7 +42,6 @@
         useLabel?: string;
         useTitle?: string;
         visitTitle?: string;
-        themeName?: string;
         onuse: () => void;
         onwallpaperonly: () => void;
         onpreview: () => void;
@@ -61,17 +59,13 @@
 
     const hasSaveMenu = $derived(Boolean(onsavefolder && onaddtotheme));
     const hasSaveAction = $derived(Boolean(onsavefolder || onaddtotheme));
-    const themeTargetLabel = $derived(
-        themeName
-            ? `Add to ${themeName} backgrounds`
-            : 'Add to current theme backgrounds'
-    );
+    const THEME_TARGET_LABEL = 'Add to current theme backgrounds';
     const saveButtonLabel = $derived(
         hasSaveMenu
             ? 'Save wallpaper'
             : onsavefolder
               ? 'Save to wallpaper folder'
-              : themeTargetLabel
+              : THEME_TARGET_LABEL
     );
     const saveMenuItems = $derived.by(() => {
         const items: Array<{
@@ -89,7 +83,7 @@
         if (onaddtotheme) {
             items.push({
                 kind: 'item',
-                label: themeTargetLabel,
+                label: THEME_TARGET_LABEL,
                 onSelect: () => void runSave(onaddtotheme),
             });
         }

@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 
 	"aether/internal/batch"
 	"aether/internal/blueprint"
@@ -968,6 +969,7 @@ func (a *App) DownloadWallpaper(imageURL string) (string, error) {
 }
 
 var currentThemeBackgroundsDir = omarchy.CurrentThemeBackgroundsDir
+var wallpaperSaveMu sync.Mutex
 
 // SaveWallpaperToFolder downloads (if remote) and copies a wallpaper into the
 // user's configured wallpaper folder without changing the active wallpaper or theme.
@@ -1021,6 +1023,9 @@ func (a *App) resolveWallpaperSource(source string) (string, error) {
 }
 
 func copyWallpaperToDir(srcPath, destDir, preferredName string) (string, error) {
+	wallpaperSaveMu.Lock()
+	defer wallpaperSaveMu.Unlock()
+
 	if err := platform.EnsureDir(destDir); err != nil {
 		return "", fmt.Errorf("prepare wallpaper directory: %w", err)
 	}

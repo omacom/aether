@@ -45,7 +45,6 @@ test('tile save button opens a two-option menu when both folder and theme action
     const onaddtotheme = vi.fn().mockResolvedValue(true);
     const {target} = render(WallpaperTile, {
         ...baseProps,
-        themeName: 'tokyo-night',
         onsavefolder,
         onaddtotheme,
     });
@@ -58,10 +57,10 @@ test('tile save button opens a two-option menu when both folder and theme action
     );
     expect(items).toEqual([
         'Save to wallpaper folder',
-        'Add to tokyo-night backgrounds',
+        'Add to current theme backgrounds',
     ]);
 
-    button(target, 'Add to tokyo-night backgrounds').click();
+    button(target, 'Add to current theme backgrounds').click();
     await settle();
     expect(onaddtotheme).toHaveBeenCalledTimes(1);
     expect(onsavefolder).not.toHaveBeenCalled();
@@ -89,11 +88,10 @@ test('tile save button runs directly without a menu when only one target is avai
     const themeOnly = render(WallpaperTile, {
         ...baseProps,
         path: '/home/user/Wallpapers/wall.png',
-        themeName: 'nord',
         onaddtotheme,
     });
 
-    button(themeOnly.target, 'Add to nord backgrounds').click();
+    button(themeOnly.target, 'Add to current theme backgrounds').click();
     await settle();
     expect(onaddtotheme).toHaveBeenCalledTimes(1);
     expect(themeOnly.target.querySelector('[role="menu"]')).toBeNull();

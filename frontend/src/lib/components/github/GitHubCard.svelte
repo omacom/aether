@@ -14,10 +14,7 @@
         saveWallpaperToFolder,
         addWallpaperToCurrentTheme,
     } from '$lib/actions/themeActions';
-    import {
-        getOmarchyAvailable,
-        getOmarchyCapabilities,
-    } from '$lib/stores/omarchy.svelte';
+    import {getOmarchyAvailable} from '$lib/stores/omarchy.svelte';
     import {isFavorite, toggleFavorite} from '$lib/stores/favorites.svelte';
     import {observeIntersection} from '$lib/utils/intersection';
     import {formatFileSize} from '$lib/utils/format';
@@ -128,7 +125,6 @@
         isFavorited={isFavorite(image.url)}
         isAdded={!!localPath && getAdditionalImages().includes(localPath)}
         useLabel={busy ? 'Loading…' : 'Use'}
-        themeName={getOmarchyCapabilities().currentTheme || ''}
         onuse={() => useImage()}
         onaddextra={() => useImage(true)}
         onfavorite={favorite}

@@ -2,11 +2,13 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 )
 
@@ -102,5 +104,68 @@ func TestAddWallpaperToCurrentTheme(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(themeBgDir, "wallhaven-abc123.png")); err != nil {
 		t.Fatalf("expected wallpaper in theme backgrounds dir: %v", err)
+	}
+}
+
+func TestSaveWallpaperToFolderConcurrentSameName(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	folder := filepath.Join(t.TempDir(), "Wallpapers")
+	app := NewApp()
+	if err := app.SaveSettings(map[string]interface{}{
+		wallpaperFolderSetting: folder,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	const count = 12
+	srcDir := t.TempDir()
+	srcPaths := make([]string, count)
+	srcContents := make([][]byte, count)
+	for i := 0; i < count; i++ {
+		p := filepath.Join(srcDir, fmt.Sprintf("src-%d.png", i))
+		writeTestPNG(t, p, color.RGBA{R: uint8(i * 20), G: uint8(10 + i*10), B: uint8(200 - i*10), A: 255})
+		data, err := os.ReadFile(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		srcPaths[i] = p
+		srcContents[i] = data
+	}
+
+	type result struct {
+		path string
+		err  error
+	}
+	results := make([]result, count)
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for i := 0; i < count; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			<-start
+			path, err := app.SaveWallpaperToFolder(srcPaths[idx], "shared.png")
+			results[idx] = result{path: path, err: err}
+		}(i)
+	}
+	close(start)
+	wg.Wait()
+
+	seenPaths := make(map[string]bool, count)
+	for i, res := range results {
+		if res.err != nil {
+			t.Fatalf("save %d failed: %v", i, res.err)
+		}
+		if seenPaths[res.path] {
+			t.Fatalf("duplicate destination path %q returned for distinct images", res.path)
+		}
+		seenPaths[res.path] = true
+		got, err := os.ReadFile(res.path)
+		if err != nil {
+			t.Fatalf("read saved file %q: %v", res.path, err)
+		}
+		if !bytes.Equal(got, srcContents[i]) {
+			t.Fatalf("saved file %q was overwritten with different content", res.path)
+		}
 	}
 }
