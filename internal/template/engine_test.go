@@ -417,6 +417,22 @@ func TestRecomputeDerivedRepairsDarkSelectionOnce(t *testing.T) {
 	}
 }
 
+func TestReportedDarkWallpaperSelectionStaysReadable(t *testing.T) {
+	roles := sampleRoles()
+	roles.Background = "#050603"
+	roles.Foreground = "#d7d5c4"
+	roles.SelectionForeground = roles.Background
+	roles.SelectionBackground = roles.Foreground
+
+	vars := BuildVariables(roles, false, nil)
+	if vars["selection"] == roles.Background || vars["selection_foreground"] == roles.Background {
+		t.Fatalf("selection pair still uses the background: fill %s text %s", vars["selection"], vars["selection_foreground"])
+	}
+	if ratio := color.ContrastRatio(vars["selection_foreground"], vars["selection"]); ratio < 4.5 {
+		t.Errorf("reported dark wallpaper contrast = %v, want at least 4.5 (%s on %s)", ratio, vars["selection_foreground"], vars["selection"])
+	}
+}
+
 func TestRenderedDarkSelectionUsesBrightForeground(t *testing.T) {
 	roles := sampleRoles()
 	roles.SelectionForeground = roles.Background
